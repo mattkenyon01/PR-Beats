@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin login — PR beats</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="login">
+    <h1>PR beats</h1>
+    <p>Admin login</p>
+
+    <form id="login-form" action="#" method="post">
+      <label>
+        Email
+        <input type="email" name="email" autocomplete="username" required />
+      </label>
+      <label>
+        Password
+        <input type="password" name="password" autocomplete="current-password" required />
+      </label>
+      <button type="submit">Sign in</button>
+    </form>
+
+    <p class="note" id="login-note" hidden>UI only — sign-in is not connected yet.</p>
+    <a class="back" href="index.html">Back to site</a>
+  </div>
+
+  <script>
+    document.getElementById("login-form").addEventListener("submit", function (event) {
+      event.preventDefault();
+      document.getElementById("login-note").hidden = false;
+    });
+  </script>
+</body>
+</html>

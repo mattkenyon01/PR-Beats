@@ -81,5 +81,6 @@ C:\Users\paddy\PR beats web app\obj\Debug\net10.0\refint\PRBeats.dll
 C:\Users\paddy\PR beats web app\obj\Debug\net10.0\PRBeats.pdb
 C:\Users\paddy\PR beats web app\obj\Debug\net10.0\PRBeats.genruntimeconfig.cache
 C:\Users\paddy\PR beats web app\obj\Debug\net10.0\ref\PRBeats.dll
-C:\Users\paddy\PR beats web app\obj\Debug\net10.0\compressed\cfu05jdytn-{0}-p06imuifgb-p06imuifgb.gz
-C:\Users\paddy\PR beats web app\obj\Debug\net10.0\compressed\b5pcj62ish-{0}-p06imuifgb-p06imuifgb.gz
+C:\Users\paddy\PR beats web app\obj\Debug\net10.0\PRBeats.sourcelink.json
+C:\Users\paddy\PR beats web app\obj\Debug\net10.0\compressed\cfu05jdytn-{0}-uuyvqz9gjd-uuyvqz9gjd.gz
+C:\Users\paddy\PR beats web app\obj\Debug\net10.0\compressed\b5pcj62ish-{0}-uuyvqz9gjd-uuyvqz9gjd.gz
