@@ -114,7 +114,8 @@ async function handleApi(request, env, url) {
           endpoints: {
             health: "GET /api/health",
             public:
-              "GET /api/public/announcements?game=Title&games=A,B&month=June%202026&months=…",
+              "GET /api/public/announcements?s=token | ?game=&games=&month=",
+            createShare: "POST /api/shares",
             load: "GET /api/announcements",
             save: "POST /api/announcements",
           },
@@ -128,8 +129,38 @@ async function handleApi(request, env, url) {
         return withCors(request, json({ error: "Method not allowed." }, 405));
       }
       const rows = await listAllAnnouncements(env.DB);
-      const filtered = filterPublicAnnouncements(rows, url.searchParams);
-      return withCors(request, json(datasetResponse(filtered)));
+      const filtered = await filterPublicAnnouncements(
+        env.DB,
+        rows,
+        url.searchParams
+      );
+      if (filtered.error) {
+        return withCors(request, filtered.error);
+      }
+      return withCors(request, json(datasetResponse(filtered.rows)));
+    }
+
+    if (url.pathname === "/api/shares") {
+      const auth = await requireFirebaseUser(
+        request,
+        env.FIREBASE_PROJECT_ID || DEFAULT_FIREBASE_PROJECT_ID
+      );
+      if (auth.error) return withCors(request, auth.error);
+
+      if (request.method !== "POST") {
+        return withCors(request, json({ error: "Method not allowed." }, 405));
+      }
+
+      const body = await request.json().catch(() => ({}));
+      const share = await createShare(env.DB, auth.user.uid, body);
+      return withCors(
+        request,
+        json({
+          id: share.id,
+          games: share.games,
+          month: share.month,
+        })
+      );
     }
 
     if (url.pathname === "/api/announcements") {
@@ -401,11 +432,93 @@ function parseListFilters(searchParams, singular, plural) {
   return [...new Set(values.map(normalizeFilterKey).filter(Boolean))];
 }
 
-function filterPublicAnnouncements(rows, searchParams) {
-  const gameKeys = parseListFilters(searchParams, "game", "games");
-  const monthKeys = parseListFilters(searchParams, "month", "months");
+function shortShareId(length = 8) {
+  const alphabet =
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  const bytes = crypto.getRandomValues(new Uint8Array(length));
+  return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join("");
+}
 
-  return rows.filter((row) => {
+async function createShare(db, ownerUid, body) {
+  const games = Array.isArray(body?.games)
+    ? [
+        ...new Set(
+          body.games
+            .map((value) => String(value || "").trim())
+            .filter(Boolean)
+        ),
+      ]
+    : [];
+  const month = String(body?.month || "").trim();
+
+  if (games.length === 0 && !month) {
+    throw new Error("Pick at least one game or a month for the share link.");
+  }
+
+  let id = shortShareId();
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    try {
+      await db
+        .prepare(
+          `INSERT INTO shares (id, owner_uid, games, month, created_at)
+           VALUES (?, ?, ?, ?, datetime('now'))`
+        )
+        .bind(id, ownerUid, JSON.stringify(games), month)
+        .run();
+      return { id, games, month };
+    } catch (error) {
+      // Collision on primary key — try another id
+      id = shortShareId();
+      if (attempt === 4) throw error;
+    }
+  }
+
+  throw new Error("Could not create share link.");
+}
+
+async function getShare(db, id) {
+  const record = await db
+    .prepare(`SELECT id, games, month FROM shares WHERE id = ?`)
+    .bind(id)
+    .first();
+  if (!record) return null;
+
+  let games = [];
+  try {
+    const parsed = JSON.parse(record.games || "[]");
+    games = Array.isArray(parsed) ? parsed.map(String) : [];
+  } catch {
+    games = [];
+  }
+
+  return {
+    id: record.id,
+    games,
+    month: String(record.month || ""),
+  };
+}
+
+async function filterPublicAnnouncements(db, rows, searchParams) {
+  let gameKeys = parseListFilters(searchParams, "game", "games");
+  let monthKeys = parseListFilters(searchParams, "month", "months");
+
+  const shareId = String(searchParams.get("s") || "").trim();
+  if (shareId) {
+    const share = await getShare(db, shareId);
+    if (!share) {
+      return {
+        error: json({ error: "Share link not found." }, 404),
+      };
+    }
+    gameKeys = [
+      ...new Set(share.games.map(normalizeFilterKey).filter(Boolean)),
+    ];
+    monthKeys = share.month
+      ? [normalizeFilterKey(share.month)].filter(Boolean)
+      : [];
+  }
+
+  const filtered = rows.filter((row) => {
     if (
       gameKeys.length > 0 &&
       !gameKeys.includes(normalizeFilterKey(row.gameTitle))
@@ -420,6 +533,8 @@ function filterPublicAnnouncements(rows, searchParams) {
     }
     return true;
   });
+
+  return { rows: filtered };
 }
 
 async function replaceAnnouncements(db, ownerUid, rows) {

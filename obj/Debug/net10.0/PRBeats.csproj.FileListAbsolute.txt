@@ -86,10 +86,10 @@ C:\Users\paddy\PR beats web app\obj\Debug\net10.0\compressed\0xasdyosoz-{0}-fgn6
 C:\Users\paddy\PR beats web app\obj\Debug\net10.0\compressed\ez3x5wvxzs-{0}-s6tn3r0yrq-s6tn3r0yrq.gz
 C:\Users\paddy\PR beats web app\obj\Debug\net10.0\compressed\kn1lcocurv-{0}-olke4vmwxh-olke4vmwxh.gz
 C:\Users\paddy\PR beats web app\bin\Debug\net10.0\cloudflare\package.json
-C:\Users\paddy\PR beats web app\obj\Debug\net10.0\compressed\l1ywb95gko-{0}-zlvtyg3hmi-zlvtyg3hmi.gz
 C:\Users\paddy\PR beats web app\obj\Debug\net10.0\compressed\f1cdiygatl-{0}-apmu7ejncf-apmu7ejncf.gz
-C:\Users\paddy\PR beats web app\obj\Debug\net10.0\compressed\c489owsfxf-{0}-dlqa1z6g7z-dlqa1z6g7z.gz
 C:\Users\paddy\PR beats web app\obj\Debug\net10.0\compressed\cfu05jdytn-{0}-5uhgrzmzvy-5uhgrzmzvy.gz
 C:\Users\paddy\PR beats web app\obj\Debug\net10.0\compressed\b5pcj62ish-{0}-5uhgrzmzvy-5uhgrzmzvy.gz
-C:\Users\paddy\PR beats web app\obj\Debug\net10.0\compressed\1nvhdsc94v-{0}-kf6ak47yu6-kf6ak47yu6.gz
-C:\Users\paddy\PR beats web app\obj\Debug\net10.0\compressed\qg4r8wbprc-{0}-ebuwc8032p-ebuwc8032p.gz
+C:\Users\paddy\PR beats web app\obj\Debug\net10.0\compressed\l1ywb95gko-{0}-nmcrkxbshf-nmcrkxbshf.gz
+C:\Users\paddy\PR beats web app\obj\Debug\net10.0\compressed\qg4r8wbprc-{0}-hdsf7sthgk-hdsf7sthgk.gz
+C:\Users\paddy\PR beats web app\obj\Debug\net10.0\compressed\1nvhdsc94v-{0}-0ldkv7t930-0ldkv7t930.gz
+C:\Users\paddy\PR beats web app\obj\Debug\net10.0\compressed\c489owsfxf-{0}-j21u9bmkxi-j21u9bmkxi.gz

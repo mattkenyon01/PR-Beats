@@ -16,93 +16,45 @@
         <p class="note @(_isError ? "is-error" : null)">@_status</p>
     }
 
-    <div class="game-sections">
-        @foreach (var group in _groups)
-        {
-            <section class="game-section">
-                <h2 class="game-section-title">@group.Key</h2>
-                <p class="game-section-meta">
-                    @group.Value.Count announcement@(group.Value.Count == 1 ? "" : "s")
-                </p>
-                <div class="table-wrap">
-                    <table class="readonly-table">
-                        <thead>
-                            <tr>
-                                @foreach (var column in Columns)
-                                {
-                                    <th>@column.Label</th>
-                                }
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var row in group.Value)
-                            {
-                                <tr>
-                                    @foreach (var column in Columns)
-                                    {
-                                        <td>
-                                            @if (column.Key == "platforms")
-                                            {
-                                                <div class="platform-chips readonly">
-                                                    @{
-                                                        var ids = ParsePlatformIds(row.Platforms);
-                                                    }
-                                                    @if (ids.Count == 0)
-                                                    {
-                                                        <span class="muted">—</span>
-                                                    }
-                                                    else
-                                                    {
-                                                        @foreach (var id in ids)
-                                                        {
-                                                            var option = Platforms.FirstOrDefault(p => p.Id == id);
-                                                            if (option is not null)
-                                                            {
-                                                                <img class="platform-icon" src="@option.Icon" alt="@option.Label" title="@option.Label" />
-                                                            }
-                                                        }
-                                                    }
-                                                </div>
-                                            }
-                                            else if (column.Key is "trailer" or "pressReleasePdf")
-                                            {
-                                                var value = GetValue(row, column.Key);
-                                                if (string.IsNullOrWhiteSpace(value))
-                                                {
-                                                    <span class="muted">—</span>
-                                                }
-                                                else if (value.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
-                                                         || value.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-                                                {
-                                                    <a href="@value" target="_blank" rel="noreferrer">Open</a>
-                                                }
-                                                else
-                                                {
-                                                    @value
-                                                }
-                                            }
-                                            else
-                                            {
-                                                var value = GetValue(row, column.Key);
-                                                if (string.IsNullOrWhiteSpace(value))
-                                                {
-                                                    <span class="muted">—</span>
-                                                }
-                                                else
-                                                {
-                                                    @value
-                                                }
-                                            }
-                                        </td>
-                                    }
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-            </section>
-        }
-    </div>
+    @if (_groups.Count > 0)
+    {
+        var active = _groups[_activeIndex];
+        <div class="announcement-carousel"
+             tabindex="0"
+             @onkeydown="OnKeyDown"
+             @ontouchstart="OnTouchStart"
+             @ontouchend="OnTouchEnd">
+            <div class="carousel-slide" @key="_activeIndex" aria-live="polite">
+                <h2 class="carousel-game">@active.Key</h2>
+                <ul class="carousel-announcements">
+                    @foreach (var row in active.Value)
+                    {
+                        var title = string.IsNullOrWhiteSpace(row.AnnouncementTitle)
+                            ? "No announcement title"
+                            : row.AnnouncementTitle.Trim();
+                        <li class="@(string.IsNullOrWhiteSpace(row.AnnouncementTitle) ? "is-empty" : null)">
+                            @title
+                        </li>
+                    }
+                </ul>
+            </div>
+            <div class="carousel-dots" role="tablist" aria-label="Games">
+                @for (var i = 0; i < _groups.Count; i++)
+                {
+                    var index = i;
+                    var isActive = index == _activeIndex;
+                    <button type="button"
+                            class="carousel-dot @(isActive ? "is-active" : null)"
+                            role="tab"
+                            aria-selected="@isActive"
+                            aria-label="@_groups[index].Key"
+                            tabindex="@(isActive ? 0 : -1)"
+                            @onclick="() => ShowSlide(index)">
+                    </button>
+                }
+            </div>
+        </div>
+    }
 </div>
 
 <a class="admin-link" href="/login.html">Admin</a>
@@ -110,29 +62,10 @@
 @code {
     private const string ApiBase = "https://prbeats.matthew-d60.workers.dev";
 
-    private static readonly ColumnDef[] Columns =
-    [
-        new("announcementTitle", "Announcement Title"),
-        new("date", "Date"),
-        new("month", "Month"),
-        new("platforms", "Platforms"),
-        new("trailer", "Trailer"),
-        new("pressReleasePdf", "Press Release PDF Space"),
-        new("estimatedReach", "Estimated Reach"),
-        new("highlights", "Highlights"),
-        new("totalWishlists", "Total Wishlists"),
-    ];
-
-    private static readonly PlatformDef[] Platforms =
-    [
-        new("steam", "Steam", "images/Steam Icon.webp"),
-        new("switch2", "Switch 2", "images/Switch 2 Icon.webp"),
-        new("switch", "Switch", "images/Switch Icon.png"),
-        new("xbox", "Xbox", "images/Xbox.png"),
-    ];
-
     private string _status = "Loading…";
     private bool _isError;
+    private int _activeIndex;
+    private double _touchStartX;
     private List<KeyValuePair<string, List<AnnouncementRow>>> _groups = [];
 
     protected override async Task OnInitializedAsync()
@@ -173,28 +106,31 @@
         }
     }
 
-    private static List<string> ParsePlatformIds(string? value) =>
-        string.IsNullOrWhiteSpace(value)
-            ? []
-            : value.Split([',', '|', ';', '/'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .ToList();
-
-    private static string GetValue(AnnouncementRow row, string key) => key switch
+    private void ShowSlide(int index)
     {
-        "announcementTitle" => row.AnnouncementTitle ?? "",
-        "date" => row.Date ?? "",
-        "month" => row.Month ?? "",
-        "platforms" => row.Platforms ?? "",
-        "trailer" => row.Trailer ?? "",
-        "pressReleasePdf" => row.PressReleasePdf ?? "",
-        "estimatedReach" => row.EstimatedReach ?? "",
-        "highlights" => row.Highlights ?? "",
-        "totalWishlists" => row.TotalWishlists ?? "",
-        _ => "",
-    };
+        if (_groups.Count == 0) return;
+        _activeIndex = ((index % _groups.Count) + _groups.Count) % _groups.Count;
+    }
 
-    private sealed record ColumnDef(string Key, string Label);
-    private sealed record PlatformDef(string Id, string Label, string Icon);
+    private void OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "ArrowRight") ShowSlide(_activeIndex + 1);
+        else if (e.Key == "ArrowLeft") ShowSlide(_activeIndex - 1);
+    }
+
+    private void OnTouchStart(TouchEventArgs e)
+    {
+        if (e.ChangedTouches.Length > 0)
+            _touchStartX = e.ChangedTouches[0].ClientX;
+    }
+
+    private void OnTouchEnd(TouchEventArgs e)
+    {
+        if (e.ChangedTouches.Length == 0) return;
+        var delta = e.ChangedTouches[0].ClientX - _touchStartX;
+        if (Math.Abs(delta) < 40) return;
+        ShowSlide(_activeIndex + (delta < 0 ? 1 : -1));
+    }
 
     private sealed class PublicDataset
     {

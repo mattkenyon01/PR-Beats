@@ -42,7 +42,7 @@
           <div class="share-bar-copy">
             <span class="share-bar-label">Public link</span>
             <p class="share-bar-hint" id="share-hint">
-              Tick games on the left, and optionally pick a month, to build a front-page URL.
+              Tick games on the left, and optionally pick a month, then Copy for a short link.
             </p>
           </div>
           <div class="share-bar-controls">
@@ -126,7 +126,7 @@
       displayNameFromEmail,
       monthFromDate,
     } from "./js/csv.js";
-    import { loadAnnouncements, saveAnnouncements } from "./js/api.js";
+    import { loadAnnouncements, saveAnnouncements, createShare } from "./js/api.js";
 
     const panel = document.getElementById("panel");
     const loading = document.getElementById("loading");
@@ -537,10 +537,11 @@
         shareUrlInput.placeholder = "Select games and/or a month…";
         copyShareBtn.disabled = true;
         shareHint.textContent =
-          "Tick games on the left, and optionally pick a month, to build a front-page URL.";
+          "Tick games on the left, and optionally pick a month, then Copy for a short link.";
         return;
       }
 
+      // Preview the long filter URL; Copy creates a short ?s= token.
       shareUrlInput.value = buildShareUrl(titles, month);
       copyShareBtn.disabled = false;
 
@@ -549,7 +550,7 @@
       else if (titles.length > 1) parts.push(`${titles.length} games`);
       else parts.push("all games");
       if (month) parts.push(`in ${month}`);
-      shareHint.textContent = `Shows ${parts.join(" ")} on the public page.`;
+      shareHint.textContent = `Copy creates a short public link for ${parts.join(" ")}.`;
     }
 
     function getVisibleRows() {
@@ -855,18 +856,56 @@
     });
 
     copyShareBtn.addEventListener("click", async () => {
-      const value = shareUrlInput.value.trim();
-      if (!value) return;
+      const titles = [...selectedGames].sort((a, b) =>
+        a.localeCompare(b, undefined, { sensitivity: "base", numeric: true })
+      );
+      const month = monthFilter.value.trim();
+      if (titles.length === 0 && !month) return;
+
+      const previous = copyShareBtn.textContent;
+      copyShareBtn.disabled = true;
+      copyShareBtn.textContent = "Creating…";
+
       try {
-        await navigator.clipboard.writeText(value);
-        const previous = copyShareBtn.textContent;
-        copyShareBtn.textContent = "Copied";
+        const token = await getIdToken();
+        const share = await createShare(token, { games: titles, month });
+        const shortUrl = publicHomeBase();
+        shortUrl.searchParams.set("s", share.id);
+        const value = shortUrl.toString();
+        shareUrlInput.value = value;
+        shareHint.textContent = "Short link ready — paste it on the public page.";
+
+        try {
+          await navigator.clipboard.writeText(value);
+          copyShareBtn.textContent = "Copied";
+        } catch {
+          shareUrlInput.focus();
+          shareUrlInput.select();
+          copyShareBtn.textContent = "Ready";
+        }
+      } catch (error) {
+        // Fall back to the long query URL if share creation fails
+        const fallback = buildShareUrl(titles, month);
+        shareUrlInput.value = fallback;
+        shareHint.textContent =
+          error instanceof Error
+            ? `${error.message} Long URL left in the box instead.`
+            : "Could not create short link. Long URL left in the box instead.";
+        try {
+          await navigator.clipboard.writeText(fallback);
+          copyShareBtn.textContent = "Copied long URL";
+        } catch {
+          shareUrlInput.focus();
+          shareUrlInput.select();
+          copyShareBtn.textContent = previous;
+        }
+      } finally {
         setTimeout(() => {
           copyShareBtn.textContent = previous;
-        }, 1500);
-      } catch {
-        shareUrlInput.focus();
-        shareUrlInput.select();
+          copyShareBtn.disabled = !(
+            selectedGames.size > 0 || monthFilter.value.trim()
+          );
+        }, 1600);
       }
     });
 

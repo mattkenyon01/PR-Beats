@@ -49,3 +49,11 @@ export function saveAnnouncements(token, rows) {
     body: { rows },
   });
 }
+
+export function createShare(token, { games = [], month = "" } = {}) {
+  return api("/api/shares", {
+    token,
+    method: "POST",
+    body: { games, month },
+  });
+}
