@@ -121,7 +121,11 @@
 .page[b-7r7m5h530s]  .login .note {
     margin-top: 1rem;
     font-size: 0.8rem;
-    opacity: 0.5;
+    opacity: 0.55;
+}
+
+.page[b-7r7m5h530s]  .login .note code {
+    font-size: 0.78rem;
 }
 
 #blazor-error-ui[b-7r7m5h530s] {

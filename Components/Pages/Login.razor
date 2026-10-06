@@ -1,47 +1,9 @@
 @page "/login"
-
-<PageTitle>Admin login — PR beats</PageTitle>
-
-<div class="login">
-    <h1>PR beats</h1>
-    <p>Admin login</p>
-
-    <EditForm Model="_model" OnValidSubmit="ShowUiOnlyNote">
-        <div class="field">
-            <label>
-                Email
-                <InputText @bind-Value="_model.Email" type="email" autocomplete="username" required />
-            </label>
-        </div>
-        <div class="field">
-            <label>
-                Password
-                <InputText @bind-Value="_model.Password" type="password" autocomplete="current-password" required />
-            </label>
-        </div>
-        <button type="submit">Sign in</button>
-    </EditForm>
-
-    @if (_showNote)
-    {
-        <p class="note">UI only — sign-in is not connected yet.</p>
-    }
-
-    <a class="back" href="/">Back to site</a>
-</div>
+@inject NavigationManager Navigation
 
 @code {
-    private readonly LoginModel _model = new();
-    private bool _showNote;
-
-    private void ShowUiOnlyNote()
+    protected override void OnInitialized()
     {
-        _showNote = true;
-    }
-
-    private sealed class LoginModel
-    {
-        public string Email { get; set; } = "";
-        public string Password { get; set; } = "";
+        Navigation.NavigateTo("/login.html", forceLoad: true);
     }
 }

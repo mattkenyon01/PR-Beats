@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin — PR beats</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="admin-page">
+  <p class="note" id="loading">Checking sign-in…</p>
+
+  <div class="admin-app" id="panel" hidden>
+    <header class="admin-header">
+      <div>
+        <h1>PR beats</h1>
+        <p class="lede" id="page-lede">Import a CSV to view all columns.</p>
+      </div>
+      <div class="admin-header-actions">
+        <span class="user-name" id="user-name"></span>
+        <button id="import-btn" type="button" class="btn-primary">Import CSV</button>
+        <button id="clear-btn" type="button" class="btn-ghost" hidden>Clear</button>
+        <button id="settings-btn" type="button" class="btn-ghost">Settings</button>
+        <button id="sign-out" type="button" class="btn-ghost">Sign out</button>
+      </div>
+    </header>
+
+    <div id="workspace-view">
+      <input id="csv-input" type="file" accept=".csv,text/csv" hidden />
+
+      <section id="dropzone" class="dropzone">
+        <strong>Drop a CSV here</strong>
+        <p>Or use Import CSV. All columns from the file will appear in the table.</p>
+      </section>
+
+      <p class="admin-error" id="error" hidden></p>
+
+      <section class="report" id="report" hidden>
+        <div class="toolbar">
+          <div>
+            <p class="file-name" id="file-name"></p>
+            <p class="meta" id="meta"></p>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead id="table-head"></thead>
+            <tbody id="table-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <section class="settings-panel" id="settings-view" hidden>
+      <button id="back-to-workspace" type="button" class="btn-ghost settings-back">← Back</button>
+
+      <div class="settings-card">
+        <h2>Settings</h2>
+        <p class="settings-intro">Change your account password.</p>
+
+        <form id="password-form" class="settings-form">
+          <label>
+            Current password
+            <input id="current-password" type="password" autocomplete="current-password" required />
+          </label>
+          <label>
+            New password
+            <input id="new-password" type="password" autocomplete="new-password" required minlength="6" />
+          </label>
+          <label>
+            Confirm new password
+            <input id="confirm-password" type="password" autocomplete="new-password" required minlength="6" />
+          </label>
+          <button id="password-submit" type="submit" class="btn-primary">Update password</button>
+        </form>
+
+        <p class="admin-error" id="password-error" hidden></p>
+        <p class="admin-success" id="password-success" hidden></p>
+      </div>
+    </section>
+  </div>
+
+  <script type="module">
+    import {
+      EmailAuthProvider,
+      getFirebaseAuth,
+      isFirebaseConfigured,
+      onAuthStateChanged,
+      reauthenticateWithCredential,
+      signOut,
+      updatePassword,
+      friendlyAuthError,
+    } from "./js/firebase-app.js";
+    import { csvToTable, displayNameFromEmail } from "./js/csv.js";
+
+    const panel = document.getElementById("panel");
+    const loading = document.getElementById("loading");
+    const userName = document.getElementById("user-name");
+    const pageLede = document.getElementById("page-lede");
+    const signOutBtn = document.getElementById("sign-out");
+    const importBtn = document.getElementById("import-btn");
+    const clearBtn = document.getElementById("clear-btn");
+    const settingsBtn = document.getElementById("settings-btn");
+    const backBtn = document.getElementById("back-to-workspace");
+    const workspaceView = document.getElementById("workspace-view");
+    const settingsView = document.getElementById("settings-view");
+    const csvInput = document.getElementById("csv-input");
+    const dropzone = document.getElementById("dropzone");
+    const errorEl = document.getElementById("error");
+    const report = document.getElementById("report");
+    const fileNameEl = document.getElementById("file-name");
+    const metaEl = document.getElementById("meta");
+    const tableHead = document.getElementById("table-head");
+    const tableBody = document.getElementById("table-body");
+    const passwordForm = document.getElementById("password-form");
+    const passwordSubmit = document.getElementById("password-submit");
+    const passwordError = document.getElementById("password-error");
+    const passwordSuccess = document.getElementById("password-success");
+
+    let hasTable = false;
+
+    function showError(message) {
+      errorEl.textContent = message;
+      errorEl.hidden = !message;
+    }
+
+    function showPasswordMessage(errorMessage, successMessage) {
+      passwordError.textContent = errorMessage || "";
+      passwordError.hidden = !errorMessage;
+      passwordSuccess.textContent = successMessage || "";
+      passwordSuccess.hidden = !successMessage;
+    }
+
+    function setView(view) {
+      const settings = view === "settings";
+      workspaceView.hidden = settings;
+      settingsView.hidden = !settings;
+      importBtn.hidden = settings;
+      clearBtn.hidden = settings || !hasTable;
+      settingsBtn.hidden = settings;
+      pageLede.textContent = settings
+        ? "Manage your account."
+        : "Import a CSV to view all columns.";
+      if (settings) {
+        showPasswordMessage("", "");
+        passwordForm.reset();
+      }
+    }
+
+    function clearTable() {
+      tableHead.innerHTML = "";
+      tableBody.innerHTML = "";
+      report.hidden = true;
+      dropzone.hidden = false;
+      hasTable = false;
+      clearBtn.hidden = true;
+      fileNameEl.textContent = "";
+      metaEl.textContent = "";
+      csvInput.value = "";
+      showError("");
+    }
+
+    function renderTable(table, name) {
+      tableHead.innerHTML = "";
+      tableBody.innerHTML = "";
+
+      const headRow = document.createElement("tr");
+      table.columns.forEach((column) => {
+        const th = document.createElement("th");
+        th.textContent = column.label;
+        headRow.appendChild(th);
+      });
+      tableHead.appendChild(headRow);
+
+      table.rows.forEach((row) => {
+        const tr = document.createElement("tr");
+        table.columns.forEach((column) => {
+          const td = document.createElement("td");
+          const value = row[column.key];
+          td.textContent = value || "—";
+          if (!value) td.classList.add("muted");
+          tr.appendChild(td);
+        });
+        tableBody.appendChild(tr);
+      });
+
+      fileNameEl.textContent = name;
+      metaEl.textContent = `${table.rows.length} rows · ${table.columns.length} columns`;
+      dropzone.hidden = true;
+      report.hidden = false;
+      hasTable = true;
+      if (settingsView.hidden) clearBtn.hidden = false;
+      showError("");
+    }
+
+    function handleFile(file) {
+      if (!file) return;
+      if (!file.name.toLowerCase().endsWith(".csv") && file.type !== "text/csv") {
+        showError("Please import a .csv file.");
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const table = csvToTable(String(reader.result ?? ""));
+          renderTable(table, file.name);
+        } catch (err) {
+          clearTable();
+          showError(err instanceof Error ? err.message : "Could not read that CSV.");
+        }
+      };
+      reader.onerror = () => showError("Could not read that file.");
+      reader.readAsText(file);
+    }
+
+    importBtn.addEventListener("click", () => csvInput.click());
+    clearBtn.addEventListener("click", clearTable);
+    settingsBtn.addEventListener("click", () => setView("settings"));
+    backBtn.addEventListener("click", () => setView("workspace"));
+    csvInput.addEventListener("change", () => handleFile(csvInput.files?.[0]));
+
+    dropzone.addEventListener("dragover", (event) => {
+      event.preventDefault();
+      dropzone.classList.add("dragging");
+    });
+    dropzone.addEventListener("dragleave", () => {
+      dropzone.classList.remove("dragging");
+    });
+    dropzone.addEventListener("drop", (event) => {
+      event.preventDefault();
+      dropzone.classList.remove("dragging");
+      handleFile(event.dataTransfer.files?.[0]);
+    });
+    dropzone.addEventListener("click", () => csvInput.click());
+
+    if (!isFirebaseConfigured()) {
+      window.location.replace("login.html");
+    } else {
+      const auth = getFirebaseAuth();
+
+      onAuthStateChanged(auth, (user) => {
+        if (!user) {
+          window.location.replace("login.html");
+          return;
+        }
+
+        userName.textContent = displayNameFromEmail(user.email);
+        userName.title = user.email || "";
+        loading.hidden = true;
+        panel.hidden = false;
+      });
+
+      passwordForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        showPasswordMessage("", "");
+
+        const user = auth.currentUser;
+        if (!user?.email) {
+          showPasswordMessage("You need to be signed in to change your password.", "");
+          return;
+        }
+
+        const currentPassword = document.getElementById("current-password").value;
+        const newPassword = document.getElementById("new-password").value;
+        const confirmPassword = document.getElementById("confirm-password").value;
+
+        if (newPassword !== confirmPassword) {
+          showPasswordMessage("New passwords do not match.", "");
+          return;
+        }
+
+        if (newPassword.length < 6) {
+          showPasswordMessage("New password must be at least 6 characters.", "");
+          return;
+        }
+
+        passwordSubmit.disabled = true;
+        passwordSubmit.textContent = "Updating…";
+
+        try {
+          const credential = EmailAuthProvider.credential(user.email, currentPassword);
+          await reauthenticateWithCredential(user, credential);
+          await updatePassword(user, newPassword);
+          passwordForm.reset();
+          showPasswordMessage("", "Password updated.");
+        } catch (error) {
+          showPasswordMessage(friendlyAuthError(error), "");
+        } finally {
+          passwordSubmit.disabled = false;
+          passwordSubmit.textContent = "Update password";
+        }
+      });
+
+      signOutBtn.addEventListener("click", async () => {
+        signOutBtn.disabled = true;
+        await signOut(auth);
+        window.location.replace("login.html");
+      });
+    }
+  </script>
+</body>
+</html>
