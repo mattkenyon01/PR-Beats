@@ -19,6 +19,64 @@ body {
     linear-gradient(180deg, #f7f8fa 0%, #eef1f4 100%);
 }
 
+body.public-page {
+  display: block;
+  align-items: stretch;
+  justify-content: flex-start;
+}
+
+.public-app {
+  width: min(1200px, calc(100% - 2.5rem));
+  margin: 0 auto;
+  padding: 2rem 0 4rem;
+  text-align: left;
+}
+
+.public-header {
+  margin-bottom: 1.5rem;
+}
+
+.public-header h1 {
+  margin: 0;
+  font-size: clamp(2rem, 5vw, 3rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.public-header .lede {
+  margin: 0.5rem 0 0;
+  opacity: 0.65;
+}
+
+.public-page .note.is-error {
+  color: #9b1c1c;
+  opacity: 1;
+}
+
+.readonly-table td.muted,
+.platform-chips.readonly.muted {
+  opacity: 0.4;
+}
+
+.platform-chips.readonly {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.platform-chips.readonly .platform-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  object-fit: contain;
+  display: block;
+}
+
+.readonly-table a {
+  color: #1a2330;
+  font-weight: 600;
+}
+
 .coming-soon,
 .login {
   text-align: center;
@@ -257,6 +315,23 @@ body.admin-page {
   letter-spacing: -0.02em;
 }
 
+.save-status {
+  margin-right: 0.25rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  opacity: 0.65;
+}
+
+.save-status.is-ok {
+  color: #0f5132;
+  opacity: 1;
+}
+
+.save-status.is-error {
+  color: #9b1c1c;
+  opacity: 1;
+}
+
 .btn-primary,
 .btn-ghost {
   width: auto;
@@ -332,6 +407,41 @@ body.admin-page {
   margin-bottom: 0.85rem;
 }
 
+.toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+}
+
+.toolbar-control {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  opacity: 0.85;
+}
+
+.toolbar-control select {
+  min-width: 11rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid #c8ced6;
+  border-radius: 0.5rem;
+  font: inherit;
+  font-weight: 500;
+  color: #111;
+  background: #fff;
+}
+
+.empty-filter {
+  margin: 1rem 0 0;
+  padding: 1rem;
+  border: 1px dashed #c8ced6;
+  border-radius: 0.75rem;
+  text-align: center;
+  opacity: 0.7;
+}
+
 .file-name {
   margin: 0;
   font-weight: 600;
@@ -343,11 +453,105 @@ body.admin-page {
   opacity: 0.65;
 }
 
+.game-sections {
+  display: grid;
+  gap: 1.75rem;
+  margin-top: 0.25rem;
+}
+
+.share-bar {
+  display: grid;
+  gap: 0.65rem;
+  margin: 0 0 1.25rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid #c8ced6;
+  border-radius: 0.75rem;
+  background: #f7f8fa;
+}
+
+.share-bar-label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.share-bar-hint {
+  margin: 0.2rem 0 0;
+  font-size: 0.9rem;
+  opacity: 0.7;
+}
+
+.share-bar-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.share-bar-controls input {
+  flex: 1 1 16rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid #c8ced6;
+  border-radius: 0.45rem;
+  font: inherit;
+  background: #fff;
+}
+
+.share-bar-controls .btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.game-section-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.game-share-select {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  margin: 0;
+  cursor: pointer;
+}
+
+.game-share-select input {
+  width: 1.1rem;
+  height: 1.1rem;
+  margin: 0;
+  accent-color: #1a2330;
+  cursor: pointer;
+}
+
+.game-section-title {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.game-section-meta {
+  margin: 0.25rem 0 0.75rem;
+  font-size: 0.9rem;
+  opacity: 0.65;
+}
+
+.game-section-heading + .game-section-meta {
+  margin-left: calc(1.1rem + 0.65rem);
+}
+
 .table-wrap {
   overflow: auto;
   border: 1px solid #c8ced6;
   border-radius: 0.75rem;
-  max-height: calc(100svh - 220px);
+  max-height: min(70vh, 36rem);
   background: #fff;
 }
 
@@ -375,8 +579,147 @@ body.admin-page {
   z-index: 1;
 }
 
-.admin-app td.muted {
-  opacity: 0.4;
+.admin-app td {
+  padding: 0.35rem 0.4rem;
+  min-width: 8rem;
+}
+
+.admin-app td .cell-input {
+  width: 100%;
+  min-width: 7rem;
+  margin: 0;
+  padding: 0.45rem 0.5rem;
+  border: 1px solid transparent;
+  border-radius: 0.35rem;
+  font: inherit;
+  line-height: 1.4;
+  color: #111;
+  background: transparent;
+  resize: vertical;
+}
+
+.admin-app td .cell-input:hover {
+  border-color: #d5dae1;
+  background: #fafbfc;
+}
+
+.admin-app td .cell-input:focus {
+  outline: none;
+  border-color: #7a8da3;
+  background: #fff;
+  box-shadow: 0 0 0 2px rgba(122, 141, 163, 0.2);
+}
+
+.edit-hint {
+  margin-top: 0.15rem;
+}
+
+.admin-app td.platforms-col {
+  min-width: 11rem;
+  vertical-align: middle;
+}
+
+.platform-cell {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.platform-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.platform-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0.2rem;
+  border: 1px solid #d5dae1;
+  border-radius: 0.45rem;
+  background: #fff;
+  cursor: pointer;
+}
+
+.platform-chip:hover {
+  border-color: #9b1c1c;
+  background: #fde8e8;
+}
+
+.platform-chip img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.platform-add-wrap {
+  position: relative;
+}
+
+.platform-add-btn {
+  margin: 0;
+  padding: 0.35rem 0.55rem;
+  border: 1px dashed #c8ced6;
+  border-radius: 0.45rem;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #3a4656;
+  background: #fafbfc;
+  cursor: pointer;
+}
+
+.platform-add-btn:hover {
+  border-color: #1a2330;
+  color: #111;
+  background: #eef1f4;
+}
+
+.platform-menu {
+  position: absolute;
+  top: calc(100% + 0.3rem);
+  left: 0;
+  z-index: 5;
+  min-width: 10rem;
+  padding: 0.35rem;
+  border: 1px solid #c8ced6;
+  border-radius: 0.55rem;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(26, 35, 48, 0.12);
+}
+
+.platform-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  margin: 0;
+  padding: 0.45rem 0.5rem;
+  border: 0;
+  border-radius: 0.4rem;
+  font: inherit;
+  font-size: 0.875rem;
+  text-align: left;
+  color: #111;
+  background: transparent;
+  cursor: pointer;
+}
+
+.platform-menu-item:hover {
+  background: #eef1f4;
+}
+
+.platform-menu-item img {
+  width: 1.35rem;
+  height: 1.35rem;
+  object-fit: contain;
+  display: block;
 }
 
 .settings-back {

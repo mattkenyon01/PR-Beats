@@ -1,9 +1,217 @@
 ﻿@page "/"
+@rendermode InteractiveServer
+@inject HttpClient Http
+@inject NavigationManager Navigation
 
 <PageTitle>PR beats</PageTitle>
 
-<div class="coming-soon">
-    <h1>PR beats</h1>
-    <p>page being built</p>
+<div class="public-app">
+    <header class="public-header">
+        <h1>PR beats</h1>
+        <p class="lede">Announcement coverage</p>
+    </header>
+
+    @if (!string.IsNullOrEmpty(_status))
+    {
+        <p class="note @(_isError ? "is-error" : null)">@_status</p>
+    }
+
+    <div class="game-sections">
+        @foreach (var group in _groups)
+        {
+            <section class="game-section">
+                <h2 class="game-section-title">@group.Key</h2>
+                <p class="game-section-meta">
+                    @group.Value.Count announcement@(group.Value.Count == 1 ? "" : "s")
+                </p>
+                <div class="table-wrap">
+                    <table class="readonly-table">
+                        <thead>
+                            <tr>
+                                @foreach (var column in Columns)
+                                {
+                                    <th>@column.Label</th>
+                                }
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in group.Value)
+                            {
+                                <tr>
+                                    @foreach (var column in Columns)
+                                    {
+                                        <td>
+                                            @if (column.Key == "platforms")
+                                            {
+                                                <div class="platform-chips readonly">
+                                                    @{
+                                                        var ids = ParsePlatformIds(row.Platforms);
+                                                    }
+                                                    @if (ids.Count == 0)
+                                                    {
+                                                        <span class="muted">—</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        @foreach (var id in ids)
+                                                        {
+                                                            var option = Platforms.FirstOrDefault(p => p.Id == id);
+                                                            if (option is not null)
+                                                            {
+                                                                <img class="platform-icon" src="@option.Icon" alt="@option.Label" title="@option.Label" />
+                                                            }
+                                                        }
+                                                    }
+                                                </div>
+                                            }
+                                            else if (column.Key is "trailer" or "pressReleasePdf")
+                                            {
+                                                var value = GetValue(row, column.Key);
+                                                if (string.IsNullOrWhiteSpace(value))
+                                                {
+                                                    <span class="muted">—</span>
+                                                }
+                                                else if (value.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+                                                         || value.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                                                {
+                                                    <a href="@value" target="_blank" rel="noreferrer">Open</a>
+                                                }
+                                                else
+                                                {
+                                                    @value
+                                                }
+                                            }
+                                            else
+                                            {
+                                                var value = GetValue(row, column.Key);
+                                                if (string.IsNullOrWhiteSpace(value))
+                                                {
+                                                    <span class="muted">—</span>
+                                                }
+                                                else
+                                                {
+                                                    @value
+                                                }
+                                            }
+                                        </td>
+                                    }
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        }
+    </div>
 </div>
+
 <a class="admin-link" href="/login.html">Admin</a>
+
+@code {
+    private const string ApiBase = "https://prbeats.matthew-d60.workers.dev";
+
+    private static readonly ColumnDef[] Columns =
+    [
+        new("announcementTitle", "Announcement Title"),
+        new("date", "Date"),
+        new("month", "Month"),
+        new("platforms", "Platforms"),
+        new("trailer", "Trailer"),
+        new("pressReleasePdf", "Press Release PDF Space"),
+        new("estimatedReach", "Estimated Reach"),
+        new("highlights", "Highlights"),
+        new("totalWishlists", "Total Wishlists"),
+    ];
+
+    private static readonly PlatformDef[] Platforms =
+    [
+        new("steam", "Steam", "images/Steam Icon.webp"),
+        new("switch2", "Switch 2", "images/Switch 2 Icon.webp"),
+        new("switch", "Switch", "images/Switch Icon.png"),
+        new("xbox", "Xbox", "images/Xbox.png"),
+    ];
+
+    private string _status = "Loading…";
+    private bool _isError;
+    private List<KeyValuePair<string, List<AnnouncementRow>>> _groups = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+            var query = uri.Query;
+            var apiUrl = string.IsNullOrEmpty(query)
+                ? $"{ApiBase}/api/public/announcements"
+                : $"{ApiBase}/api/public/announcements{query}";
+
+            var data = await Http.GetFromJsonAsync<PublicDataset>(
+                apiUrl,
+                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            var rows = data?.Rows ?? [];
+
+            if (rows.Count == 0)
+            {
+                _status = string.IsNullOrEmpty(query)
+                    ? "No announcements published yet."
+                    : "No announcements match this filter.";
+                return;
+            }
+
+            _groups = rows
+                .GroupBy(row => string.IsNullOrWhiteSpace(row.GameTitle) ? "Untitled" : row.GameTitle.Trim())
+                .OrderBy(group => group.Key, StringComparer.OrdinalIgnoreCase)
+                .Select(group => new KeyValuePair<string, List<AnnouncementRow>>(group.Key, group.ToList()))
+                .ToList();
+
+            _status = "";
+        }
+        catch (Exception ex)
+        {
+            _isError = true;
+            _status = $"Could not load announcements: {ex.Message}";
+        }
+    }
+
+    private static List<string> ParsePlatformIds(string? value) =>
+        string.IsNullOrWhiteSpace(value)
+            ? []
+            : value.Split([',', '|', ';', '/'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .ToList();
+
+    private static string GetValue(AnnouncementRow row, string key) => key switch
+    {
+        "announcementTitle" => row.AnnouncementTitle ?? "",
+        "date" => row.Date ?? "",
+        "month" => row.Month ?? "",
+        "platforms" => row.Platforms ?? "",
+        "trailer" => row.Trailer ?? "",
+        "pressReleasePdf" => row.PressReleasePdf ?? "",
+        "estimatedReach" => row.EstimatedReach ?? "",
+        "highlights" => row.Highlights ?? "",
+        "totalWishlists" => row.TotalWishlists ?? "",
+        _ => "",
+    };
+
+    private sealed record ColumnDef(string Key, string Label);
+    private sealed record PlatformDef(string Id, string Label, string Icon);
+
+    private sealed class PublicDataset
+    {
+        public List<AnnouncementRow> Rows { get; set; } = [];
+    }
+
+    private sealed class AnnouncementRow
+    {
+        public string? GameTitle { get; set; }
+        public string? AnnouncementTitle { get; set; }
+        public string? Date { get; set; }
+        public string? Month { get; set; }
+        public string? Platforms { get; set; }
+        public string? Trailer { get; set; }
+        public string? PressReleasePdf { get; set; }
+        public string? EstimatedReach { get; set; }
+        public string? Highlights { get; set; }
+        public string? TotalWishlists { get; set; }
+    }
+}
