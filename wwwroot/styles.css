@@ -769,10 +769,8 @@ body.public-page *::-webkit-scrollbar-thumb:hover {
 }
 
 .coverage-links-grid {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: 28rem;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  display: flex;
+  flex-direction: row;
   align-items: stretch;
   gap: 0.75rem;
   width: 100%;
@@ -790,12 +788,14 @@ body.public-page *::-webkit-scrollbar-thumb:hover {
 
 .coverage-links-grid .coverage-link {
   --cover-w: 28rem;
+  flex: 0 0 28rem;
   width: 28rem;
-  max-height: 100%;
+  height: 100%;
+  min-height: 0;
   display: grid;
-  grid-template-rows: subgrid;
-  grid-row: span 3;
-  align-items: start;
+  /* Cover fills leftover space; title + details always stay visible. */
+  grid-template-rows: minmax(0, 1fr) auto auto;
+  align-items: stretch;
   justify-items: center;
   gap: 0.45rem;
   padding: 0.55rem;
@@ -820,15 +820,14 @@ body.public-page *::-webkit-scrollbar-thumb:hover {
 .coverage-links-grid .coverage-link-cover {
   position: relative;
   width: 100%;
-  align-self: stretch;
-  aspect-ratio: 16 / 9;
+  min-height: 0;
+  height: 100%;
   border-radius: 0.45rem;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: #0b0d11;
   overflow: hidden;
   display: grid;
   place-items: center;
-  flex-shrink: 0;
 }
 
 .coverage-links-grid .coverage-link-cover-image {
@@ -885,8 +884,9 @@ body.public-page *::-webkit-scrollbar-thumb:hover {
   padding-top: 0.55rem;
   border-top: 1px solid rgba(255, 255, 255, 0.14);
   justify-items: center;
+  align-content: start;
   min-height: 0;
-  overflow: auto;
+  overflow: visible;
 }
 
 .coverage-link-stats.is-empty {
@@ -998,9 +998,8 @@ body.public-page *::-webkit-scrollbar-thumb:hover {
 
 .coverage-links-empty {
   margin: auto;
-  grid-row: 1 / -1;
   align-self: center;
-  justify-self: center;
+  flex: 1 1 auto;
   text-align: center;
   font-style: italic;
   opacity: 0.45;
@@ -1108,12 +1107,9 @@ body.public-page *::-webkit-scrollbar-thumb:hover {
     grid-template-columns: 1fr;
   }
 
-  .coverage-links-grid {
-    grid-auto-columns: 24rem;
-  }
-
   .coverage-links-grid .coverage-link {
     --cover-w: 24rem;
+    flex-basis: 24rem;
     width: 24rem;
   }
 }
