@@ -13,16 +13,19 @@
     <header class="admin-header">
       <div>
         <h1>PR beats</h1>
-        <p class="lede" id="page-lede">Import a CSV to view announcement data.</p>
+        <p class="lede" id="page-lede" hidden></p>
       </div>
       <div class="admin-header-actions">
         <span class="user-name" id="user-name"></span>
         <span class="save-status" id="save-status" hidden></span>
         <button id="import-btn" type="button" class="btn-primary">Import CSV</button>
         <button id="save-btn" type="button" class="btn-primary" hidden>Save</button>
-        <button id="clear-btn" type="button" class="btn-ghost" hidden>Clear</button>
-        <button id="settings-btn" type="button" class="btn-ghost">Settings</button>
-        <button id="sign-out" type="button" class="btn-ghost">Sign out</button>
+        <button id="settings-btn" type="button" class="btn-icon" aria-label="Settings" title="Settings">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+            <circle cx="12" cy="12" r="3"/>
+          </svg>
+        </button>
       </div>
     </header>
 
@@ -31,31 +34,14 @@
 
       <section id="dropzone" class="dropzone">
         <strong>Drop a CSV here</strong>
-        <p>Or use Import CSV. Shows Game Title, Announcement Title, Date, Month, Platforms, Trailer, Press Release PDF Space, Estimated Reach, Highlights, and Total Wishlists.</p>
+        <p>Or use Import CSV. Shows Announcement Title, Date, Month, Platforms, Trailer, Press Release PDF Space, Estimated Reach, and Total Wishlists.</p>
       </section>
 
       <p class="admin-error" id="error" hidden></p>
       <p class="admin-success" id="success" hidden></p>
 
       <section class="report" id="report" hidden>
-        <div class="share-bar" id="share-bar">
-          <div class="share-bar-copy">
-            <span class="share-bar-label">Public link</span>
-            <p class="share-bar-hint" id="share-hint">
-              Tick games on the left, and optionally pick a month, then Copy for a short link.
-            </p>
-          </div>
-          <div class="share-bar-controls">
-            <input id="share-url" type="text" readonly placeholder="Select games and/or a month…" />
-            <button id="copy-share-url" type="button" class="btn-primary" disabled>Copy</button>
-          </div>
-        </div>
         <div class="toolbar">
-          <div>
-            <p class="file-name" id="file-name"></p>
-            <p class="meta" id="meta"></p>
-            <p class="meta edit-hint">Click any cell to edit the data. Sections are grouped by game title.</p>
-          </div>
           <div class="toolbar-actions">
             <label class="toolbar-control">
               <span>Sort</span>
@@ -73,6 +59,18 @@
                 <option value="">All months</option>
               </select>
             </label>
+          </div>
+        </div>
+        <div class="share-bar" id="share-bar">
+          <div class="share-bar-copy">
+            <span class="share-bar-label">Public link</span>
+            <p class="share-bar-hint" id="share-hint">
+              Tick games on the left, and optionally pick a month, then Copy for a short link.
+            </p>
+          </div>
+          <div class="share-bar-controls">
+            <input id="share-url" type="text" readonly placeholder="Select games and/or a month…" />
+            <button id="copy-share-url" type="button" class="btn-primary" disabled>Copy</button>
           </div>
         </div>
         <div class="game-sections" id="game-sections"></div>
@@ -104,9 +102,46 @@
 
         <p class="admin-error" id="password-error" hidden></p>
         <p class="admin-success" id="password-success" hidden></p>
+
+        <div class="settings-sign-out">
+          <button id="sign-out" type="button" class="btn-ghost">Sign out</button>
+        </div>
       </div>
     </section>
   </div>
+
+  <dialog class="coverage-links-dialog" id="coverage-links-dialog" aria-labelledby="coverage-links-dialog-title">
+    <div class="coverage-links-dialog-panel">
+      <header class="coverage-links-dialog-header">
+        <div>
+          <h2 id="coverage-links-dialog-title">Coverage links</h2>
+          <p class="coverage-links-dialog-hint" id="coverage-links-dialog-hint">
+            Add rows manually or import a coverage CSV.
+          </p>
+        </div>
+        <button type="button" class="btn-ghost coverage-links-dialog-close" id="coverage-links-dialog-close">
+          Close
+        </button>
+      </header>
+      <div class="coverage-links-dialog-table-wrap">
+        <table class="coverage-links-dialog-table">
+          <thead>
+            <tr id="coverage-links-dialog-head"></tr>
+          </thead>
+          <tbody id="coverage-links-dialog-body"></tbody>
+        </table>
+      </div>
+      <footer class="coverage-links-dialog-footer">
+        <input id="coverage-links-csv-input" type="file" accept=".csv,text/csv" hidden />
+        <button type="button" class="btn-ghost coverage-links-dialog-clear" id="coverage-links-dialog-clear">
+          Clear all
+        </button>
+        <button type="button" class="btn-ghost" id="coverage-links-dialog-import">Import CSV</button>
+        <button type="button" class="btn-ghost" id="coverage-links-dialog-add">Add link</button>
+        <button type="button" class="btn-primary" id="coverage-links-dialog-done">Done</button>
+      </footer>
+    </div>
+  </dialog>
 
   <script type="module">
     import {
@@ -121,12 +156,27 @@
     } from "./js/firebase-app.js";
     import {
       DISPLAY_COLUMNS,
+      COVERAGE_LINK_COLUMNS,
+      coverageLinkDisplayLabel,
+      coverageLinksFromCsv,
       csvToTable,
       dateSortValue,
       displayNameFromEmail,
+      emptyCoverageLink,
       monthFromDate,
+      parseCoverageLinksValue,
+      serializeCoverageLinksValue,
     } from "./js/csv.js";
-    import { loadAnnouncements, saveAnnouncements, createShare } from "./js/api.js";
+    import {
+      loadAnnouncements,
+      saveAnnouncements,
+      createShare,
+      uploadGameImage,
+      fetchLinkPreview,
+      linkPreviewImageUrl,
+      isPersistedCoverUrl,
+      storeCoverageCover,
+    } from "./js/api.js";
 
     const panel = document.getElementById("panel");
     const loading = document.getElementById("loading");
@@ -135,7 +185,6 @@
     const signOutBtn = document.getElementById("sign-out");
     const importBtn = document.getElementById("import-btn");
     const saveBtn = document.getElementById("save-btn");
-    const clearBtn = document.getElementById("clear-btn");
     const settingsBtn = document.getElementById("settings-btn");
     const backBtn = document.getElementById("back-to-workspace");
     const workspaceView = document.getElementById("workspace-view");
@@ -146,8 +195,6 @@
     const successEl = document.getElementById("success");
     const saveStatus = document.getElementById("save-status");
     const report = document.getElementById("report");
-    const fileNameEl = document.getElementById("file-name");
-    const metaEl = document.getElementById("meta");
     const gameSections = document.getElementById("game-sections");
     const sortSelect = document.getElementById("sort-select");
     const monthFilter = document.getElementById("month-filter");
@@ -158,6 +205,16 @@
     const passwordSubmit = document.getElementById("password-submit");
     const passwordError = document.getElementById("password-error");
     const passwordSuccess = document.getElementById("password-success");
+    const coverageDialog = document.getElementById("coverage-links-dialog");
+    const coverageDialogHead = document.getElementById("coverage-links-dialog-head");
+    const coverageDialogBody = document.getElementById("coverage-links-dialog-body");
+    const coverageDialogHint = document.getElementById("coverage-links-dialog-hint");
+    const coverageDialogAdd = document.getElementById("coverage-links-dialog-add");
+    const coverageDialogClear = document.getElementById("coverage-links-dialog-clear");
+    const coverageDialogImport = document.getElementById("coverage-links-dialog-import");
+    const coverageDialogDone = document.getElementById("coverage-links-dialog-done");
+    const coverageDialogClose = document.getElementById("coverage-links-dialog-close");
+    const coverageCsvInput = document.getElementById("coverage-links-csv-input");
 
     let hasTable = false;
     let currentTable = null;
@@ -165,7 +222,9 @@
     let currentFileName = "";
     let authRef = null;
     let saveTimer = null;
+    let coverageEdit = null;
     const selectedGames = new Set();
+    const coveragePreviewCache = new Map();
 
     const PLATFORM_OPTIONS = [
       { id: "steam", label: "Steam", icon: "images/Steam Icon.webp" },
@@ -204,6 +263,8 @@
         key: def.key,
         label: def.label,
         derived: Boolean(def.derived),
+        perGame: Boolean(def.perGame),
+        hiddenInTable: Boolean(def.hiddenInTable),
         sourceIndex: -1,
       }));
       return {
@@ -220,8 +281,177 @@
           estimatedReach: row.estimatedReach ?? "",
           highlights: row.highlights ?? "",
           totalWishlists: row.totalWishlists ?? "",
+          coverageLinks: row.coverageLinks ?? "",
+          gameImage: row.gameImage ?? "",
         })),
       };
+    }
+
+    function gameImageForTitle(gameTitle) {
+      if (!currentTable) return "";
+      const key = (gameTitle || "").trim() || "Untitled";
+      for (const row of currentTable.rows) {
+        const title = (row.gameTitle || "").trim() || "Untitled";
+        if (title === key && (row.gameImage || "").trim()) {
+          return row.gameImage.trim();
+        }
+      }
+      return "";
+    }
+
+    function setGameImageForTitle(gameTitle, url) {
+      if (!currentTable) return;
+      const key = (gameTitle || "").trim() || "Untitled";
+      const value = String(url || "").trim();
+      currentTable.rows.forEach((row) => {
+        const title = (row.gameTitle || "").trim() || "Untitled";
+        if (title === key) row.gameImage = value;
+      });
+      scheduleSave();
+    }
+
+    function createGameImageControl(gameTitle, identity) {
+      const wrap = document.createElement("div");
+      wrap.className = "game-image-control";
+
+      const preview = document.createElement("div");
+      preview.className = "game-image-preview";
+      const img = document.createElement("img");
+      img.alt = "";
+      img.hidden = true;
+      const placeholder = document.createElement("span");
+      placeholder.className = "game-image-placeholder";
+      placeholder.textContent = "No image";
+      preview.appendChild(img);
+      preview.appendChild(placeholder);
+
+      const actions = document.createElement("div");
+      actions.className = "game-image-actions";
+
+      const fileInput = document.createElement("input");
+      fileInput.type = "file";
+      fileInput.accept = "image/*";
+      fileInput.hidden = true;
+
+      const uploadBtn = document.createElement("button");
+      uploadBtn.type = "button";
+      uploadBtn.className = "btn-ghost game-image-upload";
+      uploadBtn.textContent = "Upload";
+      uploadBtn.addEventListener("click", () => fileInput.click());
+
+      const downloadBtn = document.createElement("button");
+      downloadBtn.type = "button";
+      downloadBtn.className = "btn-ghost game-image-download";
+      downloadBtn.textContent = "Download";
+      downloadBtn.hidden = true;
+
+      const clearBtn = document.createElement("button");
+      clearBtn.type = "button";
+      clearBtn.className = "btn-ghost game-image-clear";
+      clearBtn.textContent = "Remove";
+      clearBtn.hidden = true;
+
+      function refreshPreview(url) {
+        const src = (url || "").trim();
+        if (src) {
+          img.src = src;
+          img.hidden = false;
+          placeholder.hidden = true;
+          downloadBtn.hidden = false;
+          clearBtn.hidden = false;
+        } else {
+          img.removeAttribute("src");
+          img.hidden = true;
+          placeholder.hidden = false;
+          downloadBtn.hidden = true;
+          clearBtn.hidden = true;
+        }
+      }
+
+      function fileNameForDownload(url) {
+        const base =
+          (gameTitle || "game")
+            .trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/^-+|-+$/g, "")
+            .slice(0, 60) || "game";
+        try {
+          const path = new URL(url, window.location.href).pathname;
+          const ext = path.split(".").pop()?.toLowerCase() || "";
+          if (/^(jpe?g|png|webp|gif)$/.test(ext)) {
+            return `${base}.${ext === "jpeg" ? "jpg" : ext}`;
+          }
+        } catch {
+          /* ignore */
+        }
+        return `${base}.jpg`;
+      }
+
+      downloadBtn.addEventListener("click", async () => {
+        const src = gameImageForTitle(gameTitle);
+        if (!src) return;
+
+        downloadBtn.disabled = true;
+        downloadBtn.textContent = "Downloading…";
+        try {
+          const response = await fetch(src);
+          if (!response.ok) throw new Error("Could not fetch image.");
+          const blob = await response.blob();
+          const objectUrl = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = objectUrl;
+          link.download = fileNameForDownload(src);
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          URL.revokeObjectURL(objectUrl);
+        } catch {
+          // Cross-origin fallback: open the image so the browser can save it
+          window.open(src, "_blank", "noopener,noreferrer");
+        } finally {
+          downloadBtn.disabled = false;
+          downloadBtn.textContent = "Download";
+        }
+      });
+
+      clearBtn.addEventListener("click", () => {
+        setGameImageForTitle(gameTitle, "");
+        refreshPreview("");
+      });
+
+      fileInput.addEventListener("change", async () => {
+        const file = fileInput.files?.[0];
+        fileInput.value = "";
+        if (!file) return;
+
+        uploadBtn.disabled = true;
+        uploadBtn.textContent = "Uploading…";
+        try {
+          const token = await getIdToken();
+          const url = await uploadGameImage(token, file, gameTitle);
+          setGameImageForTitle(gameTitle, url);
+          refreshPreview(url);
+          showSuccess("Game image uploaded.");
+        } catch (err) {
+          showError(
+            err instanceof Error ? err.message : "Could not upload image."
+          );
+        } finally {
+          uploadBtn.disabled = false;
+          uploadBtn.textContent = "Upload";
+        }
+      });
+
+      actions.appendChild(uploadBtn);
+      actions.appendChild(downloadBtn);
+      actions.appendChild(clearBtn);
+      actions.appendChild(fileInput);
+      wrap.appendChild(preview);
+      if (identity) wrap.appendChild(identity);
+      wrap.appendChild(actions);
+      refreshPreview(gameImageForTitle(gameTitle));
+      return wrap;
     }
 
     async function persistTable({ quiet = false } = {}) {
@@ -266,8 +496,7 @@
           const table = tableFromRows(data.rows, "Saved data");
           populateMonthFilter(table);
           renderTable(table, "Saved data");
-          setSaveStatus("Loaded", "ok");
-          showSuccess(`Loaded ${data.rows.length} saved row${data.rows.length === 1 ? "" : "s"}.`);
+          setSaveStatus("");
         } else {
           setSaveStatus("No saved data yet");
         }
@@ -321,10 +550,42 @@
     }
 
     function closePlatformMenu() {
-      if (openPlatformMenu) {
-        openPlatformMenu.hidden = true;
-        openPlatformMenu = null;
+      if (!openPlatformMenu) return;
+      openPlatformMenu.hidden = true;
+      openPlatformMenu.classList.remove("is-fixed");
+      openPlatformMenu.style.top = "";
+      openPlatformMenu.style.left = "";
+      openPlatformMenu.style.minWidth = "";
+      if (openPlatformMenu._host && openPlatformMenu.parentElement !== openPlatformMenu._host) {
+        openPlatformMenu._host.appendChild(openPlatformMenu);
       }
+      openPlatformMenu = null;
+    }
+
+    function positionPlatformMenu(menu, anchor) {
+      const rect = anchor.getBoundingClientRect();
+      const menuWidth = Math.max(rect.width, 10 * 16);
+      let left = rect.left;
+      let top = rect.bottom + 6;
+
+      menu.hidden = false;
+      menu.classList.add("is-fixed");
+      menu.style.minWidth = `${menuWidth}px`;
+      menu.style.left = `${left}px`;
+      menu.style.top = `${top}px`;
+
+      // After paint, flip/clamp if it would overflow the viewport
+      requestAnimationFrame(() => {
+        const menuRect = menu.getBoundingClientRect();
+        if (menuRect.right > window.innerWidth - 8) {
+          left = Math.max(8, window.innerWidth - menuRect.width - 8);
+          menu.style.left = `${left}px`;
+        }
+        if (menuRect.bottom > window.innerHeight - 8) {
+          top = Math.max(8, rect.top - menuRect.height - 6);
+          menu.style.top = `${top}px`;
+        }
+      });
     }
 
     function createPlatformCell(row, rowIndex) {
@@ -355,6 +616,7 @@
         currentTable.rows[rowIndex].platforms = serializePlatforms(ids);
         renderChips();
         renderMenu();
+        scheduleFitTableColumns();
         scheduleSave();
       }
 
@@ -424,11 +686,13 @@
 
       addBtn.addEventListener("click", (event) => {
         event.stopPropagation();
-        const willOpen = menu.hidden;
+        const willOpen = menu.hidden || openPlatformMenu !== menu;
         closePlatformMenu();
         if (willOpen) {
           renderMenu();
-          menu.hidden = false;
+          menu._host = addWrap;
+          document.body.appendChild(menu);
+          positionPlatformMenu(menu, addBtn);
           openPlatformMenu = menu;
         }
       });
@@ -451,6 +715,440 @@
       return cell;
     }
 
+    function coverageFaviconUrl(url) {
+      try {
+        return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(
+          new URL(url).hostname
+        )}&sz=128`;
+      } catch {
+        return "";
+      }
+    }
+
+    function normalizeCoverageUrl(value) {
+      const trimmed = String(value || "").trim();
+      if (!trimmed) return "";
+      if (/^https?:\/\//i.test(trimmed)) return trimmed;
+      if (/^[\w.-]+\.[a-z]{2,}([/:?#].*)?$/i.test(trimmed)) {
+        return `https://${trimmed}`;
+      }
+      return trimmed;
+    }
+
+    function setCoverageDialogHint(message) {
+      coverageDialogHint.textContent =
+        message || "Add rows manually or import a coverage CSV.";
+    }
+
+    function ensureCoverageDialogHead() {
+      if (coverageDialogHead.childElementCount) return;
+      const coverTh = document.createElement("th");
+      coverTh.scope = "col";
+      coverTh.textContent = "Cover";
+      coverageDialogHead.appendChild(coverTh);
+
+      COVERAGE_LINK_COLUMNS.forEach((column) => {
+        const th = document.createElement("th");
+        th.scope = "col";
+        th.textContent = column.label;
+        coverageDialogHead.appendChild(th);
+      });
+
+      const removeTh = document.createElement("th");
+      removeTh.scope = "col";
+      const sr = document.createElement("span");
+      sr.className = "visually-hidden";
+      sr.textContent = "Remove";
+      removeTh.appendChild(sr);
+      coverageDialogHead.appendChild(removeTh);
+    }
+
+    function collectCoverageDialogRows() {
+      return [...coverageDialogBody.querySelectorAll("tr")].map((tr) => {
+        const row = emptyCoverageLink();
+        COVERAGE_LINK_COLUMNS.forEach((column) => {
+          const input = tr.querySelector(`[data-coverage-key="${column.key}"]`);
+          let value = String(input?.value || "").trim();
+          if (column.key === "url") value = normalizeCoverageUrl(value);
+          row[column.key] = value;
+        });
+        row.coverImage = String(tr.dataset.coverImage || "").trim();
+        return row;
+      });
+    }
+
+    function setRowCoverImage(tr, imageUrl) {
+      if (!tr) return;
+      tr.dataset.coverImage = String(imageUrl || "").trim();
+    }
+
+    async function loadCoveragePreview(coverEl, url, tr = null) {
+      const img = coverEl.querySelector("img");
+      const placeholder = coverEl.querySelector(".coverage-link-cover-empty");
+      const requestId = (coverEl._previewRequestId || 0) + 1;
+      coverEl._previewRequestId = requestId;
+
+      const isCurrent = () => coverEl._previewRequestId === requestId;
+
+      const showEmpty = () => {
+        if (!isCurrent()) return;
+        img.hidden = true;
+        img.removeAttribute("src");
+        placeholder.hidden = false;
+        setRowCoverImage(tr, "");
+      };
+
+      const showImage = (src, { tryProxy = false } = {}) => {
+        if (!isCurrent() || !src) return;
+        const proxied = linkPreviewImageUrl(src);
+        const finalSrc = tryProxy && proxied ? proxied : src;
+        img.referrerPolicy = "no-referrer";
+        img.decoding = "async";
+        img.onload = () => {
+          if (!isCurrent()) return;
+          img.hidden = false;
+          placeholder.hidden = true;
+          // Keep an already-persisted R2 URL; otherwise remember the remote OG image.
+          const existing = String(tr?.dataset.coverImage || "").trim();
+          if (!isPersistedCoverUrl(existing)) {
+            setRowCoverImage(tr, src);
+          }
+          if (tr) tr.dataset.coverSource = src;
+        };
+        img.onerror = () => {
+          if (!isCurrent()) return;
+          if (!tryProxy && proxied) {
+            showImage(src, { tryProxy: true });
+            return;
+          }
+          showEmpty();
+        };
+        img.src = finalSrc;
+      };
+
+      const normalized = normalizeCoverageUrl(url);
+      if (!normalized || !/^https?:\/\//i.test(normalized)) {
+        showEmpty();
+        return;
+      }
+
+      const keepExisting =
+        Boolean(tr?.dataset.coverImage) && !img.hidden && Boolean(img.getAttribute("src"));
+      if (!keepExisting) {
+        placeholder.hidden = false;
+        img.hidden = true;
+      }
+
+      if (coveragePreviewCache.has(normalized)) {
+        const preview = coveragePreviewCache.get(normalized);
+        const image = (preview?.image || "").trim();
+        if (image) showImage(image);
+        else if (!keepExisting) showEmpty();
+        return;
+      }
+
+      try {
+        const preview = await fetchLinkPreview(normalized);
+        coveragePreviewCache.set(normalized, preview);
+        if (!isCurrent()) return;
+        const image = (preview?.image || "").trim();
+        if (image) showImage(image);
+        else if (!keepExisting) showEmpty();
+      } catch {
+        if (!isCurrent()) return;
+        if (!keepExisting) showEmpty();
+      }
+    }
+
+    function createCoverageDialogRow(item = null) {
+      const row = { ...emptyCoverageLink(), ...(item || {}) };
+      const tr = document.createElement("tr");
+
+      const coverTd = document.createElement("td");
+      coverTd.className = "coverage-link-cover-cell";
+      const cover = document.createElement("div");
+      cover.className = "coverage-link-cover";
+      cover._previewRequestId = 0;
+      const img = document.createElement("img");
+      img.alt = "";
+      img.hidden = true;
+      const empty = document.createElement("span");
+      empty.className = "coverage-link-cover-empty";
+      empty.textContent = "No cover";
+      cover.appendChild(img);
+      cover.appendChild(empty);
+      coverTd.appendChild(cover);
+      tr.appendChild(coverTd);
+
+      COVERAGE_LINK_COLUMNS.forEach((column) => {
+        const td = document.createElement("td");
+        const input = document.createElement("input");
+        input.type = "text";
+        input.className = "cell-input coverage-link-field";
+        input.dataset.coverageKey = column.key;
+        input.value = row[column.key] || "";
+        input.setAttribute("aria-label", column.label);
+        if (column.key === "url") {
+          input.classList.add("coverage-link-url");
+          input.placeholder = "https://…";
+          input.inputMode = "url";
+          input.autocomplete = "url";
+          input.addEventListener("change", () => {
+            input.value = normalizeCoverageUrl(input.value);
+            loadCoveragePreview(cover, input.value, tr);
+          });
+          input.addEventListener("input", () => {
+            const value = input.value.trim();
+            if (/^https?:\/\//i.test(value)) {
+              loadCoveragePreview(cover, value, tr);
+            }
+          });
+        }
+        td.appendChild(input);
+        tr.appendChild(td);
+      });
+
+      const actionTd = document.createElement("td");
+      actionTd.className = "coverage-link-remove-cell";
+      const removeBtn = document.createElement("button");
+      removeBtn.type = "button";
+      removeBtn.className = "btn-ghost coverage-link-remove";
+      removeBtn.textContent = "Remove";
+      removeBtn.addEventListener("click", () => {
+        tr.remove();
+        if (!coverageDialogBody.children.length) {
+          coverageDialogBody.appendChild(createCoverageDialogRow());
+        }
+      });
+      actionTd.appendChild(removeBtn);
+      tr.appendChild(actionTd);
+
+      if (row.coverImage) {
+        setRowCoverImage(tr, row.coverImage);
+        const existing = cover.querySelector("img");
+        const emptyEl = cover.querySelector(".coverage-link-cover-empty");
+        existing.referrerPolicy = "no-referrer";
+        existing.onload = () => {
+          existing.hidden = false;
+          emptyEl.hidden = true;
+        };
+        existing.onerror = () => {
+          loadCoveragePreview(cover, row.url, tr);
+        };
+        existing.src = row.coverImage;
+        // Already in R2 — don't replace with a fresh remote OG fetch.
+        if (!isPersistedCoverUrl(row.coverImage)) {
+          loadCoveragePreview(cover, row.url, tr);
+        }
+      } else {
+        loadCoveragePreview(cover, row.url, tr);
+      }
+      return tr;
+    }
+
+    function renderCoverageDialogRows(rows, { focusLast = false } = {}) {
+      ensureCoverageDialogHead();
+      coverageDialogBody.innerHTML = "";
+      const list = rows.length ? rows : [emptyCoverageLink()];
+      list.forEach((row) => {
+        coverageDialogBody.appendChild(createCoverageDialogRow(row));
+      });
+      if (focusLast) {
+        const last = coverageDialogBody.querySelector(
+          "tr:last-child .coverage-link-url"
+        );
+        last?.focus();
+      }
+    }
+
+    function closeCoverageLinksDialog() {
+      if (coverageDialog.open) coverageDialog.close();
+      coverageEdit = null;
+      setCoverageDialogHint("");
+      coverageCsvInput.value = "";
+    }
+
+    async function persistCoverageCovers(rows) {
+      const token = await getIdToken();
+      const out = [];
+      for (const row of rows) {
+        const next = { ...row };
+        const pageUrl = String(next.url || "").trim();
+        const candidate = String(
+          next.coverImage || ""
+        ).trim();
+        if (!candidate) {
+          out.push(next);
+          continue;
+        }
+        if (isPersistedCoverUrl(candidate)) {
+          out.push(next);
+          continue;
+        }
+        try {
+          next.coverImage = await storeCoverageCover(token, candidate, pageUrl);
+        } catch {
+          // Keep the remote URL so the front page can still try proxy/direct load.
+        }
+        out.push(next);
+      }
+      return out;
+    }
+
+    async function commitCoverageLinksDialog() {
+      if (!coverageEdit || !currentTable) {
+        closeCoverageLinksDialog();
+        return;
+      }
+
+      const doneLabel = coverageDialogDone.textContent;
+      coverageDialogDone.disabled = true;
+      coverageDialogDone.textContent = "Saving covers…";
+      setCoverageDialogHint("Saving cover images…");
+
+      try {
+        const rows = await persistCoverageCovers(collectCoverageDialogRows());
+        // Reflect persisted URLs back into the dialog rows in case Done is slow.
+        [...coverageDialogBody.querySelectorAll("tr")].forEach((tr, index) => {
+          const cover = String(rows[index]?.coverImage || "").trim();
+          if (cover) setRowCoverImage(tr, cover);
+        });
+
+        currentTable.rows[coverageEdit.rowIndex].coverageLinks =
+          serializeCoverageLinksValue(rows);
+        coverageEdit.refresh();
+        scheduleSave();
+        closeCoverageLinksDialog();
+      } catch (error) {
+        setCoverageDialogHint(
+          error instanceof Error ? error.message : "Could not save covers."
+        );
+      } finally {
+        coverageDialogDone.disabled = false;
+        coverageDialogDone.textContent = doneLabel || "Done";
+      }
+    }
+
+    function openCoverageLinksDialog(rowIndex, refresh, { addBlank = false } = {}) {
+      if (!currentTable) return;
+      closePlatformMenu();
+
+      const existing = parseCoverageLinksValue(
+        currentTable.rows[rowIndex].coverageLinks
+      );
+      const rows = addBlank ? [...existing, emptyCoverageLink()] : existing;
+
+      coverageEdit = { rowIndex, refresh };
+      setCoverageDialogHint("");
+      renderCoverageDialogRows(rows, {
+        focusLast: addBlank || !existing.length,
+      });
+      if (typeof coverageDialog.showModal === "function") {
+        coverageDialog.showModal();
+      } else {
+        coverageDialog.setAttribute("open", "");
+      }
+    }
+
+    function createCoverageLinksCell(row, rowIndex) {
+      const cell = document.createElement("div");
+      cell.className = "coverage-links-cell";
+
+      const openBtn = document.createElement("button");
+      openBtn.type = "button";
+      openBtn.className = "coverage-links-count-btn";
+
+      function refresh() {
+        const count = parseCoverageLinksValue(
+          currentTable.rows[rowIndex].coverageLinks
+        ).length;
+        openBtn.textContent =
+          count === 1 ? "1 link" : `${count} links`;
+        openBtn.setAttribute(
+          "aria-label",
+          count === 0
+            ? `Add coverage links, row ${rowIndex + 1}`
+            : `Edit ${count} coverage link${count === 1 ? "" : "s"}, row ${rowIndex + 1}`
+        );
+        scheduleFitTableColumns();
+      }
+
+      openBtn.addEventListener("click", () => {
+        const count = parseCoverageLinksValue(
+          currentTable.rows[rowIndex].coverageLinks
+        ).length;
+        openCoverageLinksDialog(rowIndex, refresh, {
+          addBlank: count === 0,
+        });
+      });
+
+      cell.appendChild(openBtn);
+      refresh();
+      return cell;
+    }
+
+    coverageDialogAdd.addEventListener("click", () => {
+      coverageDialogBody.appendChild(createCoverageDialogRow());
+      const last = coverageDialogBody.querySelector(
+        "tr:last-child .coverage-link-url"
+      );
+      last?.focus();
+    });
+    coverageDialogClear.addEventListener("click", () => {
+      const count = coverageDialogBody.querySelectorAll("tr").length;
+      const hasContent = collectCoverageDialogRows().some((row) =>
+        Object.values(row).some((value) => String(value || "").trim())
+      );
+      if (
+        hasContent &&
+        !window.confirm(
+          count === 1
+            ? "Clear this coverage link row?"
+            : `Clear all ${count} coverage link rows?`
+        )
+      ) {
+        return;
+      }
+      renderCoverageDialogRows([]);
+      setCoverageDialogHint("Cleared all coverage rows for this announcement.");
+    });
+    coverageDialogImport.addEventListener("click", () => {
+      coverageCsvInput.click();
+    });
+    coverageCsvInput.addEventListener("change", () => {
+      const file = coverageCsvInput.files?.[0];
+      coverageCsvInput.value = "";
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const rows = coverageLinksFromCsv(String(reader.result ?? ""));
+          renderCoverageDialogRows(rows);
+          setCoverageDialogHint(
+            `Imported ${rows.length} coverage row${rows.length === 1 ? "" : "s"} from ${file.name}.`
+          );
+        } catch (err) {
+          setCoverageDialogHint(
+            err instanceof Error ? err.message : "Could not read that CSV."
+          );
+        }
+      };
+      reader.onerror = () => {
+        setCoverageDialogHint("Could not read that file.");
+      };
+      reader.readAsText(file);
+    });
+    coverageDialogDone.addEventListener("click", commitCoverageLinksDialog);
+    coverageDialogClose.addEventListener("click", closeCoverageLinksDialog);
+    coverageDialog.addEventListener("cancel", (event) => {
+      event.preventDefault();
+      closeCoverageLinksDialog();
+    });
+    coverageDialog.addEventListener("click", (event) => {
+      if (event.target === coverageDialog) closeCoverageLinksDialog();
+    });
+
     function showPasswordMessage(errorMessage, successMessage) {
       passwordError.textContent = errorMessage || "";
       passwordError.hidden = !errorMessage;
@@ -464,11 +1162,9 @@
       settingsView.hidden = !settings;
       importBtn.hidden = settings;
       saveBtn.hidden = settings || !hasTable;
-      clearBtn.hidden = settings || !hasTable;
       settingsBtn.hidden = settings;
-      pageLede.textContent = settings
-        ? "Manage your account."
-        : "Import a CSV to view announcement data.";
+      pageLede.textContent = settings ? "Manage your account." : "";
+      pageLede.hidden = !settings;
       if (settings) {
         showPasswordMessage("", "");
         passwordForm.reset();
@@ -485,10 +1181,7 @@
       hasTable = false;
       currentTable = null;
       currentFileName = "";
-      clearBtn.hidden = true;
       saveBtn.hidden = true;
-      fileNameEl.textContent = "";
-      metaEl.textContent = "";
       csvInput.value = "";
       sortSelect.value = "game";
       monthFilter.innerHTML = '<option value="">All months</option>';
@@ -559,14 +1252,6 @@
       return currentTable.rows
         .map((row, rowIndex) => ({ row, rowIndex }))
         .filter(({ row }) => !month || row.month === month);
-    }
-
-    function updateMeta() {
-      if (!currentTable) return;
-      const visible = getVisibleRows();
-      const groupCount = groupRowsByGame(visible).length;
-      const monthLabel = monthFilter.value ? ` · ${monthFilter.value}` : "";
-      metaEl.textContent = `${visible.length} of ${currentTable.rows.length} rows · ${groupCount} games${monthLabel}`;
     }
 
     function populateMonthFilter(table) {
@@ -664,15 +1349,132 @@
       return grouped;
     }
 
+    function columnClassName(column) {
+      return `col-${column.key}`;
+    }
+
+    let fitColumnsTimer = null;
+    const COLUMN_WIDTH_FLOOR = {
+      announcementTitle: 12 * 16,
+      date: 8 * 16,
+      month: 8 * 16,
+      platforms: 11 * 16,
+      trailer: 10 * 16,
+      pressReleasePdf: 10 * 16,
+      estimatedReach: 8 * 16,
+      highlights: 12 * 16,
+      totalWishlists: 8 * 16,
+      coverageLinks: 12 * 16,
+    };
+    const COLUMN_WIDTH_CAP = {
+      trailer: 28 * 16,
+      pressReleasePdf: 28 * 16,
+      highlights: 22 * 16,
+    };
+
+    function scheduleFitTableColumns() {
+      clearTimeout(fitColumnsTimer);
+      fitColumnsTimer = setTimeout(fitTableColumns, 40);
+    }
+
+    function fitTableColumns() {
+      const tables = [
+        ...gameSections.querySelectorAll(".table-wrap table"),
+      ];
+      if (!tables.length) return;
+
+      const keys = [
+        ...tables[0].querySelectorAll("thead th"),
+      ]
+        .map((th) =>
+          [...th.classList]
+            .find((name) => name.startsWith("col-"))
+            ?.slice(4)
+        )
+        .filter(Boolean);
+
+      if (!keys.length) return;
+
+      const probe = document.createElement("span");
+      probe.setAttribute("aria-hidden", "true");
+      probe.style.cssText =
+        "position:absolute;left:-9999px;top:0;white-space:nowrap;visibility:hidden;";
+      document.body.appendChild(probe);
+
+      const measureText = (node, text) => {
+        const style = getComputedStyle(node);
+        probe.style.font = style.font;
+        probe.style.letterSpacing = style.letterSpacing;
+        probe.style.fontWeight = style.fontWeight;
+        probe.textContent = text || "";
+        return Math.ceil(probe.getBoundingClientRect().width);
+      };
+
+      const widths = {};
+
+      keys.forEach((key) => {
+        let maxPx = COLUMN_WIDTH_FLOOR[key] ?? 8 * 16;
+        const selector = `.col-${CSS.escape(key)}`;
+
+        gameSections.querySelectorAll(`th${selector}`).forEach((th) => {
+          maxPx = Math.max(maxPx, measureText(th, th.textContent || key) + 36);
+        });
+
+        gameSections.querySelectorAll(`td${selector}`).forEach((td) => {
+          const input = td.querySelector(".cell-input");
+          if (input?.tagName === "TEXTAREA") {
+            const lines = String(input.value || "").split(/\r?\n/);
+            if (!lines.length) {
+              maxPx = Math.max(maxPx, measureText(input, " ") + 36);
+            } else {
+              lines.forEach((line) => {
+                maxPx = Math.max(maxPx, measureText(input, line || " ") + 36);
+              });
+            }
+          } else if (input) {
+            maxPx = Math.max(
+              maxPx,
+              measureText(input, input.value || " ") + 36
+            );
+          } else {
+            maxPx = Math.max(maxPx, Math.ceil(td.scrollWidth) + 8);
+          }
+        });
+
+        if (COLUMN_WIDTH_CAP[key] != null) {
+          maxPx = Math.min(maxPx, COLUMN_WIDTH_CAP[key]);
+        }
+
+        widths[key] = maxPx;
+      });
+
+      probe.remove();
+
+      keys.forEach((key) => {
+        const width = `${widths[key]}px`;
+        gameSections
+          .querySelectorAll(`.col-${CSS.escape(key)}`)
+          .forEach((cell) => {
+            cell.style.width = width;
+            cell.style.minWidth = width;
+            cell.style.maxWidth = width;
+          });
+      });
+    }
+
     function buildDataRow(row, rowIndex, columns) {
       const tr = document.createElement("tr");
 
       columns.forEach((column) => {
         const td = document.createElement("td");
+        td.className = columnClassName(column);
 
         if (column.key === "platforms") {
-          td.className = "platforms-col";
+          td.classList.add("platforms-col");
           td.appendChild(createPlatformCell(row, rowIndex));
+        } else if (column.key === "coverageLinks") {
+          td.classList.add("coverage-links-col");
+          td.appendChild(createCoverageLinksCell(row, rowIndex));
         } else {
           const input = document.createElement(
             column.key === "highlights" ? "textarea" : "input"
@@ -699,6 +1501,7 @@
               if (monthInput) monthInput.value = monthValue;
             }
 
+            scheduleFitTableColumns();
             scheduleSave();
           });
 
@@ -732,7 +1535,9 @@
 
       const visible = getVisibleRows();
       const groups = groupRowsByGame(visible);
-      const columns = table.columns;
+      const columns = table.columns.filter(
+        (column) => !column.perGame && !column.hiddenInTable
+      );
 
       if (groups.length === 0) {
         const empty = document.createElement("p");
@@ -745,8 +1550,8 @@
         const section = document.createElement("section");
         section.className = "game-section";
 
-        const headingRow = document.createElement("div");
-        headingRow.className = "game-section-heading";
+        const header = document.createElement("div");
+        header.className = "game-section-header";
 
         const selectLabel = document.createElement("label");
         selectLabel.className = "game-share-select";
@@ -763,18 +1568,23 @@
         });
 
         selectLabel.appendChild(checkbox);
-        headingRow.appendChild(selectLabel);
+        header.appendChild(selectLabel);
+
+        const copy = document.createElement("div");
+        copy.className = "game-section-copy";
 
         const heading = document.createElement("h2");
         heading.className = "game-section-title";
         heading.textContent = gameTitle;
-        headingRow.appendChild(heading);
-        section.appendChild(headingRow);
+        copy.appendChild(heading);
 
         const meta = document.createElement("p");
         meta.className = "game-section-meta";
         meta.textContent = `${entries.length} announcement${entries.length === 1 ? "" : "s"}`;
-        section.appendChild(meta);
+        copy.appendChild(meta);
+
+        header.appendChild(createGameImageControl(gameTitle, copy));
+        section.appendChild(header);
 
         const wrap = document.createElement("div");
         wrap.className = "table-wrap";
@@ -785,6 +1595,7 @@
 
         columns.forEach((column) => {
           const th = document.createElement("th");
+          th.className = columnClassName(column);
           th.textContent = column.label;
           headRow.appendChild(th);
         });
@@ -802,6 +1613,8 @@
         gameSections.appendChild(section);
       });
 
+      fitTableColumns();
+
       // Drop selections for games no longer present
       const visibleTitles = new Set(groups.map(([title]) => title));
       [...selectedGames].forEach((title) => {
@@ -809,13 +1622,10 @@
       });
       updateShareUrl();
 
-      fileNameEl.textContent = currentFileName;
-      updateMeta();
       dropzone.hidden = true;
       report.hidden = false;
       hasTable = true;
       if (settingsView.hidden) {
-        clearBtn.hidden = false;
         saveBtn.hidden = false;
       }
       showError("");
@@ -846,6 +1656,16 @@
     }
 
     document.addEventListener("click", closePlatformMenu);
+    document.addEventListener(
+      "scroll",
+      () => {
+        if (openPlatformMenu) closePlatformMenu();
+      },
+      true
+    );
+    window.addEventListener("resize", () => {
+      if (openPlatformMenu) closePlatformMenu();
+    });
 
     sortSelect.addEventListener("change", () => {
       if (currentTable) renderTable(currentTable, currentFileName);
@@ -915,12 +1735,6 @@
 
     importBtn.addEventListener("click", () => csvInput.click());
     saveBtn.addEventListener("click", () => persistTable({ quiet: false }));
-    clearBtn.addEventListener("click", () => {
-      const alsoCloud = window.confirm(
-        "Clear the table? Click OK to also delete saved cloud data for your account."
-      );
-      clearTable({ persist: alsoCloud });
-    });
     settingsBtn.addEventListener("click", () => setView("settings"));
     backBtn.addEventListener("click", () => setView("workspace"));
     csvInput.addEventListener("change", () => handleFile(csvInput.files?.[0]));

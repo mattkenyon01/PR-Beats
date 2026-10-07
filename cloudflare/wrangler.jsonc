@@ -19,6 +19,13 @@
       "migrations_dir": "migrations"
     }
   ],
+  // After: npx wrangler r2 bucket create prbeats-images
+  "r2_buckets": [
+    {
+      "binding": "IMAGES",
+      "bucket_name": "prbeats-images"
+    }
+  ],
   "vars": {
     "FIREBASE_PROJECT_ID": "prbeats-996dd"
   },

@@ -1,8 +1,18 @@
 /**
  * PR Beats Worker — single-file entry (no local imports).
- * Bindings: DB (D1), ASSETS (optional static)
+ * Bindings: DB (D1), IMAGES (R2), ASSETS (optional static)
  * Optional var: FIREBASE_PROJECT_ID (falls back to DEFAULT below)
  */
+
+const MAX_GAME_IMAGE_BYTES = 100 * 1024 * 1024;
+const MAX_COVERAGE_COVER_BYTES = 8 * 1024 * 1024;
+const ALLOWED_IMAGE_TYPES = new Set([
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+]);
 
 const DEFAULT_FIREBASE_PROJECT_ID = "prbeats-996dd";
 
@@ -17,6 +27,8 @@ const DISPLAY_COLUMNS = [
   { key: "estimatedReach", label: "Estimated Reach" },
   { key: "highlights", label: "Highlights" },
   { key: "totalWishlists", label: "Total Wishlists" },
+  { key: "coverageLinks", label: "Coverage Links" },
+  { key: "gameImage", label: "Game Image" },
 ];
 
 const FIREBASE_JWKS_URL =
@@ -118,9 +130,162 @@ async function handleApi(request, env, url) {
             createShare: "POST /api/shares",
             load: "GET /api/announcements",
             save: "POST /api/announcements",
+            uploadImage: "POST /api/game-images",
+            getImage: "GET /api/game-images/:ownerUid/:fileName",
+            storeCoverageCover: "POST /api/coverage-covers",
+            getCoverageCover: "GET /api/coverage-covers/:ownerUid/:fileName",
+            linkPreview: "GET /api/link-preview?url=",
+            linkPreviewImage: "GET /api/link-preview/image?url=",
           },
         })
       );
+    }
+
+    if (url.pathname === "/api/link-preview/image") {
+      if (request.method !== "GET" && request.method !== "HEAD") {
+        return withCors(request, json({ error: "Method not allowed." }, 405));
+      }
+      try {
+        return withCors(
+          request,
+          await fetchLinkPreviewImage(url.searchParams.get("url"), request)
+        );
+      } catch (error) {
+        return withCors(
+          request,
+          json(
+            {
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Could not load preview image.",
+            },
+            400
+          )
+        );
+      }
+    }
+
+    if (url.pathname === "/api/link-preview") {
+      if (request.method !== "GET") {
+        return withCors(request, json({ error: "Method not allowed." }, 405));
+      }
+      try {
+        const preview = await fetchLinkPreview(url.searchParams.get("url"));
+        return withCors(
+          request,
+          json(preview, 200, {
+            "Cache-Control": "public, max-age=86400",
+          })
+        );
+      } catch (error) {
+        return withCors(
+          request,
+          json(
+            {
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Could not load link preview.",
+            },
+            400
+          )
+        );
+      }
+    }
+
+    const gameImageMatch = url.pathname.match(
+      /^\/api\/game-images\/([^/]+)\/([^/]+)$/
+    );
+    if (gameImageMatch) {
+      if (request.method !== "GET" && request.method !== "HEAD") {
+        return withCors(request, json({ error: "Method not allowed." }, 405));
+      }
+      return withCors(
+        request,
+        await serveStoredImage(
+          env,
+          "game-images",
+          gameImageMatch[1],
+          gameImageMatch[2],
+          request
+        )
+      );
+    }
+
+    if (url.pathname === "/api/game-images") {
+      const auth = await requireFirebaseUser(
+        request,
+        env.FIREBASE_PROJECT_ID || DEFAULT_FIREBASE_PROJECT_ID
+      );
+      if (auth.error) return withCors(request, auth.error);
+
+      if (request.method !== "POST") {
+        return withCors(request, json({ error: "Method not allowed." }, 405));
+      }
+
+      const uploaded = await uploadGameImage(
+        env,
+        auth.user.uid,
+        request,
+        url.origin
+      );
+      return withCors(request, json(uploaded));
+    }
+
+    const coverageCoverMatch = url.pathname.match(
+      /^\/api\/coverage-covers\/([^/]+)\/([^/]+)$/
+    );
+    if (coverageCoverMatch) {
+      if (request.method !== "GET" && request.method !== "HEAD") {
+        return withCors(request, json({ error: "Method not allowed." }, 405));
+      }
+      return withCors(
+        request,
+        await serveStoredImage(
+          env,
+          "coverage-covers",
+          coverageCoverMatch[1],
+          coverageCoverMatch[2],
+          request
+        )
+      );
+    }
+
+    if (url.pathname === "/api/coverage-covers") {
+      const auth = await requireFirebaseUser(
+        request,
+        env.FIREBASE_PROJECT_ID || DEFAULT_FIREBASE_PROJECT_ID
+      );
+      if (auth.error) return withCors(request, auth.error);
+
+      if (request.method !== "POST") {
+        return withCors(request, json({ error: "Method not allowed." }, 405));
+      }
+
+      try {
+        const body = await request.json();
+        const stored = await storeCoverageCover(
+          env,
+          auth.user.uid,
+          body,
+          url.origin
+        );
+        return withCors(request, json(stored));
+      } catch (error) {
+        return withCors(
+          request,
+          json(
+            {
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Could not store coverage cover.",
+            },
+            400
+          )
+        );
+      }
     }
 
     // Public read-only feed for the homepage (no auth)
@@ -235,7 +400,7 @@ function corsHeaders(request) {
   const origin = request.headers.get("Origin") || "*";
   return {
     "Access-Control-Allow-Origin": origin,
-    "Access-Control-Allow-Methods": "GET,POST,PUT,OPTIONS",
+    "Access-Control-Allow-Methods": "GET,HEAD,POST,PUT,OPTIONS",
     "Access-Control-Allow-Headers": "Authorization, Content-Type",
     "Access-Control-Max-Age": "86400",
     Vary: "Origin",
@@ -380,7 +545,429 @@ function rowFromDb(record) {
     estimatedReach: record.estimated_reach ?? "",
     highlights: record.highlights ?? "",
     totalWishlists: record.total_wishlists ?? "",
+    coverageLinks: record.coverage_links ?? "",
+    gameImage: record.game_image ?? "",
   };
+}
+
+function isPrivateHostname(hostname) {
+  const host = String(hostname || "").toLowerCase();
+  if (
+    host === "localhost" ||
+    host.endsWith(".localhost") ||
+    host.endsWith(".local") ||
+    host === "0.0.0.0"
+  ) {
+    return true;
+  }
+  if (/^\d+\.\d+\.\d+\.\d+$/.test(host)) {
+    const parts = host.split(".").map(Number);
+    const [a, b] = parts;
+    if (a === 10 || a === 127 || a === 0) return true;
+    if (a === 172 && b >= 16 && b <= 31) return true;
+    if (a === 192 && b === 168) return true;
+    if (a === 169 && b === 254) return true;
+  }
+  return false;
+}
+
+function decodeHtmlEntities(value) {
+  return String(value || "")
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, code) =>
+      String.fromCharCode(parseInt(code, 16))
+    );
+}
+
+const PREVIEW_USER_AGENT =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+
+function metaContent(html, keys) {
+  for (const key of keys) {
+    const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const patterns = [
+      new RegExp(
+        `<meta[^>]+(?:property|name|itemprop)=["']${escaped}["'][^>]+content=["']([^"']+)["'][^>]*>`,
+        "i"
+      ),
+      new RegExp(
+        `<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name|itemprop)=["']${escaped}["'][^>]*>`,
+        "i"
+      ),
+    ];
+    for (const pattern of patterns) {
+      const match = html.match(pattern);
+      if (match?.[1]) return decodeHtmlEntities(match[1].trim());
+    }
+  }
+  return "";
+}
+
+function linkImageFromHtml(html, baseHref) {
+  const fromMeta = metaContent(html, [
+    "og:image:secure_url",
+    "og:image",
+    "twitter:image",
+    "twitter:image:src",
+    "image",
+  ]);
+  if (fromMeta) {
+    try {
+      return new URL(fromMeta, baseHref).href;
+    } catch {
+      /* continue */
+    }
+  }
+
+  const linkMatch = html.match(
+    /<link[^>]+rel=["'](?:image_src|thumbnail)["'][^>]+href=["']([^"']+)["'][^>]*>/i
+  ) || html.match(
+    /<link[^>]+href=["']([^"']+)["'][^>]+rel=["'](?:image_src|thumbnail)["'][^>]*>/i
+  );
+  if (linkMatch?.[1]) {
+    try {
+      return new URL(decodeHtmlEntities(linkMatch[1].trim()), baseHref).href;
+    } catch {
+      return "";
+    }
+  }
+
+  return "";
+}
+
+function assertPublicHttpUrl(rawUrl) {
+  const target = String(rawUrl || "").trim();
+  if (!target) throw new Error("Missing url.");
+
+  let parsed;
+  try {
+    parsed = new URL(target);
+  } catch {
+    throw new Error("Invalid url.");
+  }
+
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new Error("Only http(s) urls are allowed.");
+  }
+  if (isPrivateHostname(parsed.hostname)) {
+    throw new Error("That url cannot be previewed.");
+  }
+  return parsed;
+}
+
+async function fetchLinkPreviewImage(rawUrl, request) {
+  const parsed = assertPublicHttpUrl(rawUrl);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10000);
+  try {
+    const response = await fetch(parsed.href, {
+      redirect: "follow",
+      signal: controller.signal,
+      headers: {
+        "User-Agent": PREVIEW_USER_AGENT,
+        Accept: "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+      },
+    });
+    if (!response.ok) {
+      throw new Error(`Preview image fetch failed (${response.status}).`);
+    }
+    const contentType = response.headers.get("content-type") || "";
+    if (!contentType.startsWith("image/")) {
+      throw new Error("Preview url is not an image.");
+    }
+    const headers = {
+      "Content-Type": contentType,
+      "Cache-Control": "public, max-age=86400",
+    };
+    if (request.method === "HEAD") {
+      return new Response(null, { status: 200, headers });
+    }
+    return new Response(response.body, { status: 200, headers });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function fetchLinkPreview(rawUrl) {
+  const parsed = assertPublicHttpUrl(rawUrl);
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10000);
+  let html = "";
+  try {
+    const response = await fetch(parsed.href, {
+      redirect: "follow",
+      signal: controller.signal,
+      headers: {
+        "User-Agent": PREVIEW_USER_AGENT,
+        Accept:
+          "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+      },
+    });
+    if (!response.ok) {
+      throw new Error(`Preview fetch failed (${response.status}).`);
+    }
+    const contentType = response.headers.get("content-type") || "";
+    if (!contentType.includes("text/html") && !contentType.includes("application/xhtml")) {
+      // Still allow favicon-only preview for non-HTML pages
+      return {
+        url: parsed.href,
+        title: parsed.hostname.replace(/^www\./, ""),
+        description: "",
+        image: "",
+        favicon: `https://www.google.com/s2/favicons?domain=${encodeURIComponent(parsed.hostname)}&sz=128`,
+      };
+    }
+    html = await response.text();
+  } finally {
+    clearTimeout(timer);
+  }
+
+  if (html.length > 600_000) html = html.slice(0, 600_000);
+
+  const title =
+    metaContent(html, ["og:title", "twitter:title"]) ||
+    decodeHtmlEntities(
+      (html.match(/<title[^>]*>([^<]*)<\/title>/i)?.[1] || "").trim()
+    ) ||
+    parsed.hostname.replace(/^www\./, "");
+
+  const description = metaContent(html, [
+    "og:description",
+    "twitter:description",
+    "description",
+  ]);
+
+  const image = linkImageFromHtml(html, parsed.href);
+
+  return {
+    url: parsed.href,
+    title,
+    description,
+    image,
+    favicon: `https://www.google.com/s2/favicons?domain=${encodeURIComponent(parsed.hostname)}&sz=128`,
+  };
+}
+
+function sanitizePathPart(value) {
+  return (
+    String(value || "game")
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 60) || "game"
+  );
+}
+
+function extensionForImageType(contentType, fileName = "") {
+  const fromName = String(fileName).split(".").pop()?.toLowerCase() || "";
+  if (/^(jpe?g|png|webp|gif)$/.test(fromName)) {
+    return fromName === "jpeg" ? "jpg" : fromName;
+  }
+  switch (contentType) {
+    case "image/png":
+      return "png";
+    case "image/webp":
+      return "webp";
+    case "image/gif":
+      return "gif";
+    default:
+      return "jpg";
+  }
+}
+
+async function uploadGameImage(env, ownerUid, request, origin) {
+  if (!env.IMAGES) {
+    throw new Error(
+      "Image storage is not configured. Create an R2 bucket and bind it as IMAGES."
+    );
+  }
+
+  const form = await request.formData();
+  const file = form.get("file");
+  const gameTitle = String(form.get("gameTitle") || "game");
+
+  if (!(file instanceof File) && !(file instanceof Blob)) {
+    throw new Error("Choose an image file.");
+  }
+
+  const contentType = String(file.type || "").toLowerCase();
+  if (!ALLOWED_IMAGE_TYPES.has(contentType)) {
+    throw new Error("Please choose a PNG, JPG, WebP, or GIF image.");
+  }
+
+  if (typeof file.size === "number" && file.size > MAX_GAME_IMAGE_BYTES) {
+    throw new Error("Image must be 100 MB or smaller.");
+  }
+
+  const ext = extensionForImageType(
+    contentType,
+    typeof file.name === "string" ? file.name : ""
+  );
+  const fileName = `${sanitizePathPart(gameTitle)}-${crypto.randomUUID()}.${ext}`;
+  const key = `game-images/${ownerUid}/${fileName}`;
+
+  await env.IMAGES.put(key, file.stream(), {
+    httpMetadata: {
+      contentType,
+      cacheControl: "public, max-age=31536000, immutable",
+    },
+    customMetadata: {
+      ownerUid,
+      gameTitle: String(gameTitle).slice(0, 200),
+    },
+  });
+
+  return {
+    key,
+    url: `${origin}/api/game-images/${encodeURIComponent(ownerUid)}/${encodeURIComponent(fileName)}`,
+  };
+}
+
+function isPersistedImagePath(pathname) {
+  return /^\/api\/(?:game-images|coverage-covers)\/[^/]+\/[^/]+$/i.test(
+    String(pathname || "")
+  );
+}
+
+function isPersistedImageUrl(rawUrl, origin = "") {
+  const value = String(rawUrl || "").trim();
+  if (!value) return false;
+  try {
+    const parsed = new URL(value, origin || "https://example.invalid");
+    return isPersistedImagePath(parsed.pathname);
+  } catch {
+    return isPersistedImagePath(value);
+  }
+}
+
+async function storeCoverageCover(env, ownerUid, body, origin) {
+  if (!env.IMAGES) {
+    throw new Error(
+      "Image storage is not configured. Create an R2 bucket and bind it as IMAGES."
+    );
+  }
+
+  const imageUrl = String(body?.imageUrl || body?.url || "").trim();
+  const pageUrl = String(body?.pageUrl || "").trim();
+  if (!imageUrl) throw new Error("Missing imageUrl.");
+
+  if (isPersistedImageUrl(imageUrl, origin)) {
+    return { url: imageUrl, reused: true };
+  }
+
+  const parsed = assertPublicHttpUrl(imageUrl);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
+  let bytes;
+  let contentType = "image/jpeg";
+  try {
+    const response = await fetch(parsed.href, {
+      redirect: "follow",
+      signal: controller.signal,
+      headers: {
+        "User-Agent": PREVIEW_USER_AGENT,
+        Accept: "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+        ...(pageUrl ? { Referer: pageUrl } : {}),
+      },
+    });
+    if (!response.ok) {
+      throw new Error(`Cover image fetch failed (${response.status}).`);
+    }
+    contentType = String(response.headers.get("content-type") || "")
+      .split(";")[0]
+      .trim()
+      .toLowerCase();
+    if (!contentType.startsWith("image/")) {
+      throw new Error("Cover url is not an image.");
+    }
+    // Normalize odd types like image/jpg
+    if (contentType === "image/jpg") contentType = "image/jpeg";
+    if (!ALLOWED_IMAGE_TYPES.has(contentType)) {
+      throw new Error("Unsupported cover image type.");
+    }
+    bytes = await response.arrayBuffer();
+  } finally {
+    clearTimeout(timer);
+  }
+
+  if (!bytes || bytes.byteLength === 0) {
+    throw new Error("Cover image was empty.");
+  }
+  if (bytes.byteLength > MAX_COVERAGE_COVER_BYTES) {
+    throw new Error("Cover image must be 8 MB or smaller.");
+  }
+
+  const ext = extensionForImageType(contentType, parsed.pathname);
+  const label = sanitizePathPart(pageUrl || parsed.hostname || "cover");
+  const fileName = `${label}-${crypto.randomUUID()}.${ext}`;
+  const key = `coverage-covers/${ownerUid}/${fileName}`;
+
+  await env.IMAGES.put(key, bytes, {
+    httpMetadata: {
+      contentType,
+      cacheControl: "public, max-age=31536000, immutable",
+    },
+    customMetadata: {
+      ownerUid,
+      sourceUrl: parsed.href.slice(0, 500),
+      pageUrl: pageUrl.slice(0, 500),
+    },
+  });
+
+  return {
+    key,
+    url: `${origin}/api/coverage-covers/${encodeURIComponent(ownerUid)}/${encodeURIComponent(fileName)}`,
+  };
+}
+
+async function serveStoredImage(env, folder, ownerUid, fileName, request) {
+  if (!env.IMAGES) {
+    return json({ error: "Image storage is not configured." }, 503);
+  }
+
+  const safeOwner = decodeURIComponent(ownerUid);
+  const safeName = decodeURIComponent(fileName);
+  if (
+    safeOwner.includes("/") ||
+    safeOwner.includes("..") ||
+    safeName.includes("/") ||
+    safeName.includes("..") ||
+    (folder !== "game-images" && folder !== "coverage-covers")
+  ) {
+    return json({ error: "Not found." }, 404);
+  }
+
+  const key = `${folder}/${safeOwner}/${safeName}`;
+  const object =
+    request.method === "HEAD"
+      ? await env.IMAGES.head(key)
+      : await env.IMAGES.get(key);
+
+  if (!object) {
+    return json({ error: "Image not found." }, 404);
+  }
+
+  const headers = new Headers();
+  object.writeHttpMetadata(headers);
+  headers.set("etag", object.httpEtag);
+  headers.set("Cache-Control", "public, max-age=31536000, immutable");
+  headers.set("Access-Control-Allow-Origin", "*");
+
+  if (request.method === "HEAD") {
+    return new Response(null, { status: 200, headers });
+  }
+
+  return new Response(object.body, { status: 200, headers });
 }
 
 async function listAnnouncements(db, ownerUid) {
@@ -558,8 +1145,9 @@ async function replaceAnnouncements(db, ownerUid, rows) {
           `INSERT INTO announcements (
             id, owner_uid, game_title, announcement_title, date, month,
             platforms, trailer, press_release_pdf, estimated_reach,
-            highlights, total_wishlists, sort_order, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`
+            highlights, total_wishlists, coverage_links, game_image,
+            sort_order, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`
         )
         .bind(
           id,
@@ -574,6 +1162,8 @@ async function replaceAnnouncements(db, ownerUid, rows) {
           String(row.estimatedReach ?? ""),
           String(row.highlights ?? ""),
           String(row.totalWishlists ?? ""),
+          String(row.coverageLinks ?? ""),
+          String(row.gameImage ?? ""),
           index
         )
     );

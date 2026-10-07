@@ -5,12 +5,20 @@
 
 <PageTitle>PR beats</PageTitle>
 
-<div class="public-app">
-    <header class="public-header">
-        <h1>PR beats</h1>
-        <p class="lede">Announcement coverage</p>
-    </header>
+@{
+    string? activeImageUrl = null;
+    var coverAlt = "";
+    if (_groups.Count > 0)
+    {
+        coverAlt = _groups[_activeIndex].Key;
+        activeImageUrl = _groups[_activeIndex].Value
+            .Select(row => row.GameImage?.Trim())
+            .FirstOrDefault(url => !string.IsNullOrWhiteSpace(url));
+    }
+    var hasCover = !string.IsNullOrWhiteSpace(activeImageUrl);
+}
 
+<div class="public-app">
     @if (!string.IsNullOrEmpty(_status))
     {
         <p class="note @(_isError ? "is-error" : null)">@_status</p>
@@ -24,20 +32,6 @@
              @onkeydown="OnKeyDown"
              @ontouchstart="OnTouchStart"
              @ontouchend="OnTouchEnd">
-            <div class="carousel-slide" @key="_activeIndex" aria-live="polite">
-                <h2 class="carousel-game">@active.Key</h2>
-                <ul class="carousel-announcements">
-                    @foreach (var row in active.Value)
-                    {
-                        var title = string.IsNullOrWhiteSpace(row.AnnouncementTitle)
-                            ? "No announcement title"
-                            : row.AnnouncementTitle.Trim();
-                        <li class="@(string.IsNullOrWhiteSpace(row.AnnouncementTitle) ? "is-empty" : null)">
-                            @title
-                        </li>
-                    }
-                </ul>
-            </div>
             <div class="carousel-dots" role="tablist" aria-label="Games">
                 @for (var i = 0; i < _groups.Count; i++)
                 {
@@ -52,6 +46,232 @@
                             @onclick="() => ShowSlide(index)">
                     </button>
                 }
+            </div>
+
+            <div class="cover-banner @(hasCover ? null : "is-empty")" aria-hidden="@(hasCover ? "false" : "true")">
+                @if (hasCover)
+                {
+                    <img class="carousel-game-image" src="@activeImageUrl" alt="@coverAlt" />
+                }
+                else
+                {
+                    <span class="cover-banner-placeholder">Cover image</span>
+                }
+            </div>
+
+            <div class="carousel-slide" @key="_activeIndex" aria-live="polite">
+                <h2 class="carousel-game">@active.Key</h2>
+                @{
+                    var announcementTitles = active.Value
+                        .Select(row => row.AnnouncementTitle?.Trim())
+                        .Where(title => !string.IsNullOrWhiteSpace(title))
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .ToList();
+                }
+                @if (announcementTitles.Count > 0)
+                {
+                    <p class="carousel-subtitle">@string.Join(" · ", announcementTitles)</p>
+                }
+                <div class="detail-cards">
+                    <section class="detail-card">
+                        <h3 class="detail-card-label">Platforms</h3>
+                        @{
+                            var platforms = PlatformsForEntries(active.Value);
+                        }
+                        <div class="platform-chips readonly @(platforms.Count == 0 ? "muted" : null)">
+                            @if (platforms.Count == 0)
+                            {
+                                <span style="font-style: italic; opacity: 0.45;">No platforms</span>
+                            }
+                            else
+                            {
+                                @foreach (var platform in platforms)
+                                {
+                                    <div class="platform-entry">
+                                        <img class="platform-icon" src="@platform.Icon" alt="" />
+                                        <span class="platform-name">@platform.Label</span>
+                                    </div>
+                                }
+                            }
+                        </div>
+                    </section>
+                    <section class="detail-card">
+                        <h3 class="detail-card-label">Date</h3>
+                        <ul class="detail-card-list">
+                            @foreach (var row in active.Value)
+                            {
+                                var date = string.IsNullOrWhiteSpace(row.Date)
+                                    ? "No date"
+                                    : row.Date.Trim();
+                                <li class="@(string.IsNullOrWhiteSpace(row.Date) ? "is-empty" : null)">
+                                    @date
+                                </li>
+                            }
+                        </ul>
+                    </section>
+                </div>
+
+                @{
+                    var trailerEmbed = active.Value
+                        .Select(row => YoutubeEmbedUrl(row.Trailer))
+                        .FirstOrDefault(url => !string.IsNullOrWhiteSpace(url));
+                }
+                <section class="trailer-card @(string.IsNullOrWhiteSpace(trailerEmbed) ? "is-empty" : null)" aria-label="Trailer">
+                    <h3 class="detail-card-label">Trailer</h3>
+                    <div class="trailer-embed">
+                        @if (!string.IsNullOrWhiteSpace(trailerEmbed))
+                        {
+                            <iframe src="@trailerEmbed"
+                                    title="Game trailer"
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                                    allowfullscreen
+                                    referrerpolicy="strict-origin-when-cross-origin"></iframe>
+                        }
+                        else
+                        {
+                            <span class="trailer-placeholder">No trailer</span>
+                        }
+                    </div>
+                </section>
+
+                @{
+                    var pdfEmbed = active.Value
+                        .Select(row => PdfEmbedUrl(row.PressReleasePdf))
+                        .FirstOrDefault(url => !string.IsNullOrWhiteSpace(url));
+                }
+                <section class="trailer-card @(string.IsNullOrWhiteSpace(pdfEmbed) ? "is-empty" : null)" aria-label="Press release PDF">
+                    <h3 class="detail-card-label">Press release PDF</h3>
+                    <div class="trailer-embed">
+                        @if (!string.IsNullOrWhiteSpace(pdfEmbed))
+                        {
+                            <iframe src="@pdfEmbed"
+                                    title="Press release PDF"
+                                    allow="fullscreen"
+                                    allowfullscreen></iframe>
+                        }
+                        else
+                        {
+                            <span class="trailer-placeholder">No PDF</span>
+                        }
+                    </div>
+                </section>
+
+                <div class="detail-cards">
+                    <section class="detail-card">
+                        <h3 class="detail-card-label">Estimated reach</h3>
+                        <ul class="detail-card-list">
+                            @foreach (var row in active.Value)
+                            {
+                                var reach = string.IsNullOrWhiteSpace(row.EstimatedReach)
+                                    ? "No data"
+                                    : row.EstimatedReach.Trim();
+                                <li class="@(string.IsNullOrWhiteSpace(row.EstimatedReach) ? "is-empty" : null)">
+                                    @reach
+                                </li>
+                            }
+                        </ul>
+                    </section>
+                    <section class="detail-card">
+                        <h3 class="detail-card-label">Total wishlists</h3>
+                        <ul class="detail-card-list">
+                            @foreach (var row in active.Value)
+                            {
+                                var wishlists = string.IsNullOrWhiteSpace(row.TotalWishlists)
+                                    ? "No data"
+                                    : row.TotalWishlists.Trim();
+                                <li class="@(string.IsNullOrWhiteSpace(row.TotalWishlists) ? "is-empty" : null)">
+                                    @wishlists
+                                </li>
+                            }
+                        </ul>
+                    </section>
+                </div>
+
+                @{
+                    var coverageLinks = CoverageLinksForEntries(active.Value);
+                }
+                <section class="trailer-card coverage-links-card" aria-label="Coverage links">
+                    <h3 class="detail-card-label">Coverage links</h3>
+                    <div class="coverage-links-grid">
+                        @if (coverageLinks.Count == 0)
+                        {
+                            <p class="coverage-links-empty">No coverage links</p>
+                        }
+                        else
+                        {
+                            @foreach (var link in coverageLinks)
+                            {
+                                <a class="coverage-link"
+                                   href="@link.Url"
+                                   target="_blank"
+                                   rel="noopener noreferrer">
+                                    <div class="coverage-link-cover @(!string.IsNullOrWhiteSpace(link.CoverImage) ? null : "is-favicon")">
+                                        @if (!string.IsNullOrWhiteSpace(link.CoverImage))
+                                        {
+                                            <img class="coverage-link-cover-image" src="@link.CoverImage" alt="" referrerpolicy="no-referrer" />
+                                        }
+                                        else
+                                        {
+                                            <img class="coverage-link-cover-image" src="@FaviconUrl(link.Url)" alt="" referrerpolicy="no-referrer" />
+                                        }
+                                        @{
+                                            var siteIcon = FaviconUrl(link.Url);
+                                            var flagUrl = CountryFlagUrl(link.OutletCountry);
+                                        }
+                                        @if (!string.IsNullOrWhiteSpace(siteIcon))
+                                        {
+                                            <div class="coverage-link-site-icon" title="Website">
+                                                <img src="@siteIcon" alt="" loading="lazy" referrerpolicy="no-referrer" />
+                                            </div>
+                                        }
+                                        @if (!string.IsNullOrWhiteSpace(flagUrl))
+                                        {
+                                            <div class="coverage-link-flag" title="@link.OutletCountry">
+                                                <img src="@flagUrl" alt="@link.OutletCountry" loading="lazy" referrerpolicy="no-referrer" />
+                                            </div>
+                                        }
+                                    </div>
+                                    <p class="coverage-link-title">@link.DisplayTitle</p>
+                                    <div class="coverage-link-body">
+                                        @{
+                                            var detailFields = new (string Label, string Value)[]
+                                            {
+                                                ("Result type", link.ResultType),
+                                                ("Outlet type", link.OutletType),
+                                                ("Outlet stats", FormatCoverageStat(link.OutletStats)),
+                                                ("Global domain", link.GlobalDomain),
+                                                ("Country domain", link.CountryDomain),
+                                                ("Sentiment", link.Sentiment),
+                                            }.Where(field => !string.IsNullOrWhiteSpace(field.Value)).ToArray();
+                                        }
+                                        <div class="coverage-link-stats @(detailFields.Length > 0 ? null : "is-empty")">
+                                            <h4 class="coverage-link-stats-label">Coverage details</h4>
+                                            <dl class="coverage-link-details @(detailFields.Length > 0 ? null : "is-empty")">
+                                                @if (detailFields.Length > 0)
+                                                {
+                                                    @foreach (var field in detailFields)
+                                                    {
+                                                        <div class="coverage-link-detail">
+                                                            <dt>@field.Label</dt>
+                                                            <dd>@field.Value</dd>
+                                                        </div>
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    <div class="coverage-link-detail">
+                                                        <dt>&nbsp;</dt>
+                                                        <dd>&nbsp;</dd>
+                                                    </div>
+                                                }
+                                            </dl>
+                                        </div>
+                                    </div>
+                                </a>
+                            }
+                        }
+                    </div>
+                </section>
             </div>
         </div>
     }
@@ -132,6 +352,410 @@
         ShowSlide(_activeIndex + (delta < 0 ? 1 : -1));
     }
 
+    private static readonly (string Id, string Label, string Icon)[] PlatformOptions =
+    [
+        ("steam", "Steam", "images/Steam Icon.webp"),
+        ("switch2", "Switch 2", "images/Switch 2 Icon.webp"),
+        ("switch", "Switch", "images/Switch Icon.png"),
+        ("xbox", "Xbox", "images/Xbox.png"),
+    ];
+
+    private static List<(string Id, string Label, string Icon)> PlatformsForEntries(
+        IEnumerable<AnnouncementRow> entries)
+    {
+        var ids = new List<string>();
+        foreach (var row in entries)
+        {
+            foreach (var id in ParsePlatforms(row.Platforms))
+            {
+                if (!ids.Contains(id)) ids.Add(id);
+            }
+        }
+
+        return PlatformOptions
+            .Where(option => ids.Contains(option.Id))
+            .ToList();
+    }
+
+    private static List<string> ParsePlatforms(string? value)
+    {
+        var text = (value ?? "").ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(text)) return [];
+
+        var selected = new List<string>();
+        (string Id, string[] Patterns)[] ordered =
+        [
+            ("switch2", ["switch 2", "switch2", "nsw2"]),
+            ("switch", ["nintendo switch", "switch", "nsw"]),
+            ("steam", ["steam", "pc"]),
+            ("xbox", ["xbox", "series x", "series s"]),
+        ];
+
+        foreach (var option in ordered)
+        {
+            if (option.Patterns.Any(pattern => text.Contains(pattern)))
+            {
+                if (option.Id == "switch" && selected.Contains("switch2")) continue;
+                selected.Add(option.Id);
+            }
+        }
+
+        foreach (var option in PlatformOptions)
+        {
+            var parts = text.Split([',', '|', ';', '/'], StringSplitOptions.RemoveEmptyEntries)
+                .Select(part => part.Trim());
+            if (parts.Contains(option.Id) && !selected.Contains(option.Id))
+                selected.Add(option.Id);
+        }
+
+        return selected;
+    }
+
+    private static string FaviconUrl(string url)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)) return "";
+        return $"https://www.google.com/s2/favicons?domain={Uri.EscapeDataString(uri.Host)}&sz=128";
+    }
+
+    private static string FormatCoverageStat(string? value)
+    {
+        var raw = value?.Trim() ?? "";
+        if (string.IsNullOrWhiteSpace(raw)) return "";
+
+        var cleaned = raw.Replace(",", "");
+        if (System.Text.RegularExpressions.Regex.IsMatch(cleaned, @"^-?\d+(\.\d+)?$"))
+        {
+            var negative = cleaned.StartsWith('-');
+            var parts = cleaned.TrimStart('-').Split('.', 2);
+            var grouped = System.Text.RegularExpressions.Regex.Replace(
+                parts[0],
+                @"\B(?=(\d{3})+(?!\d))",
+                ",");
+            var formatted = parts.Length > 1 ? $"{grouped}.{parts[1]}" : grouped;
+            return negative ? $"-{formatted}" : formatted;
+        }
+
+        return System.Text.RegularExpressions.Regex.Replace(
+            raw,
+            @"\d{4,}",
+            match => System.Text.RegularExpressions.Regex.Replace(
+                match.Value,
+                @"\B(?=(\d{3})+(?!\d))",
+                ","));
+    }
+
+    private static string LinkLabel(string url)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)) return url;
+        return string.IsNullOrWhiteSpace(uri.Host)
+            ? url
+            : uri.Host.Replace("www.", "", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private sealed record CoverageLinkItem(
+        string Url,
+        string Title,
+        string OutletName,
+        string CoverImage,
+        string OutletCountry = "",
+        string ResultType = "",
+        string OutletType = "",
+        string OutletStats = "",
+        string GlobalDomain = "",
+        string CountryDomain = "",
+        string Sentiment = "")
+    {
+        public string DisplayTitle =>
+            !string.IsNullOrWhiteSpace(Title) ? Title
+            : !string.IsNullOrWhiteSpace(OutletName) ? OutletName
+            : LinkLabel(Url);
+    }
+
+    private static readonly Dictionary<string, string> CountryFlagCodes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["us"] = "us", ["usa"] = "us", ["u.s."] = "us", ["u.s.a."] = "us",
+        ["united states"] = "us", ["united states of america"] = "us", ["america"] = "us",
+        ["uk"] = "gb", ["u.k."] = "gb", ["gb"] = "gb", ["united kingdom"] = "gb",
+        ["britain"] = "gb", ["great britain"] = "gb", ["england"] = "gb",
+        ["ca"] = "ca", ["canada"] = "ca",
+        ["au"] = "au", ["australia"] = "au",
+        ["nz"] = "nz", ["new zealand"] = "nz",
+        ["de"] = "de", ["germany"] = "de",
+        ["fr"] = "fr", ["france"] = "fr",
+        ["es"] = "es", ["spain"] = "es",
+        ["it"] = "it", ["italy"] = "it",
+        ["nl"] = "nl", ["netherlands"] = "nl", ["holland"] = "nl",
+        ["be"] = "be", ["belgium"] = "be",
+        ["se"] = "se", ["sweden"] = "se",
+        ["no"] = "no", ["norway"] = "no",
+        ["dk"] = "dk", ["denmark"] = "dk",
+        ["fi"] = "fi", ["finland"] = "fi",
+        ["ie"] = "ie", ["ireland"] = "ie",
+        ["pt"] = "pt", ["portugal"] = "pt",
+        ["pl"] = "pl", ["poland"] = "pl",
+        ["rs"] = "rs", ["serbia"] = "rs", ["srbija"] = "rs",
+        ["vn"] = "vn", ["vietnam"] = "vn", ["viet nam"] = "vn",
+        ["kw"] = "kw", ["kuwait"] = "kw",
+        ["at"] = "at", ["austria"] = "at",
+        ["ch"] = "ch", ["switzerland"] = "ch",
+        ["jp"] = "jp", ["japan"] = "jp",
+        ["kr"] = "kr", ["south korea"] = "kr", ["korea"] = "kr",
+        ["cn"] = "cn", ["china"] = "cn",
+        ["tw"] = "tw", ["taiwan"] = "tw",
+        ["hk"] = "hk", ["hong kong"] = "hk",
+        ["sg"] = "sg", ["singapore"] = "sg",
+        ["in"] = "in", ["india"] = "in",
+        ["br"] = "br", ["brazil"] = "br",
+        ["mx"] = "mx", ["mexico"] = "mx",
+        ["ar"] = "ar", ["argentina"] = "ar",
+        ["za"] = "za", ["south africa"] = "za",
+        ["ae"] = "ae", ["uae"] = "ae", ["united arab emirates"] = "ae",
+        ["eu"] = "eu", ["europe"] = "eu",
+        ["global"] = "un", ["worldwide"] = "un", ["international"] = "un", ["world"] = "un",
+    };
+
+    private static string CountryFlagUrl(string? country)
+    {
+        var raw = country?.Trim() ?? "";
+        if (string.IsNullOrWhiteSpace(raw)) return "";
+        if (raw.Length == 2 && raw.All(char.IsLetter))
+        {
+            var code = raw.ToLowerInvariant();
+            if (code == "uk") code = "gb";
+            return $"https://flagcdn.com/w80/{code}.png";
+        }
+
+        var key = System.Text.RegularExpressions.Regex
+            .Replace(raw.ToLowerInvariant(), @"[^a-z.\s]", " ")
+            .Trim();
+        key = System.Text.RegularExpressions.Regex.Replace(key, @"\s+", " ");
+        return CountryFlagCodes.TryGetValue(key, out var mapped)
+            ? $"https://flagcdn.com/w80/{mapped}.png"
+            : "";
+    }
+
+    private static List<CoverageLinkItem> CoverageLinksForEntries(IEnumerable<AnnouncementRow> entries)
+    {
+        var links = new List<CoverageLinkItem>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var row in entries)
+        {
+            foreach (var item in ParseCoverageLinkItems(row.CoverageLinks))
+            {
+                if (!seen.Add(item.Url)) continue;
+                links.Add(item);
+            }
+
+            foreach (var url in ExtractUrls(row.Highlights))
+            {
+                if (!seen.Add(url)) continue;
+                links.Add(new CoverageLinkItem(url, "", "", ""));
+            }
+        }
+
+        return links;
+    }
+
+    private static List<CoverageLinkItem> ParseCoverageLinkItems(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return [];
+
+        var text = value.Trim();
+        if (text.StartsWith('['))
+        {
+            try
+            {
+                using var document = System.Text.Json.JsonDocument.Parse(text);
+                if (document.RootElement.ValueKind == System.Text.Json.JsonValueKind.Array)
+                {
+                    return document.RootElement
+                        .EnumerateArray()
+                        .Select(item =>
+                        {
+                            if (item.ValueKind == System.Text.Json.JsonValueKind.String)
+                            {
+                                var url = item.GetString()?.Trim() ?? "";
+                                return string.IsNullOrWhiteSpace(url)
+                                    ? null
+                                    : new CoverageLinkItem(url, "", "", "");
+                            }
+
+                            if (item.ValueKind != System.Text.Json.JsonValueKind.Object)
+                            {
+                                return null;
+                            }
+
+                            var urlValue = item.TryGetProperty("url", out var urlProperty)
+                                ? urlProperty.GetString()?.Trim() ?? ""
+                                : "";
+                            if (!urlValue.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                            {
+                                return null;
+                            }
+
+                            var title = item.TryGetProperty("title", out var titleProperty)
+                                ? titleProperty.GetString()?.Trim() ?? ""
+                                : "";
+                            var outlet = item.TryGetProperty("outletName", out var outletProperty)
+                                ? outletProperty.GetString()?.Trim() ?? ""
+                                : "";
+                            var cover = item.TryGetProperty("coverImage", out var coverProperty)
+                                ? coverProperty.GetString()?.Trim() ?? ""
+                                : item.TryGetProperty("image", out var imageProperty)
+                                    ? imageProperty.GetString()?.Trim() ?? ""
+                                    : "";
+                            var country = item.TryGetProperty("outletCountry", out var countryProperty)
+                                ? countryProperty.GetString()?.Trim() ?? ""
+                                : "";
+                            string Read(string name) =>
+                                item.TryGetProperty(name, out var prop)
+                                    ? prop.GetString()?.Trim() ?? ""
+                                    : "";
+                            return new CoverageLinkItem(
+                                urlValue,
+                                title,
+                                outlet,
+                                cover,
+                                country,
+                                Read("resultType"),
+                                Read("outletType"),
+                                Read("outletStats"),
+                                Read("globalDomain"),
+                                Read("countryDomain"),
+                                Read("sentiment"));
+                        })
+                        .Where(item => item is not null)
+                        .Cast<CoverageLinkItem>()
+                        .ToList();
+                }
+            }
+            catch (System.Text.Json.JsonException)
+            {
+                // Fall through to free-text URL extraction.
+            }
+        }
+
+        return ExtractUrls(value)
+            .Select(url => new CoverageLinkItem(url, "", "", ""))
+            .ToList();
+    }
+
+    private static List<string> ExtractUrls(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return [];
+
+        var text = value.Trim();
+        if (text.StartsWith('['))
+        {
+            try
+            {
+                using var document = System.Text.Json.JsonDocument.Parse(text);
+                if (document.RootElement.ValueKind == System.Text.Json.JsonValueKind.Array)
+                {
+                    return document.RootElement
+                        .EnumerateArray()
+                        .Select(item =>
+                        {
+                            if (item.ValueKind == System.Text.Json.JsonValueKind.String)
+                            {
+                                return item.GetString()?.Trim() ?? "";
+                            }
+
+                            if (item.ValueKind == System.Text.Json.JsonValueKind.Object &&
+                                item.TryGetProperty("url", out var urlProperty))
+                            {
+                                return urlProperty.GetString()?.Trim() ?? "";
+                            }
+
+                            return "";
+                        })
+                        .Where(url => url.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .ToList();
+                }
+            }
+            catch (System.Text.Json.JsonException)
+            {
+                // Fall through to free-text URL extraction.
+            }
+        }
+
+        return System.Text.RegularExpressions.Regex
+            .Matches(value, @"https?://[^\s<>""')\]]+", System.Text.RegularExpressions.RegexOptions.IgnoreCase)
+            .Select(match => match.Value.TrimEnd('.', ',', ';', ':', '!', '?', ')'))
+            .Where(url => !string.IsNullOrWhiteSpace(url))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static string? PdfEmbedUrl(string? value)
+    {
+        var raw = value?.Trim();
+        if (string.IsNullOrWhiteSpace(raw)) return null;
+        if (!Uri.TryCreate(raw, UriKind.Absolute, out var uri)) return null;
+
+        var host = uri.Host.Replace("www.", "", StringComparison.OrdinalIgnoreCase);
+        if (host.Equals("drive.google.com", StringComparison.OrdinalIgnoreCase))
+        {
+            var match = System.Text.RegularExpressions.Regex.Match(uri.AbsolutePath, @"/file/d/([^/]+)");
+            var id = match.Success
+                ? match.Groups[1].Value
+                : uri.Query.TrimStart('?')
+                    .Split('&', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(part => part.Split('=', 2))
+                    .Where(parts => parts.Length == 2 && parts[0].Equals("id", StringComparison.OrdinalIgnoreCase))
+                    .Select(parts => Uri.UnescapeDataString(parts[1]))
+                    .FirstOrDefault();
+            return string.IsNullOrWhiteSpace(id)
+                ? raw
+                : $"https://drive.google.com/file/d/{id}/preview";
+        }
+
+        return uri.AbsoluteUri;
+    }
+
+    private static string? YoutubeEmbedUrl(string? value)
+    {
+        var raw = value?.Trim();
+        if (string.IsNullOrWhiteSpace(raw)) return null;
+
+        if (System.Text.RegularExpressions.Regex.IsMatch(raw, @"^[\w-]{11}$"))
+            return $"https://www.youtube.com/embed/{raw}";
+
+        if (!Uri.TryCreate(raw, UriKind.Absolute, out var uri)) return null;
+
+        var host = uri.Host.Replace("www.", "", StringComparison.OrdinalIgnoreCase);
+        if (host.Equals("youtu.be", StringComparison.OrdinalIgnoreCase))
+        {
+            var id = uri.AbsolutePath.Trim('/').Split('/', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+            return string.IsNullOrWhiteSpace(id) ? null : $"https://www.youtube.com/embed/{id}";
+        }
+
+        if (host.Equals("youtube.com", StringComparison.OrdinalIgnoreCase) ||
+            host.Equals("m.youtube.com", StringComparison.OrdinalIgnoreCase) ||
+            host.Equals("youtube-nocookie.com", StringComparison.OrdinalIgnoreCase))
+        {
+            if (uri.AbsolutePath.StartsWith("/embed/", StringComparison.OrdinalIgnoreCase) ||
+                uri.AbsolutePath.StartsWith("/shorts/", StringComparison.OrdinalIgnoreCase))
+            {
+                var id = uri.AbsolutePath.Trim('/').Split('/', StringSplitOptions.RemoveEmptyEntries).ElementAtOrDefault(1);
+                return string.IsNullOrWhiteSpace(id) ? null : $"https://www.youtube.com/embed/{id}";
+            }
+
+            var videoId = uri.Query
+                .TrimStart('?')
+                .Split('&', StringSplitOptions.RemoveEmptyEntries)
+                .Select(part => part.Split('=', 2))
+                .Where(parts => parts.Length == 2 && parts[0].Equals("v", StringComparison.OrdinalIgnoreCase))
+                .Select(parts => Uri.UnescapeDataString(parts[1]))
+                .FirstOrDefault();
+            return string.IsNullOrWhiteSpace(videoId) ? null : $"https://www.youtube.com/embed/{videoId}";
+        }
+
+        return null;
+    }
+
     private sealed class PublicDataset
     {
         public List<AnnouncementRow> Rows { get; set; } = [];
@@ -149,5 +773,7 @@
         public string? EstimatedReach { get; set; }
         public string? Highlights { get; set; }
         public string? TotalWishlists { get; set; }
+        public string? CoverageLinks { get; set; }
+        public string? GameImage { get; set; }
     }
 }

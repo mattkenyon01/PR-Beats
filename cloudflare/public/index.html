@@ -8,40 +8,654 @@
 </head>
 <body class="public-page">
   <div class="public-app">
-    <header class="public-header">
-      <h1>PR beats</h1>
-      <p class="lede">Announcement coverage</p>
-    </header>
-
     <p class="note" id="status">Loading…</p>
     <div class="announcement-carousel" id="carousel" hidden tabindex="0">
-      <div class="carousel-slide" id="carousel-slide" aria-live="polite">
-        <h2 class="carousel-game" id="carousel-game"></h2>
-        <ul class="carousel-announcements" id="carousel-announcements"></ul>
-      </div>
       <div
         class="carousel-dots"
         id="carousel-dots"
         role="tablist"
         aria-label="Games"
       ></div>
+
+      <div class="cover-banner is-empty" id="cover-banner" aria-hidden="true">
+        <img class="carousel-game-image" id="carousel-game-image" alt="" hidden />
+        <span class="cover-banner-placeholder" id="cover-placeholder">Cover image</span>
+      </div>
+
+      <div class="carousel-slide" id="carousel-slide" aria-live="polite">
+        <h2 class="carousel-game" id="carousel-game"></h2>
+        <p class="carousel-subtitle" id="carousel-subtitle" hidden></p>
+        <div class="detail-cards" id="detail-cards">
+          <section class="detail-card">
+            <h3 class="detail-card-label">Platforms</h3>
+            <div class="platform-chips readonly" id="announcement-platforms"></div>
+          </section>
+          <section class="detail-card">
+            <h3 class="detail-card-label">Date</h3>
+            <ul class="detail-card-list" id="announcement-dates"></ul>
+          </section>
+        </div>
+
+        <section class="trailer-card is-empty" id="trailer-card" aria-label="Trailer">
+          <h3 class="detail-card-label">Trailer</h3>
+          <div class="trailer-embed" id="trailer-embed">
+            <span class="trailer-placeholder" id="trailer-placeholder">No trailer</span>
+          </div>
+        </section>
+
+        <section class="trailer-card is-empty" id="pdf-card" aria-label="Press release PDF">
+          <h3 class="detail-card-label">Press release PDF</h3>
+          <div class="trailer-embed" id="pdf-embed">
+            <span class="trailer-placeholder" id="pdf-placeholder">No PDF</span>
+          </div>
+        </section>
+
+        <div class="detail-cards" id="stats-cards">
+          <section class="detail-card">
+            <h3 class="detail-card-label">Estimated reach</h3>
+            <ul class="detail-card-list" id="estimated-reach"></ul>
+          </section>
+          <section class="detail-card">
+            <h3 class="detail-card-label">Total wishlists</h3>
+            <ul class="detail-card-list" id="total-wishlists"></ul>
+          </section>
+        </div>
+
+        <section class="trailer-card coverage-links-card" id="coverage-links-card" aria-label="Coverage links">
+          <h3 class="detail-card-label">Coverage links</h3>
+          <div class="coverage-links-grid" id="coverage-links-grid"></div>
+        </section>
+      </div>
     </div>
   </div>
 
   <a class="admin-link" href="login.html">Admin</a>
 
   <script type="module">
-    import { loadPublicAnnouncements } from "./js/api.js";
+    import {
+      fetchLinkPreview,
+      linkPreviewImageUrl,
+      loadPublicAnnouncements,
+    } from "./js/api.js";
+    import {
+      countryFlagUrl,
+      coverageLinkDisplayLabel,
+      coverageLinkUrls,
+      formatCoverageStat,
+      parseCoverageLinksValue,
+    } from "./js/csv.js";
 
     const statusEl = document.getElementById("status");
+    const coverBannerEl = document.getElementById("cover-banner");
+    const coverPlaceholderEl = document.getElementById("cover-placeholder");
     const carouselEl = document.getElementById("carousel");
     const gameEl = document.getElementById("carousel-game");
-    const announcementsEl = document.getElementById("carousel-announcements");
+    const subtitleEl = document.getElementById("carousel-subtitle");
+    const gameImageEl = document.getElementById("carousel-game-image");
+    const announcementPlatformsEl = document.getElementById(
+      "announcement-platforms"
+    );
+    const announcementDatesEl = document.getElementById("announcement-dates");
+    const trailerCardEl = document.getElementById("trailer-card");
+    const trailerEmbedEl = document.getElementById("trailer-embed");
+    const trailerPlaceholderEl = document.getElementById("trailer-placeholder");
+    const pdfCardEl = document.getElementById("pdf-card");
+    const pdfEmbedEl = document.getElementById("pdf-embed");
+    const pdfPlaceholderEl = document.getElementById("pdf-placeholder");
+    const estimatedReachEl = document.getElementById("estimated-reach");
+    const totalWishlistsEl = document.getElementById("total-wishlists");
+    const coverageLinksGridEl = document.getElementById("coverage-links-grid");
     const dotsEl = document.getElementById("carousel-dots");
+    const linkPreviewCache = new Map();
+
+    const PLATFORM_OPTIONS = [
+      { id: "steam", label: "Steam", icon: "images/Steam Icon.webp" },
+      { id: "switch2", label: "Switch 2", icon: "images/Switch 2 Icon.webp" },
+      { id: "switch", label: "Switch", icon: "images/Switch Icon.png" },
+      { id: "xbox", label: "Xbox", icon: "images/Xbox.png" },
+    ];
 
     let groups = [];
     let activeIndex = 0;
     let touchStartX = 0;
+
+    function parsePlatforms(value) {
+      const text = String(value || "").toLowerCase();
+      if (!text.trim()) return [];
+
+      const selected = [];
+      const ordered = [
+        { id: "switch2", patterns: ["switch 2", "switch2", "nsw2"] },
+        { id: "switch", patterns: ["nintendo switch", "switch", "nsw"] },
+        { id: "steam", patterns: ["steam", "pc"] },
+        { id: "xbox", patterns: ["xbox", "series x", "series s"] },
+      ];
+
+      ordered.forEach((option) => {
+        if (option.patterns.some((pattern) => text.includes(pattern))) {
+          if (option.id === "switch" && selected.includes("switch2")) return;
+          selected.push(option.id);
+        }
+      });
+
+      PLATFORM_OPTIONS.forEach((option) => {
+        if (
+          text
+            .split(/[,|;/]+/)
+            .map((part) => part.trim())
+            .includes(option.id) &&
+          !selected.includes(option.id)
+        ) {
+          selected.push(option.id);
+        }
+      });
+
+      return selected;
+    }
+
+    function platformsForEntries(entries) {
+      const ids = [];
+      entries.forEach((row) => {
+        parsePlatforms(row.platforms).forEach((id) => {
+          if (!ids.includes(id)) ids.push(id);
+        });
+      });
+      return PLATFORM_OPTIONS.filter((option) => ids.includes(option.id));
+    }
+
+    function setPlatforms(entries) {
+      announcementPlatformsEl.innerHTML = "";
+      const platforms = platformsForEntries(entries);
+
+      if (!platforms.length) {
+        announcementPlatformsEl.classList.add("muted");
+        const empty = document.createElement("span");
+        empty.className = "detail-card-list is-empty";
+        empty.textContent = "No platforms";
+        empty.style.fontStyle = "italic";
+        empty.style.opacity = "0.45";
+        announcementPlatformsEl.appendChild(empty);
+        return;
+      }
+
+      announcementPlatformsEl.classList.remove("muted");
+      platforms.forEach((option) => {
+        const item = document.createElement("div");
+        item.className = "platform-entry";
+
+        const img = document.createElement("img");
+        img.className = "platform-icon";
+        img.src = option.icon;
+        img.alt = "";
+        item.appendChild(img);
+
+        const name = document.createElement("span");
+        name.className = "platform-name";
+        name.textContent = option.label;
+        item.appendChild(name);
+
+        announcementPlatformsEl.appendChild(item);
+      });
+    }
+
+    function youtubeEmbedUrl(value) {
+      const raw = String(value || "").trim();
+      if (!raw) return "";
+
+      try {
+        const url = new URL(raw);
+        const host = url.hostname.replace(/^www\./, "").toLowerCase();
+
+        if (host === "youtu.be") {
+          const id = url.pathname.split("/").filter(Boolean)[0] || "";
+          return id ? `https://www.youtube.com/embed/${id}` : "";
+        }
+
+        if (host === "youtube.com" || host === "m.youtube.com" || host === "youtube-nocookie.com") {
+          if (url.pathname.startsWith("/embed/")) {
+            const id = url.pathname.split("/")[2] || "";
+            return id ? `https://www.youtube.com/embed/${id}` : "";
+          }
+          if (url.pathname.startsWith("/shorts/")) {
+            const id = url.pathname.split("/")[2] || "";
+            return id ? `https://www.youtube.com/embed/${id}` : "";
+          }
+          const id = url.searchParams.get("v");
+          return id ? `https://www.youtube.com/embed/${id}` : "";
+        }
+      } catch {
+        /* not a URL — try bare video id */
+      }
+
+      if (/^[\w-]{11}$/.test(raw)) {
+        return `https://www.youtube.com/embed/${raw}`;
+      }
+
+      return "";
+    }
+
+    function setTrailer(entries) {
+      const embedUrl = entries
+        .map((row) => youtubeEmbedUrl(row.trailer))
+        .find(Boolean);
+
+      const existing = trailerEmbedEl.querySelector("iframe");
+      if (existing) existing.remove();
+
+      if (embedUrl) {
+        const iframe = document.createElement("iframe");
+        iframe.src = embedUrl;
+        iframe.title = "Game trailer";
+        iframe.allow =
+          "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share";
+        iframe.allowFullscreen = true;
+        iframe.referrerPolicy = "strict-origin-when-cross-origin";
+        trailerEmbedEl.appendChild(iframe);
+        trailerPlaceholderEl.hidden = true;
+        trailerCardEl.classList.remove("is-empty");
+      } else {
+        trailerPlaceholderEl.hidden = false;
+        trailerCardEl.classList.add("is-empty");
+      }
+    }
+
+    function pdfEmbedUrl(value) {
+      const raw = String(value || "").trim();
+      if (!raw) return "";
+
+      try {
+        const url = new URL(raw);
+        const host = url.hostname.replace(/^www\./, "").toLowerCase();
+
+        // Google Drive share/view links → preview embed
+        if (host === "drive.google.com") {
+          const fileMatch = url.pathname.match(/\/file\/d\/([^/]+)/);
+          const id = fileMatch?.[1] || url.searchParams.get("id");
+          return id ? `https://drive.google.com/file/d/${id}/preview` : raw;
+        }
+
+        return url.href;
+      } catch {
+        return "";
+      }
+    }
+
+    function extractUrls(value) {
+      const text = String(value || "");
+      const matches = text.match(/https?:\/\/[^\s<>"')\]]+/gi) || [];
+      return [
+        ...new Set(
+          matches.map((url) => url.replace(/[.,;:!?)]+$/g, "")).filter(Boolean)
+        ),
+      ];
+    }
+
+    function faviconUrl(url) {
+      try {
+        return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(
+          new URL(url).hostname
+        )}&sz=128`;
+      } catch {
+        return "";
+      }
+    }
+
+    function loadImageWithFallback(imgEl, src, { onSuccess, onFail } = {}) {
+      const image = String(src || "").trim();
+      if (!image || !imgEl) {
+        onFail?.();
+        return;
+      }
+      const proxied = linkPreviewImageUrl(image);
+      const tryLoad = (finalSrc, allowProxyFallback) => {
+        imgEl.referrerPolicy = "no-referrer";
+        imgEl.decoding = "async";
+        imgEl.onload = () => {
+          onSuccess?.(finalSrc);
+        };
+        imgEl.onerror = () => {
+          if (allowProxyFallback && proxied && finalSrc !== proxied) {
+            tryLoad(proxied, false);
+            return;
+          }
+          onFail?.();
+        };
+        imgEl.src = finalSrc;
+      };
+      tryLoad(image, true);
+    }
+
+    function showFaviconInCover(anchor) {
+      if (!anchor) return;
+      const coverEl = anchor.querySelector(".coverage-link-cover");
+      const coverImg = coverEl?.querySelector(".coverage-link-cover-image");
+      const placeholder = coverEl?.querySelector(".coverage-link-cover-empty");
+      const icon = faviconUrl(anchor.href);
+      if (!coverEl || !coverImg) return;
+
+      if (!icon) {
+        coverImg.hidden = true;
+        coverImg.removeAttribute("src");
+        coverEl.classList.remove("is-favicon");
+        if (placeholder) placeholder.hidden = false;
+        return;
+      }
+
+      coverEl.classList.add("is-favicon");
+      coverEl._coverLoaded = false;
+      coverImg.referrerPolicy = "no-referrer";
+      coverImg.onload = () => {
+        coverImg.hidden = false;
+        if (placeholder) placeholder.hidden = true;
+      };
+      coverImg.onerror = () => {
+        coverImg.hidden = true;
+        coverImg.removeAttribute("src");
+        coverEl.classList.remove("is-favicon");
+        if (placeholder) placeholder.hidden = false;
+      };
+      coverImg.src = icon;
+    }
+
+    function applyCoverToAnchor(anchor, imageUrl, { workingSrc = "" } = {}) {
+      if (!anchor) return;
+      const coverEl = anchor.querySelector(".coverage-link-cover");
+      const coverImg = coverEl?.querySelector(".coverage-link-cover-image");
+      const placeholder = coverEl?.querySelector(".coverage-link-cover-empty");
+      const src = String(workingSrc || imageUrl || "").trim();
+      if (!coverEl || !coverImg || !src) return;
+
+      const current =
+        String(coverImg.getAttribute("src") || "").trim() ||
+        String(anchor.dataset.coverImage || "").trim();
+      if (
+        coverEl._coverLoaded &&
+        !coverEl.classList.contains("is-favicon") &&
+        (current === src || current === imageUrl) &&
+        !coverImg.hidden
+      ) {
+        return;
+      }
+
+      const requestId = (coverEl._previewRequestId || 0) + 1;
+      coverEl._previewRequestId = requestId;
+      const isCurrent = () => coverEl._previewRequestId === requestId;
+
+      coverEl.classList.remove("is-favicon");
+      anchor.dataset.coverImage = String(imageUrl || src).trim();
+      loadImageWithFallback(coverImg, src, {
+        onSuccess: (finalSrc) => {
+          if (!isCurrent()) return;
+          coverEl._coverLoaded = true;
+          coverEl.classList.remove("is-favicon");
+          coverImg.hidden = false;
+          placeholder.hidden = true;
+          anchor.dataset.coverImage = String(imageUrl || finalSrc).trim();
+          if (finalSrc.startsWith("http")) {
+            anchor.dataset.coverWorkingSrc = finalSrc;
+          }
+        },
+        onFail: () => {
+          if (!isCurrent() || coverEl._coverLoaded) return;
+          showFaviconInCover(anchor);
+        },
+      });
+    }
+
+    function applyPreviewToAnchor(anchor, preview = {}) {
+      if (!anchor) return;
+      const image = String(preview?.image || "").trim();
+      const previewTitle = String(preview?.title || "").trim();
+      const titleEl = anchor.querySelector(".coverage-link-title");
+
+      if (image) applyCoverToAnchor(anchor, image);
+      else if (!anchor.dataset.coverImage) {
+        showFaviconInCover(anchor);
+      }
+
+      if (titleEl && !anchor.dataset.previewTitle && previewTitle) {
+        titleEl.textContent = previewTitle;
+        anchor.dataset.previewTitle = previewTitle;
+      }
+    }
+
+    async function fillCoverageLinkMedia(coverEl, titleEl, item) {
+      const url = String(item?.url || "").trim();
+      const storedCover = String(item?.coverImage || "").trim();
+      const anchor = coverEl.closest("a.coverage-link");
+      const placeholder = coverEl.querySelector(".coverage-link-cover-empty");
+      const storedTitle = String(item?.title || "").trim();
+
+      if (!url || !/^https?:\/\//i.test(url)) {
+        if (placeholder) placeholder.hidden = false;
+        return;
+      }
+
+      if (storedCover && anchor) {
+        applyCoverToAnchor(anchor, storedCover);
+      } else if (anchor) {
+        showFaviconInCover(anchor);
+      }
+
+      const applyPreview = (preview) => {
+        if (anchor) applyPreviewToAnchor(anchor, preview);
+        else if (preview?.image) {
+          applyCoverToAnchor(
+            coverEl.closest("a"),
+            String(preview.image || "").trim()
+          );
+        }
+        if (titleEl && !storedTitle) {
+          const previewTitle = String(preview?.title || "").trim();
+          if (previewTitle) titleEl.textContent = previewTitle;
+        }
+      };
+
+      if (linkPreviewCache.has(url)) {
+        applyPreview(linkPreviewCache.get(url));
+        return;
+      }
+
+      try {
+        const preview = await fetchLinkPreview(url);
+        linkPreviewCache.set(url, preview);
+        applyPreview(preview);
+      } catch {
+        if (!storedCover && anchor && !coverEl._coverLoaded) {
+          showFaviconInCover(anchor);
+        }
+      }
+    }
+
+    function setCoverageLinks(entries) {
+      coverageLinksGridEl.innerHTML = "";
+      const links = [];
+      const seen = new Set();
+
+      entries.forEach((row) => {
+        parseCoverageLinksValue(row.coverageLinks).forEach((item) => {
+          const url = String(item.url || "").trim();
+          if (!/^https?:\/\//i.test(url) || seen.has(url.toLowerCase())) return;
+          seen.add(url.toLowerCase());
+          links.push(item);
+        });
+
+        coverageLinkUrls(row.highlights).forEach((url) => {
+          if (seen.has(url.toLowerCase())) return;
+          seen.add(url.toLowerCase());
+          links.push({ url, outletName: "", title: "" });
+        });
+      });
+
+      if (!links.length) {
+        const empty = document.createElement("p");
+        empty.className = "coverage-links-empty";
+        empty.textContent = "No coverage links";
+        coverageLinksGridEl.appendChild(empty);
+        return;
+      }
+
+      links.forEach((item) => {
+        const anchor = document.createElement("a");
+        anchor.className = "coverage-link";
+        anchor.href = item.url;
+        anchor.target = "_blank";
+        anchor.rel = "noopener noreferrer";
+        const titleText = String(item.title || "").trim();
+        const coverImage = String(item.coverImage || "").trim();
+        if (titleText) anchor.dataset.previewTitle = titleText;
+        if (coverImage) anchor.dataset.coverImage = coverImage;
+
+        const cover = document.createElement("div");
+        cover.className = "coverage-link-cover";
+        cover._previewRequestId = 0;
+        const coverImg = document.createElement("img");
+        coverImg.className = "coverage-link-cover-image";
+        coverImg.alt = "";
+        coverImg.hidden = true;
+        const coverEmpty = document.createElement("span");
+        coverEmpty.className = "coverage-link-cover-empty";
+        coverEmpty.textContent = "No cover";
+        cover.appendChild(coverImg);
+        cover.appendChild(coverEmpty);
+
+        const siteIconSrc = faviconUrl(item.url);
+        if (siteIconSrc) {
+          const siteIcon = document.createElement("div");
+          siteIcon.className = "coverage-link-site-icon";
+          siteIcon.title = "Website";
+          const siteIconImg = document.createElement("img");
+          siteIconImg.src = siteIconSrc;
+          siteIconImg.alt = "";
+          siteIconImg.loading = "lazy";
+          siteIconImg.referrerPolicy = "no-referrer";
+          siteIcon.appendChild(siteIconImg);
+          cover.appendChild(siteIcon);
+        }
+
+        const country = String(item.outletCountry || "").trim();
+        const flagSrc = countryFlagUrl(country);
+        if (flagSrc) {
+          const flag = document.createElement("div");
+          flag.className = "coverage-link-flag";
+          flag.title = country;
+          const flagImg = document.createElement("img");
+          flagImg.src = flagSrc;
+          flagImg.alt = country;
+          flagImg.loading = "lazy";
+          flagImg.referrerPolicy = "no-referrer";
+          flag.appendChild(flagImg);
+          cover.appendChild(flag);
+        }
+
+        const title = document.createElement("p");
+        title.className = "coverage-link-title";
+        // Always prefer the coverage "Title" column on the main page.
+        title.textContent = titleText || coverageLinkDisplayLabel(item);
+
+        const body = document.createElement("div");
+        body.className = "coverage-link-body";
+
+        const detailFields = [
+          ["Result type", item.resultType],
+          ["Outlet type", item.outletType],
+          ["Outlet stats", formatCoverageStat(item.outletStats)],
+          ["Global domain", item.globalDomain],
+          ["Country domain", item.countryDomain],
+          ["Sentiment", item.sentiment],
+        ].filter(([, value]) => String(value || "").trim());
+
+        const stats = document.createElement("div");
+        stats.className = "coverage-link-stats";
+        const statsLabel = document.createElement("h4");
+        statsLabel.className = "coverage-link-stats-label";
+        statsLabel.textContent = "Coverage details";
+        stats.appendChild(statsLabel);
+
+        const details = document.createElement("dl");
+        details.className = "coverage-link-details";
+        if (detailFields.length) {
+          detailFields.forEach(([label, value]) => {
+            const row = document.createElement("div");
+            row.className = "coverage-link-detail";
+            const dt = document.createElement("dt");
+            dt.textContent = label;
+            const dd = document.createElement("dd");
+            dd.textContent = String(value).trim();
+            row.appendChild(dt);
+            row.appendChild(dd);
+            details.appendChild(row);
+          });
+        } else {
+          stats.classList.add("is-empty");
+          details.classList.add("is-empty");
+          const row = document.createElement("div");
+          row.className = "coverage-link-detail";
+          const dt = document.createElement("dt");
+          dt.textContent = "\u00a0";
+          const dd = document.createElement("dd");
+          dd.textContent = "\u00a0";
+          row.appendChild(dt);
+          row.appendChild(dd);
+          details.appendChild(row);
+        }
+        stats.appendChild(details);
+        body.appendChild(stats);
+
+        anchor.appendChild(cover);
+        anchor.appendChild(title);
+        anchor.appendChild(body);
+        coverageLinksGridEl.appendChild(anchor);
+        fillCoverageLinkMedia(cover, title, item);
+      });
+
+      syncCoverageCardRows();
+    }
+
+    function syncCoverageCardRows() {
+      const titles = [
+        ...coverageLinksGridEl.querySelectorAll(".coverage-link-title"),
+      ];
+      titles.forEach((el) => {
+        el.style.minHeight = "";
+      });
+
+      // Lock title rows to the tallest so detail sections line up under the separator.
+      requestAnimationFrame(() => {
+        const titleMax = Math.max(
+          0,
+          ...titles.map((el) => el.getBoundingClientRect().height)
+        );
+        if (titleMax > 0) {
+          titles.forEach((el) => {
+            el.style.minHeight = `${Math.ceil(titleMax)}px`;
+          });
+        }
+      });
+    }
+
+    function setPdf(entries) {
+      const embedUrl = entries
+        .map((row) => pdfEmbedUrl(row.pressReleasePdf))
+        .find(Boolean);
+
+      const existing = pdfEmbedEl.querySelector("iframe");
+      if (existing) existing.remove();
+
+      if (embedUrl) {
+        const iframe = document.createElement("iframe");
+        iframe.src = embedUrl;
+        iframe.title = "Press release PDF";
+        iframe.allow = "fullscreen";
+        iframe.allowFullscreen = true;
+        pdfEmbedEl.appendChild(iframe);
+        pdfPlaceholderEl.hidden = true;
+        pdfCardEl.classList.remove("is-empty");
+      } else {
+        pdfPlaceholderEl.hidden = false;
+        pdfCardEl.classList.add("is-empty");
+      }
+    }
 
     function groupByGame(rows) {
       const map = new Map();
@@ -65,14 +679,64 @@
       const [gameTitle, entries] = groups[activeIndex];
 
       gameEl.textContent = gameTitle;
-      announcementsEl.innerHTML = "";
+      const announcementTitles = [
+        ...new Set(
+          entries
+            .map((row) => (row.announcementTitle || "").trim())
+            .filter(Boolean)
+        ),
+      ];
+      if (announcementTitles.length) {
+        subtitleEl.textContent = announcementTitles.join(" · ");
+        subtitleEl.hidden = false;
+      } else {
+        subtitleEl.textContent = "";
+        subtitleEl.hidden = true;
+      }
+      const imageUrl = entries
+        .map((row) => (row.gameImage || "").trim())
+        .find(Boolean);
+      if (imageUrl) {
+        gameImageEl.src = imageUrl;
+        gameImageEl.alt = gameTitle;
+        gameImageEl.hidden = false;
+        coverPlaceholderEl.hidden = true;
+        coverBannerEl.classList.remove("is-empty");
+        coverBannerEl.setAttribute("aria-hidden", "false");
+      } else {
+        gameImageEl.removeAttribute("src");
+        gameImageEl.alt = "";
+        gameImageEl.hidden = true;
+        coverPlaceholderEl.hidden = false;
+        coverBannerEl.classList.add("is-empty");
+        coverBannerEl.setAttribute("aria-hidden", "true");
+      }
+      announcementDatesEl.innerHTML = "";
+      estimatedReachEl.innerHTML = "";
+      totalWishlistsEl.innerHTML = "";
       entries.forEach((row) => {
-        const li = document.createElement("li");
-        const title = (row.announcementTitle || "").trim();
-        li.textContent = title || "No announcement title";
-        if (!title) li.classList.add("is-empty");
-        announcementsEl.appendChild(li);
+        const date = (row.date || "").trim();
+        const dateLi = document.createElement("li");
+        dateLi.textContent = date || "No date";
+        if (!date) dateLi.classList.add("is-empty");
+        announcementDatesEl.appendChild(dateLi);
+
+        const reach = (row.estimatedReach || "").trim();
+        const reachLi = document.createElement("li");
+        reachLi.textContent = reach || "No data";
+        if (!reach) reachLi.classList.add("is-empty");
+        estimatedReachEl.appendChild(reachLi);
+
+        const wishlists = (row.totalWishlists || "").trim();
+        const wishlistsLi = document.createElement("li");
+        wishlistsLi.textContent = wishlists || "No data";
+        if (!wishlists) wishlistsLi.classList.add("is-empty");
+        totalWishlistsEl.appendChild(wishlistsLi);
       });
+      setPlatforms(entries);
+      setTrailer(entries);
+      setPdf(entries);
+      setCoverageLinks(entries);
 
       [...dotsEl.children].forEach((dot, i) => {
         const isActive = i === activeIndex;
@@ -87,6 +751,11 @@
 
       if (!groups.length) {
         carouselEl.hidden = true;
+        gameImageEl.removeAttribute("src");
+        gameImageEl.hidden = true;
+        coverPlaceholderEl.hidden = false;
+        coverBannerEl.classList.add("is-empty");
+        coverBannerEl.setAttribute("aria-hidden", "true");
         const params = new URLSearchParams(window.location.search);
         const filtered =
           params.has("game") ||
@@ -146,6 +815,13 @@
       },
       { passive: true }
     );
+
+    window.addEventListener("resize", () => {
+      syncCoverageCardRows();
+    });
+    if (document.fonts?.ready) {
+      document.fonts.ready.then(() => syncCoverageCardRows()).catch(() => {});
+    }
 
     try {
       const data = await loadPublicAnnouncements(window.location.search);

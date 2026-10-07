@@ -41,6 +41,14 @@ npm run db:local
 npm run db:remote
 ```
 
+Create the R2 bucket for game images (Firebase is auth-only):
+
+```bash
+npx wrangler r2 bucket create prbeats-images
+```
+
+`wrangler.jsonc` already binds that bucket as `IMAGES`.
+
 ## 4. Firebase
 
 In Firebase Console → Authentication → Settings → Authorized domains, add:
@@ -74,6 +82,10 @@ This creates/updates Worker name `prbeats` in the **same Cloudflare account** as
 | GET | `/api/health` | no | health check |
 | GET | `/api/announcements` | Firebase Bearer | load rows for signed-in user |
 | POST or PUT | `/api/announcements` | Firebase Bearer | replace all rows for signed-in user |
+| POST | `/api/game-images` | Firebase Bearer | upload a game image to R2 |
+| GET | `/api/game-images/:uid/:file` | no | serve a stored game image |
+| POST | `/api/coverage-covers` | Firebase Bearer | fetch a remote cover into R2 (`{ imageUrl, pageUrl? }`) |
+| GET | `/api/coverage-covers/:uid/:file` | no | serve a stored coverage cover |
 
 If saves return **405**, make sure `wrangler.jsonc` has `assets.run_worker_first: ["/api/*"]` and redeploy. Without that, Cloudflare’s static asset server handles `/api/*` and rejects POST/PUT.
 

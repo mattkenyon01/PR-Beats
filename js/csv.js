@@ -2,6 +2,7 @@ export const DISPLAY_COLUMNS = [
   {
     key: "gameTitle",
     label: "Game Title",
+    perGame: true,
     aliases: ["title", "title:", "game title", "game"],
   },
   {
@@ -56,6 +57,7 @@ export const DISPLAY_COLUMNS = [
   {
     key: "highlights",
     label: "Highlights",
+    hiddenInTable: true,
     aliases: [
       "highlights",
       "important notes",
@@ -73,6 +75,33 @@ export const DISPLAY_COLUMNS = [
       "wishlists",
       "wishlist",
       "wishlist delta",
+    ],
+  },
+  {
+    key: "coverageLinks",
+    label: "Coverage Links",
+    aliases: [
+      "coverage links",
+      "coverage link",
+      "links",
+      "link",
+      "urls",
+      "url",
+      "press links",
+      "coverage urls",
+    ],
+  },
+  {
+    key: "gameImage",
+    label: "Game Image",
+    perGame: true,
+    aliases: [
+      "game image",
+      "cover",
+      "cover image",
+      "image",
+      "game cover",
+      "artwork",
     ],
   },
 ];
@@ -340,6 +369,8 @@ export function csvToTable(text) {
     key: def.key,
     label: def.label,
     derived: Boolean(def.derived),
+    perGame: Boolean(def.perGame),
+    hiddenInTable: Boolean(def.hiddenInTable),
     sourceIndex: def.derived ? -1 : findSourceIndex(headers, def.aliases),
   }));
 
@@ -392,4 +423,383 @@ export function displayNameFromEmail(email) {
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
     .join(" ");
+}
+
+export const COVERAGE_LINK_COLUMNS = [
+  {
+    key: "outletName",
+    label: "Outlet name",
+    aliases: ["outlet name", "outlet", "publication", "source", "media outlet"],
+  },
+  {
+    key: "title",
+    label: "Title",
+    aliases: ["title", "headline", "article title", "story title"],
+  },
+  {
+    key: "url",
+    label: "URL",
+    aliases: ["url", "link", "article url", "coverage url", "web address"],
+  },
+  {
+    key: "resultType",
+    label: "Result type",
+    aliases: ["result type", "result", "coverage type"],
+  },
+  {
+    key: "outletCountry",
+    label: "Outlet country",
+    aliases: ["outlet country", "country", "nation"],
+  },
+  {
+    key: "outletType",
+    label: "Outlet type",
+    aliases: ["outlet type", "media type", "channel type"],
+  },
+  {
+    key: "outletStats",
+    label: "Outlet stats",
+    aliases: [
+      "outlet stats",
+      "outlet statistics",
+      "monthly visits",
+      "visits",
+      "uvpm",
+      "unique visitors",
+    ],
+  },
+  {
+    key: "globalDomain",
+    label: "Global domain",
+    aliases: [
+      "global domain",
+      "global domain rank",
+      "global da",
+      "domain authority",
+      "global",
+    ],
+  },
+  {
+    key: "countryDomain",
+    label: "Country domain",
+    aliases: [
+      "country domain",
+      "country domain rank",
+      "country da",
+      "local domain",
+    ],
+  },
+  {
+    key: "sentiment",
+    label: "Sentiment",
+    aliases: ["sentiment", "tone"],
+  },
+];
+
+export function emptyCoverageLink() {
+  return {
+    ...Object.fromEntries(
+      COVERAGE_LINK_COLUMNS.map((column) => [column.key, ""])
+    ),
+    coverImage: "",
+  };
+}
+
+/** Map common country names / codes → ISO 3166-1 alpha-2 for flag images. */
+const COUNTRY_FLAG_CODES = {
+  us: "us",
+  usa: "us",
+  "u.s.": "us",
+  "u.s.a.": "us",
+  "united states": "us",
+  "united states of america": "us",
+  america: "us",
+  uk: "gb",
+  "u.k.": "gb",
+  gb: "gb",
+  "united kingdom": "gb",
+  britain: "gb",
+  "great britain": "gb",
+  england: "gb",
+  scotland: "gb",
+  wales: "gb",
+  ca: "ca",
+  canada: "ca",
+  au: "au",
+  australia: "au",
+  nz: "nz",
+  "new zealand": "nz",
+  de: "de",
+  germany: "de",
+  deutschland: "de",
+  fr: "fr",
+  france: "fr",
+  es: "es",
+  spain: "es",
+  it: "it",
+  italy: "it",
+  nl: "nl",
+  netherlands: "nl",
+  holland: "nl",
+  be: "be",
+  belgium: "be",
+  se: "se",
+  sweden: "se",
+  no: "no",
+  norway: "no",
+  dk: "dk",
+  denmark: "dk",
+  fi: "fi",
+  finland: "fi",
+  ie: "ie",
+  ireland: "ie",
+  pt: "pt",
+  portugal: "pt",
+  pl: "pl",
+  poland: "pl",
+  rs: "rs",
+  serbia: "rs",
+  srbija: "rs",
+  vn: "vn",
+  vietnam: "vn",
+  "viet nam": "vn",
+  kw: "kw",
+  kuwait: "kw",
+  at: "at",
+  austria: "at",
+  ch: "ch",
+  switzerland: "ch",
+  jp: "jp",
+  japan: "jp",
+  kr: "kr",
+  "south korea": "kr",
+  korea: "kr",
+  cn: "cn",
+  china: "cn",
+  tw: "tw",
+  taiwan: "tw",
+  hk: "hk",
+  "hong kong": "hk",
+  sg: "sg",
+  singapore: "sg",
+  in: "in",
+  india: "in",
+  br: "br",
+  brazil: "br",
+  mx: "mx",
+  mexico: "mx",
+  ar: "ar",
+  argentina: "ar",
+  cl: "cl",
+  chile: "cl",
+  za: "za",
+  "south africa": "za",
+  ae: "ae",
+  uae: "ae",
+  "united arab emirates": "ae",
+  sa: "sa",
+  "saudi arabia": "sa",
+  il: "il",
+  israel: "il",
+  tr: "tr",
+  turkey: "tr",
+  türkiye: "tr",
+  ru: "ru",
+  russia: "ru",
+  cz: "cz",
+  "czech republic": "cz",
+  czechia: "cz",
+  hu: "hu",
+  hungary: "hu",
+  ro: "ro",
+  romania: "ro",
+  gr: "gr",
+  greece: "gr",
+  eu: "eu",
+  europe: "eu",
+  global: "un",
+  worldwide: "un",
+  international: "un",
+  world: "un",
+};
+
+export function countryFlagCode(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  if (/^[a-z]{2}$/i.test(raw)) {
+    const code = raw.toLowerCase();
+    return code === "uk" ? "gb" : code;
+  }
+  const key = raw
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z.\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return COUNTRY_FLAG_CODES[key] || "";
+}
+
+export function countryFlagUrl(value) {
+  const code = countryFlagCode(value);
+  if (!code) return "";
+  return `https://flagcdn.com/w80/${code}.png`;
+}
+
+function coverageRowHasContent(row) {
+  return COVERAGE_LINK_COLUMNS.some(
+    (column) => String(row?.[column.key] || "").trim() !== ""
+  );
+}
+
+export function parseCoverageLinksValue(value) {
+  const text = String(value || "").trim();
+  if (!text) return [];
+
+  if (text.startsWith("[")) {
+    try {
+      const parsed = JSON.parse(text);
+      if (Array.isArray(parsed)) {
+        return parsed
+          .map((item) => {
+            const row = emptyCoverageLink();
+            if (typeof item === "string") {
+              row.url = item.trim();
+              return row;
+            }
+            COVERAGE_LINK_COLUMNS.forEach((column) => {
+              row[column.key] = String(item?.[column.key] ?? "").trim();
+            });
+            row.coverImage = String(
+              item?.coverImage ?? item?.image ?? ""
+            ).trim();
+            return row;
+          })
+          .filter(coverageRowHasContent);
+      }
+    } catch {
+      /* fall through to legacy parsing */
+    }
+  }
+
+  const matches = text.match(/https?:\/\/[^\s<>"')\]]+/gi) || [];
+  const urls = [
+    ...new Set(
+      matches.map((url) => url.replace(/[.,;:!?)]+$/g, "")).filter(Boolean)
+    ),
+  ];
+  if (urls.length) {
+    return urls.map((url) => {
+      const row = emptyCoverageLink();
+      row.url = url;
+      return row;
+    });
+  }
+
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const row = emptyCoverageLink();
+      row.url = line;
+      return row;
+    });
+}
+
+export function serializeCoverageLinksValue(rows) {
+  const cleaned = (Array.isArray(rows) ? rows : [])
+    .map((item) => {
+      const row = emptyCoverageLink();
+      COVERAGE_LINK_COLUMNS.forEach((column) => {
+        row[column.key] = String(item?.[column.key] ?? "").trim();
+      });
+      row.coverImage = String(item?.coverImage ?? item?.image ?? "").trim();
+      return row;
+    })
+    .filter(coverageRowHasContent);
+
+  return cleaned.length ? JSON.stringify(cleaned) : "";
+}
+
+export function coverageLinksFromCsv(text) {
+  const rows = parseCsv(text);
+  if (rows.length === 0) {
+    throw new Error("This CSV is empty.");
+  }
+
+  const headers = rows[0];
+  const mapping = COVERAGE_LINK_COLUMNS.map((def) => ({
+    key: def.key,
+    sourceIndex: findSourceIndex(headers, def.aliases),
+  }));
+
+  if (!mapping.some((column) => column.sourceIndex >= 0)) {
+    throw new Error(
+      "Could not find coverage columns. Need Outlet name, Title, or URL."
+    );
+  }
+
+  const data = rows
+    .slice(1)
+    .map((row) => {
+      const record = emptyCoverageLink();
+      mapping.forEach((column) => {
+        if (column.sourceIndex >= 0) {
+          record[column.key] = (row[column.sourceIndex] ?? "").trim();
+        }
+      });
+      return record;
+    })
+    .filter(coverageRowHasContent);
+
+  if (data.length === 0) {
+    throw new Error("This CSV has headers but no coverage rows.");
+  }
+
+  return data;
+}
+
+/** Format numeric outlet stats with thousand separators (e.g. 1234567 → 1,234,567). */
+export function formatCoverageStat(value) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+
+  const cleaned = raw.replace(/,/g, "");
+  if (/^-?\d+(\.\d+)?$/.test(cleaned)) {
+    const negative = cleaned.startsWith("-");
+    const [intPart, decPart] = cleaned.replace(/^-/, "").split(".");
+    const grouped = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    const formatted = decPart != null ? `${grouped}.${decPart}` : grouped;
+    return negative ? `-${formatted}` : formatted;
+  }
+
+  return raw.replace(/\d{4,}/g, (digits) =>
+    digits.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+  );
+}
+
+export function coverageLinkDisplayLabel(row) {
+  const title = String(row?.title || "").trim();
+  if (title) return title;
+
+  const outlet = String(row?.outletName || "").trim();
+  if (outlet) return outlet;
+
+  const url = String(row?.url || "").trim();
+  try {
+    return new URL(url).hostname.replace(/^www\./, "") || url;
+  } catch {
+    return url || "Coverage link";
+  }
+}
+
+export function coverageLinkUrls(value) {
+  return [
+    ...new Set(
+      parseCoverageLinksValue(value)
+        .map((row) => String(row.url || "").trim())
+        .filter((url) => /^https?:\/\//i.test(url))
+    ),
+  ];
 }
