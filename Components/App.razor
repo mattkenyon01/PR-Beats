@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="/" />
     <ResourcePreloader />
+    <script src="@Assets["js/theme-boot.js"]"></script>
     <link rel="stylesheet" href="@Assets["lib/bootstrap/dist/css/bootstrap.min.css"]" />
     <link rel="stylesheet" href="@Assets["app.css"]" />
     <link rel="stylesheet" href="@Assets["styles.css"]" />
@@ -18,7 +19,14 @@
 <body class="public-page">
     <Routes />
     <ReconnectModal />
+    <button type="button" class="theme-toggle" data-theme-toggle>
+        <span data-theme-label>Dark</span>
+    </button>
     <script src="@Assets["_framework/blazor.web.js"]"></script>
+    <script type="module">
+      import { initThemeToggle } from "/js/theme.js";
+      initThemeToggle();
+    </script>
 </body>
 
 </html>

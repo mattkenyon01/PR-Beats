@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PR beats</title>
+  <script src="js/theme-boot.js"></script>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body class="public-page">
@@ -25,7 +26,7 @@
       <div class="carousel-slide" id="carousel-slide" aria-live="polite">
         <h2 class="carousel-game" id="carousel-game"></h2>
         <p class="carousel-subtitle" id="carousel-subtitle" hidden></p>
-        <div class="detail-cards" id="detail-cards">
+        <div class="detail-cards detail-cards-row" id="detail-cards">
           <section class="detail-card">
             <h3 class="detail-card-label">Platforms</h3>
             <div class="platform-chips readonly" id="announcement-platforms"></div>
@@ -34,23 +35,6 @@
             <h3 class="detail-card-label">Date</h3>
             <ul class="detail-card-list" id="announcement-dates"></ul>
           </section>
-        </div>
-
-        <section class="trailer-card is-empty" id="trailer-card" aria-label="Trailer">
-          <h3 class="detail-card-label">Trailer</h3>
-          <div class="trailer-embed" id="trailer-embed">
-            <span class="trailer-placeholder" id="trailer-placeholder">No trailer</span>
-          </div>
-        </section>
-
-        <section class="trailer-card is-empty" id="pdf-card" aria-label="Press release PDF">
-          <h3 class="detail-card-label">Press release PDF</h3>
-          <div class="trailer-embed" id="pdf-embed">
-            <span class="trailer-placeholder" id="pdf-placeholder">No PDF</span>
-          </div>
-        </section>
-
-        <div class="detail-cards" id="stats-cards">
           <section class="detail-card">
             <h3 class="detail-card-label">Estimated reach</h3>
             <ul class="detail-card-list" id="estimated-reach"></ul>
@@ -61,26 +45,51 @@
           </section>
         </div>
 
-        <section class="trailer-card coverage-links-card" id="coverage-links-card" aria-label="Coverage links">
-          <h3 class="detail-card-label">Coverage links</h3>
-          <div class="coverage-links-grid" id="coverage-links-grid"></div>
+        <div class="media-cards" id="media-cards">
+          <section class="trailer-card is-empty" id="trailer-card" aria-label="Trailer">
+            <h3 class="detail-card-label">Trailer</h3>
+            <div class="trailer-embed" id="trailer-embed">
+              <span class="trailer-placeholder" id="trailer-placeholder">No trailer</span>
+            </div>
+          </section>
+
+          <section class="trailer-card is-empty" id="pdf-card" aria-label="Press release PDF">
+            <h3 class="detail-card-label">Press release PDF</h3>
+            <div class="trailer-embed" id="pdf-embed">
+              <span class="trailer-placeholder" id="pdf-placeholder">No PDF</span>
+            </div>
+          </section>
+        </div>
+
+        <section class="coverage-links-section" id="coverage-links-card" aria-labelledby="coverage-links-heading">
+          <h3 class="detail-card-label coverage-links-heading" id="coverage-links-heading">Coverage links</h3>
+          <div class="coverage-links-panel">
+            <div class="coverage-links-grid" id="coverage-links-grid"></div>
+          </div>
         </section>
       </div>
     </div>
   </div>
 
+  <button type="button" class="theme-toggle" data-theme-toggle>
+    <span data-theme-label>Dark</span>
+  </button>
   <a class="admin-link" href="login.html">Admin</a>
 
   <script type="module">
+    import { initThemeToggle } from "./js/theme.js";
     import {
       fetchLinkPreview,
       linkPreviewImageUrl,
       loadPublicAnnouncements,
     } from "./js/api.js";
+
+    initThemeToggle();
     import {
       countryFlagUrl,
       coverageLinkDisplayLabel,
       coverageLinkUrls,
+      coverageStatSortValue,
       formatCoverageStat,
       parseCoverageLinksValue,
     } from "./js/csv.js";
@@ -486,6 +495,12 @@
           links.push({ url, outletName: "", title: "" });
         });
       });
+
+      links.sort(
+        (a, b) =>
+          coverageStatSortValue(b.outletStats) -
+          coverageStatSortValue(a.outletStats)
+      );
 
       if (!links.length) {
         const empty = document.createElement("p");

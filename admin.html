@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Admin — PR beats</title>
+  <script src="js/theme-boot.js"></script>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body class="admin-page">
@@ -18,6 +19,9 @@
       <div class="admin-header-actions">
         <span class="user-name" id="user-name"></span>
         <span class="save-status" id="save-status" hidden></span>
+        <button type="button" class="theme-toggle" data-theme-toggle>
+          <span data-theme-label>Dark</span>
+        </button>
         <button id="import-btn" type="button" class="btn-primary">Import CSV</button>
         <button id="save-btn" type="button" class="btn-primary" hidden>Save</button>
         <button id="settings-btn" type="button" class="btn-icon" aria-label="Settings" title="Settings">
@@ -144,6 +148,7 @@
   </dialog>
 
   <script type="module">
+    import { initThemeToggle } from "./js/theme.js";
     import {
       EmailAuthProvider,
       getFirebaseAuth,
@@ -154,6 +159,8 @@
       updatePassword,
       friendlyAuthError,
     } from "./js/firebase-app.js";
+
+    initThemeToggle();
     import {
       DISPLAY_COLUMNS,
       COVERAGE_LINK_COLUMNS,

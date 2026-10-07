@@ -72,7 +72,7 @@
                 {
                     <p class="carousel-subtitle">@string.Join(" · ", announcementTitles)</p>
                 }
-                <div class="detail-cards">
+                <div class="detail-cards detail-cards-row">
                     <section class="detail-card">
                         <h3 class="detail-card-label">Platforms</h3>
                         @{
@@ -109,54 +109,6 @@
                             }
                         </ul>
                     </section>
-                </div>
-
-                @{
-                    var trailerEmbed = active.Value
-                        .Select(row => YoutubeEmbedUrl(row.Trailer))
-                        .FirstOrDefault(url => !string.IsNullOrWhiteSpace(url));
-                }
-                <section class="trailer-card @(string.IsNullOrWhiteSpace(trailerEmbed) ? "is-empty" : null)" aria-label="Trailer">
-                    <h3 class="detail-card-label">Trailer</h3>
-                    <div class="trailer-embed">
-                        @if (!string.IsNullOrWhiteSpace(trailerEmbed))
-                        {
-                            <iframe src="@trailerEmbed"
-                                    title="Game trailer"
-                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                                    allowfullscreen
-                                    referrerpolicy="strict-origin-when-cross-origin"></iframe>
-                        }
-                        else
-                        {
-                            <span class="trailer-placeholder">No trailer</span>
-                        }
-                    </div>
-                </section>
-
-                @{
-                    var pdfEmbed = active.Value
-                        .Select(row => PdfEmbedUrl(row.PressReleasePdf))
-                        .FirstOrDefault(url => !string.IsNullOrWhiteSpace(url));
-                }
-                <section class="trailer-card @(string.IsNullOrWhiteSpace(pdfEmbed) ? "is-empty" : null)" aria-label="Press release PDF">
-                    <h3 class="detail-card-label">Press release PDF</h3>
-                    <div class="trailer-embed">
-                        @if (!string.IsNullOrWhiteSpace(pdfEmbed))
-                        {
-                            <iframe src="@pdfEmbed"
-                                    title="Press release PDF"
-                                    allow="fullscreen"
-                                    allowfullscreen></iframe>
-                        }
-                        else
-                        {
-                            <span class="trailer-placeholder">No PDF</span>
-                        }
-                    </div>
-                </section>
-
-                <div class="detail-cards">
                     <section class="detail-card">
                         <h3 class="detail-card-label">Estimated reach</h3>
                         <ul class="detail-card-list">
@@ -188,10 +140,56 @@
                 </div>
 
                 @{
+                    var trailerEmbed = active.Value
+                        .Select(row => YoutubeEmbedUrl(row.Trailer))
+                        .FirstOrDefault(url => !string.IsNullOrWhiteSpace(url));
+                    var pdfEmbed = active.Value
+                        .Select(row => PdfEmbedUrl(row.PressReleasePdf))
+                        .FirstOrDefault(url => !string.IsNullOrWhiteSpace(url));
+                }
+                <div class="media-cards">
+                    <section class="trailer-card @(string.IsNullOrWhiteSpace(trailerEmbed) ? "is-empty" : null)" aria-label="Trailer">
+                        <h3 class="detail-card-label">Trailer</h3>
+                        <div class="trailer-embed">
+                            @if (!string.IsNullOrWhiteSpace(trailerEmbed))
+                            {
+                                <iframe src="@trailerEmbed"
+                                        title="Game trailer"
+                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                                        allowfullscreen
+                                        referrerpolicy="strict-origin-when-cross-origin"></iframe>
+                            }
+                            else
+                            {
+                                <span class="trailer-placeholder">No trailer</span>
+                            }
+                        </div>
+                    </section>
+
+                    <section class="trailer-card @(string.IsNullOrWhiteSpace(pdfEmbed) ? "is-empty" : null)" aria-label="Press release PDF">
+                        <h3 class="detail-card-label">Press release PDF</h3>
+                        <div class="trailer-embed">
+                            @if (!string.IsNullOrWhiteSpace(pdfEmbed))
+                            {
+                                <iframe src="@pdfEmbed"
+                                        title="Press release PDF"
+                                        allow="fullscreen"
+                                        allowfullscreen></iframe>
+                            }
+                            else
+                            {
+                                <span class="trailer-placeholder">No PDF</span>
+                            }
+                        </div>
+                    </section>
+                </div>
+
+                @{
                     var coverageLinks = CoverageLinksForEntries(active.Value);
                 }
-                <section class="trailer-card coverage-links-card" aria-label="Coverage links">
-                    <h3 class="detail-card-label">Coverage links</h3>
+                <section class="coverage-links-section" aria-labelledby="coverage-links-heading">
+                    <h3 class="detail-card-label coverage-links-heading" id="coverage-links-heading">Coverage links</h3>
+                    <div class="coverage-links-panel">
                     <div class="coverage-links-grid">
                         @if (coverageLinks.Count == 0)
                         {
@@ -270,6 +268,7 @@
                                 </a>
                             }
                         }
+                    </div>
                     </div>
                 </section>
             </div>
@@ -554,7 +553,21 @@
             }
         }
 
-        return links;
+        return links
+            .OrderByDescending(link => CoverageStatSortValue(link.OutletStats))
+            .ToList();
+    }
+
+    private static double CoverageStatSortValue(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return double.NegativeInfinity;
+        var cleaned = value.Replace(",", "").Trim();
+        var match = System.Text.RegularExpressions.Regex.Match(cleaned, @"-?\d+(?:\.\d+)?");
+        if (!match.Success) return double.NegativeInfinity;
+        return double.TryParse(match.Value, System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture, out var n)
+            ? n
+            : double.NegativeInfinity;
     }
 
     private static List<CoverageLinkItem> ParseCoverageLinkItems(string? value)

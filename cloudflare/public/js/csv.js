@@ -760,6 +760,18 @@ export function coverageLinksFromCsv(text) {
   return data;
 }
 
+/** Numeric value for sorting outlet stats (missing/invalid → lowest). */
+export function coverageStatSortValue(value) {
+  const cleaned = String(value ?? "")
+    .trim()
+    .replace(/,/g, "");
+  if (!cleaned) return Number.NEGATIVE_INFINITY;
+  const match = cleaned.match(/-?\d+(?:\.\d+)?/);
+  if (!match) return Number.NEGATIVE_INFINITY;
+  const n = Number(match[0]);
+  return Number.isFinite(n) ? n : Number.NEGATIVE_INFINITY;
+}
+
 /** Format numeric outlet stats with thousand separators (e.g. 1234567 → 1,234,567). */
 export function formatCoverageStat(value) {
   const raw = String(value ?? "").trim();

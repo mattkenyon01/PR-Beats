@@ -7,12 +7,15 @@
 }
 
 .page:has(.public-app)[b-7r7m5h530s] {
+    align-self: stretch;
+    width: 100%;
     align-items: stretch;
     justify-content: flex-start;
 }
 
 .page[b-7r7m5h530s]  .public-app {
-    width: min(1200px, calc(100% - 2.5rem));
+    width: min(1600px, calc(100% - 2.5rem));
+    max-width: 1600px;
     margin: 0 auto;
     padding: 2rem 0 4rem;
     text-align: left;
