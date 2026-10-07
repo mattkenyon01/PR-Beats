@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PR beats</title>
   <script src="js/theme-boot.js"></script>
+  <style>
+    /* Critical: hide empty shell until data is ready (CSS display was overriding [hidden]) */
+    #carousel:not(.is-ready) { display: none !important; }
+  </style>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body class="public-page">
@@ -766,6 +770,7 @@
 
       if (!groups.length) {
         carouselEl.hidden = true;
+        carouselEl.classList.remove("is-ready");
         gameImageEl.removeAttribute("src");
         gameImageEl.hidden = true;
         coverPlaceholderEl.hidden = false;
@@ -787,7 +792,6 @@
 
       statusEl.textContent = "";
       statusEl.hidden = true;
-      carouselEl.hidden = false;
       dotsEl.innerHTML = "";
 
       groups.forEach(([gameTitle], index) => {
@@ -802,8 +806,12 @@
 
       try {
         showSlide(0);
+        carouselEl.hidden = false;
+        carouselEl.classList.add("is-ready");
       } catch (error) {
         console.error(error);
+        carouselEl.hidden = true;
+        carouselEl.classList.remove("is-ready");
         statusEl.hidden = false;
         statusEl.textContent =
           error instanceof Error
@@ -852,11 +860,14 @@
     try {
       statusEl.textContent = "Loading announcements…";
       statusEl.hidden = false;
+      carouselEl.hidden = true;
+      carouselEl.classList.remove("is-ready");
       const data = await loadPublicAnnouncements(window.location.search);
       render(data.rows || []);
     } catch (error) {
       console.error(error);
       carouselEl.hidden = true;
+      carouselEl.classList.remove("is-ready");
       statusEl.hidden = false;
       statusEl.textContent =
         error instanceof Error

@@ -760,7 +760,7 @@ body.public-page *::-webkit-scrollbar-thumb:hover {
 }
 
 .announcement-carousel {
-  display: grid;
+  display: none;
   gap: 1.25rem;
   margin-top: 0;
   width: 100%;
@@ -770,7 +770,11 @@ body.public-page *::-webkit-scrollbar-thumb:hover {
   outline: none;
 }
 
-/* Keep [hidden] working — author `display` otherwise overrides it. */
+/* Only show after JS has filled in real announcement data */
+.announcement-carousel.is-ready {
+  display: grid;
+}
+
 .announcement-carousel[hidden],
 .note[hidden] {
   display: none !important;
