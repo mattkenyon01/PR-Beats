@@ -770,6 +770,12 @@ body.public-page *::-webkit-scrollbar-thumb:hover {
   outline: none;
 }
 
+/* Keep [hidden] working — author `display` otherwise overrides it. */
+.announcement-carousel[hidden],
+.note[hidden] {
+  display: none !important;
+}
+
 .public-page .carousel-dots {
   margin: 0 0 0.15rem;
   order: 0;

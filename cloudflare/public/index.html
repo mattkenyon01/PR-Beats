@@ -83,8 +83,6 @@
       linkPreviewImageUrl,
       loadPublicAnnouncements,
     } from "./js/api.js";
-
-    initThemeToggle();
     import {
       countryFlagUrl,
       coverageLinkDisplayLabel,
@@ -93,6 +91,8 @@
       formatCoverageStat,
       parseCoverageLinksValue,
     } from "./js/csv.js";
+
+    initThemeToggle();
 
     const statusEl = document.getElementById("status");
     const coverBannerEl = document.getElementById("cover-banner");
@@ -785,6 +785,7 @@
         return;
       }
 
+      statusEl.textContent = "";
       statusEl.hidden = true;
       carouselEl.hidden = false;
       dotsEl.innerHTML = "";
@@ -799,7 +800,17 @@
         dotsEl.appendChild(dot);
       });
 
-      showSlide(0);
+      try {
+        showSlide(0);
+      } catch (error) {
+        console.error(error);
+        statusEl.hidden = false;
+        statusEl.textContent =
+          error instanceof Error
+            ? error.message
+            : "Could not render announcements.";
+        statusEl.classList.add("is-error");
+      }
     }
 
     carouselEl.addEventListener("keydown", (event) => {
@@ -839,9 +850,13 @@
     }
 
     try {
+      statusEl.textContent = "Loading announcements…";
+      statusEl.hidden = false;
       const data = await loadPublicAnnouncements(window.location.search);
       render(data.rows || []);
     } catch (error) {
+      console.error(error);
+      carouselEl.hidden = true;
       statusEl.hidden = false;
       statusEl.textContent =
         error instanceof Error
