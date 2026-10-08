@@ -14,19 +14,6 @@
 <body class="public-page">
   <div class="public-app">
     <p class="note" id="status">Loading…</p>
-    <div class="game-search" id="game-search" hidden>
-      <label class="visually-hidden" for="game-search-input">Search games</label>
-      <input
-        id="game-search-input"
-        class="game-search-input"
-        type="search"
-        placeholder="Search games…"
-        autocomplete="off"
-        spellcheck="false"
-      />
-      <ul class="game-search-results" id="game-search-results" role="listbox" aria-label="Matching games" hidden></ul>
-      <p class="game-search-empty" id="game-search-empty" hidden>No games match</p>
-    </div>
     <div class="announcement-carousel" id="carousel" hidden tabindex="0">
       <div
         class="carousel-dots"
@@ -125,10 +112,6 @@
     initThemeToggle();
 
     const statusEl = document.getElementById("status");
-    const gameSearchEl = document.getElementById("game-search");
-    const gameSearchInput = document.getElementById("game-search-input");
-    const gameSearchResults = document.getElementById("game-search-results");
-    const gameSearchEmpty = document.getElementById("game-search-empty");
     const coverBannerEl = document.getElementById("cover-banner");
     const coverPlaceholderEl = document.getElementById("cover-placeholder");
     const carouselEl = document.getElementById("carousel");
@@ -752,56 +735,6 @@
       );
     }
 
-    function clearGameSearch() {
-      gameSearchInput.value = "";
-      gameSearchResults.innerHTML = "";
-      gameSearchResults.hidden = true;
-      gameSearchEmpty.hidden = true;
-    }
-
-    function updateGameSearch() {
-      const query = gameSearchInput.value.trim().toLowerCase();
-      gameSearchResults.innerHTML = "";
-
-      if (!query) {
-        gameSearchResults.hidden = true;
-        gameSearchEmpty.hidden = true;
-        return;
-      }
-
-      const matches = groups
-        .map(([title], index) => ({ title, index }))
-        .filter(({ title }) => title.toLowerCase().includes(query));
-
-      if (matches.length === 0) {
-        gameSearchResults.hidden = true;
-        gameSearchEmpty.hidden = false;
-        return;
-      }
-
-      gameSearchEmpty.hidden = true;
-      matches.forEach(({ title, index }) => {
-        const li = document.createElement("li");
-        li.setAttribute("role", "option");
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = `game-search-result${
-          index === activeIndex ? " is-active" : ""
-        }`;
-        const label = document.createElement("span");
-        label.className = "game-search-result-title";
-        label.textContent = title;
-        button.appendChild(label);
-        button.addEventListener("click", () => {
-          showSlide(index);
-          clearGameSearch();
-        });
-        li.appendChild(button);
-        gameSearchResults.appendChild(li);
-      });
-      gameSearchResults.hidden = false;
-    }
-
     function showSlide(index) {
       if (!groups.length) return;
 
@@ -882,8 +815,6 @@
       if (!groups.length) {
         carouselEl.hidden = true;
         carouselEl.classList.remove("is-ready");
-        gameSearchEl.hidden = true;
-        clearGameSearch();
         gameImageEl.removeAttribute("src");
         gameImageEl.hidden = true;
         coverPlaceholderEl.hidden = false;
@@ -905,8 +836,6 @@
 
       statusEl.textContent = "";
       statusEl.hidden = true;
-      gameSearchEl.hidden = false;
-      clearGameSearch();
       dotsEl.innerHTML = "";
 
       groups.forEach(([gameTitle], index) => {
@@ -935,14 +864,6 @@
         statusEl.classList.add("is-error");
       }
     }
-
-    gameSearchInput.addEventListener("input", () => updateGameSearch());
-    gameSearchInput.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        clearGameSearch();
-      }
-    });
 
     carouselEl.addEventListener("keydown", (event) => {
       if (!pdfViewerEl.hidden) {

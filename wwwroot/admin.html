@@ -77,6 +77,17 @@
       <p class="admin-success" id="success" hidden></p>
 
       <section class="report" id="report" hidden>
+        <div class="game-search" id="game-search">
+          <label class="visually-hidden" for="game-search-input">Search games</label>
+          <input
+            id="game-search-input"
+            class="game-search-input"
+            type="search"
+            placeholder="Search games…"
+            autocomplete="off"
+            spellcheck="false"
+          />
+        </div>
         <div class="game-sections" id="game-sections"></div>
       </section>
     </div>
@@ -375,6 +386,7 @@
     const saveStatus = document.getElementById("save-status");
     const report = document.getElementById("report");
     const gameSections = document.getElementById("game-sections");
+    const gameSearchInput = document.getElementById("game-search-input");
     const monthFilterControl = document.getElementById("month-filter-control");
     const monthFilter = document.getElementById("month-filter");
     const viewModeControl = document.getElementById("view-mode-control");
@@ -1641,6 +1653,7 @@
       monthFilterControl.hidden = true;
       viewModeControl.hidden = true;
       csvInput.value = "";
+      gameSearchInput.value = "";
       monthFilter.innerHTML = '<option value="">All months</option>';
       setViewMode("formatted", { updateUrl: true, render: false });
       gameSections.classList.remove("is-grid-view");
@@ -1782,9 +1795,15 @@
     function getVisibleRows() {
       if (!currentTable) return [];
       const month = monthFilter.value;
+      const query = gameSearchInput.value.trim().toLowerCase();
       return currentTable.rows
         .map((row, rowIndex) => ({ row, rowIndex }))
-        .filter(({ row }) => !month || row.month === month);
+        .filter(({ row }) => {
+          if (month && row.month !== month) return false;
+          if (!query) return true;
+          const title = (row.gameTitle || "").trim().toLowerCase();
+          return title.includes(query);
+        });
     }
 
     function populateMonthFilter(table) {
@@ -2325,7 +2344,9 @@
       if (groups.length === 0) {
         const empty = document.createElement("p");
         empty.className = "empty-filter";
-        empty.textContent = "No rows match this month filter.";
+        empty.textContent = gameSearchInput.value.trim()
+          ? "No games match this search."
+          : "No rows match this month filter.";
         gameSections.appendChild(empty);
         return;
       }
@@ -2443,7 +2464,9 @@
       if (rows.length === 0) {
         const empty = document.createElement("p");
         empty.className = "empty-filter";
-        empty.textContent = "No rows match this month filter.";
+        empty.textContent = gameSearchInput.value.trim()
+          ? "No games match this search."
+          : "No rows match this month filter.";
         gameSections.appendChild(empty);
         return;
       }
@@ -2598,6 +2621,15 @@
     });
 
     monthFilter.addEventListener("change", () => {
+      if (currentTable) renderTable(currentTable, currentFileName);
+    });
+    gameSearchInput.addEventListener("input", () => {
+      if (currentTable) renderTable(currentTable, currentFileName);
+    });
+    gameSearchInput.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      gameSearchInput.value = "";
       if (currentTable) renderTable(currentTable, currentFileName);
     });
     viewModeSelect.addEventListener("change", () => {

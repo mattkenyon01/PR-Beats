@@ -779,6 +779,18 @@ body.admin-page:has(.admin-app.is-grid-layout) {
   text-align: center;
 }
 
+.report .game-search {
+  width: min(28rem, 100%);
+  margin: 0 0 1rem;
+  justify-self: start;
+  text-align: left;
+}
+
+.admin-app.is-grid-layout .report .game-search {
+  flex: 0 0 auto;
+  margin-bottom: 0.75rem;
+}
+
 .toolbar {
   display: flex;
   justify-content: flex-end;

@@ -27,40 +27,6 @@
     @if (_groups.Count > 0)
     {
         var active = _groups[_activeIndex];
-        <div class="game-search">
-            <label class="visually-hidden" for="game-search-input">Search games</label>
-            <input id="game-search-input"
-                   class="game-search-input"
-                   type="search"
-                   placeholder="Search games…"
-                   value="@_searchQuery"
-                   autocomplete="off"
-                   spellcheck="false"
-                   @oninput="OnSearchInput" />
-            @if (!string.IsNullOrWhiteSpace(_searchQuery))
-            {
-                @if (_searchMatches.Count > 0)
-                {
-                    <ul class="game-search-results" role="listbox" aria-label="Matching games">
-                        @foreach (var match in _searchMatches)
-                        {
-                            var index = match.Index;
-                            <li role="option">
-                                <button type="button"
-                                        class="game-search-result @(_activeIndex == index ? "is-active" : null)"
-                                        @onclick="() => SelectSearchResult(index)">
-                                    <span class="game-search-result-title">@match.Title</span>
-                                </button>
-                            </li>
-                        }
-                    </ul>
-                }
-                else
-                {
-                    <p class="game-search-empty">No games match</p>
-                }
-            }
-        </div>
         <div class="announcement-carousel is-ready"
              tabindex="0"
              @onkeydown="OnKeyDown"
@@ -355,8 +321,6 @@
     private double _touchStartX;
     private bool _pdfViewerOpen;
     private string? _pdfViewerUrl;
-    private string _searchQuery = "";
-    private List<(int Index, string Title)> _searchMatches = [];
     private List<KeyValuePair<string, List<AnnouncementRow>>> _groups = [];
 
     protected override async Task OnInitializedAsync()
@@ -395,34 +359,6 @@
             _isError = true;
             _status = $"Could not load announcements: {ex.Message}";
         }
-    }
-
-    private void OnSearchInput(ChangeEventArgs e)
-    {
-        _searchQuery = e.Value?.ToString() ?? "";
-        UpdateSearchMatches();
-    }
-
-    private void UpdateSearchMatches()
-    {
-        var query = _searchQuery.Trim();
-        if (string.IsNullOrEmpty(query))
-        {
-            _searchMatches = [];
-            return;
-        }
-
-        _searchMatches = _groups
-            .Select((group, index) => (Index: index, Title: group.Key))
-            .Where(item => item.Title.Contains(query, StringComparison.OrdinalIgnoreCase))
-            .ToList();
-    }
-
-    private void SelectSearchResult(int index)
-    {
-        ShowSlide(index);
-        _searchQuery = "";
-        _searchMatches = [];
     }
 
     private void ShowSlide(int index)
