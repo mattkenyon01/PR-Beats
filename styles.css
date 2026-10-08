@@ -520,10 +520,11 @@ body.public-page *::-webkit-scrollbar-thumb:hover {
 }
 
 .admin-app {
-  width: min(1600px, calc(100% - 2.5rem));
-  max-width: 1600px;
-  margin: 0 auto;
-  padding: 2rem 0 3rem;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 2rem 1.25rem 3rem;
+  box-sizing: border-box;
   text-align: center;
 }
 
@@ -534,12 +535,12 @@ body.admin-page:has(.admin-app.is-grid-layout) {
 }
 
 .admin-app.is-grid-layout {
-  width: calc(100% - 1.25rem);
+  width: 100%;
   max-width: none;
   height: 100dvh;
   max-height: 100dvh;
   min-height: 0;
-  padding: 0.85rem 0 0.85rem;
+  padding: 0.85rem 1.25rem;
   display: flex;
   flex-direction: column;
   box-sizing: border-box;

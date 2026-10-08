@@ -404,6 +404,35 @@
     const shareSelectedMonths = new Set();
     const coveragePreviewCache = new Map();
 
+    function viewModeFromUrl() {
+      const view = new URL(window.location.href).searchParams.get("view");
+      return view === "grid" ? "grid" : "formatted";
+    }
+
+    function syncViewModeToUrl(mode) {
+      const url = new URL(window.location.href);
+      if (mode === "grid") url.searchParams.set("view", "grid");
+      else url.searchParams.delete("view");
+      const next = `${url.pathname}${url.search}${url.hash}`;
+      const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+      if (next !== current) {
+        window.history.replaceState(window.history.state, "", next);
+      }
+    }
+
+    function setViewMode(mode, { updateUrl = true, render = true } = {}) {
+      const next = mode === "grid" ? "grid" : "formatted";
+      viewModeSelect.value = next;
+      if (next !== "grid") {
+        gridSortKey = "";
+        gridSortDirection = "asc";
+      }
+      if (updateUrl) syncViewModeToUrl(next);
+      if (render && currentTable) renderTable(currentTable, currentFileName);
+    }
+
+    setViewMode(viewModeFromUrl(), { updateUrl: true, render: false });
+
     const PLATFORM_OPTIONS = [
       { id: "steam", label: "Steam", icon: "images/Steam Icon.webp" },
       { id: "switch2", label: "Switch 2", icon: "images/Switch 2 Icon.webp" },
@@ -1560,9 +1589,7 @@
       viewModeControl.hidden = true;
       csvInput.value = "";
       monthFilter.innerHTML = '<option value="">All months</option>';
-      viewModeSelect.value = "formatted";
-      gridSortKey = "";
-      gridSortDirection = "asc";
+      setViewMode("formatted", { updateUrl: true, render: false });
       gameSections.classList.remove("is-grid-view");
       panel.classList.remove("is-grid-layout");
       showError("");
@@ -2407,7 +2434,10 @@
       if (currentTable) renderTable(currentTable, currentFileName);
     });
     viewModeSelect.addEventListener("change", () => {
-      if (currentTable) renderTable(currentTable, currentFileName);
+      setViewMode(viewModeSelect.value, { updateUrl: true, render: true });
+    });
+    window.addEventListener("popstate", () => {
+      setViewMode(viewModeFromUrl(), { updateUrl: false, render: true });
     });
 
     shareBtn.addEventListener("click", () => openShareDialog());
