@@ -992,7 +992,9 @@ body.admin-page:has(.admin-app.is-grid-layout) {
 }
 
 .announcement-carousel[hidden],
-.note[hidden] {
+.note[hidden],
+#loading[hidden],
+.admin-app[hidden] {
   display: none !important;
 }
 

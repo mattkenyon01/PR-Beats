@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Admin — PR beats</title>
   <script src="js/theme-boot.js"></script>
-  <link rel="stylesheet" href="styles.css?v=no-success-bar-1" />
+  <link rel="stylesheet" href="styles.css?v=loading-hidden-2" />
 </head>
 <body class="admin-page">
   <p class="note" id="loading">Checking sign-in…</p>
@@ -1629,7 +1629,7 @@
       openBtn.type = "button";
       openBtn.className = "coverage-links-count-btn";
 
-      function refresh() {
+      function refresh({ fit = true } = {}) {
         const count = parseCoverageLinksValue(row.coverageLinks).length;
         const title =
           parseCoverageSectionTitle(row.coverageLinks) ||
@@ -1641,7 +1641,7 @@
             ? `Add ${title}`
             : `Edit ${title} (${count})`
         );
-        scheduleFitTableColumns();
+        if (fit) scheduleFitTableColumns();
         onChange?.();
       }
 
@@ -1659,7 +1659,8 @@
       });
 
       cell.appendChild(openBtn);
-      refresh();
+      // Skip fit during table build — renderTable calls fitTableColumns once.
+      refresh({ fit: false });
       return cell;
     }
 
@@ -2090,19 +2091,23 @@
           maxPx = Math.max(maxPx, measureText(th, th.textContent || key) + 36);
         });
 
-        if (!HEADER_ONLY_COLUMNS.has(key)) {
+        if (key === "coverageLinks") {
+          const buttons = [
+            ...gameSections.querySelectorAll(
+              `td${selector} .coverage-links-count-btn`
+            ),
+          ];
+          const sample = buttons[0];
+          if (sample) {
+            buttons.forEach((btn) => {
+              maxPx = Math.max(
+                maxPx,
+                measureText(sample, btn.textContent || " ") + 48
+              );
+            });
+          }
+        } else if (!HEADER_ONLY_COLUMNS.has(key)) {
           gameSections.querySelectorAll(`td${selector}`).forEach((td) => {
-            if (key === "coverageLinks") {
-              const btn = td.querySelector(".coverage-links-count-btn");
-              if (btn) {
-                maxPx = Math.max(
-                  maxPx,
-                  measureText(btn, btn.textContent || " ") + 48
-                );
-              }
-              return;
-            }
-
             const input = td.querySelector(".cell-input");
             if (input?.tagName === "TEXTAREA") {
               const lines = String(input.value || "").split(/\r?\n/);
@@ -3014,7 +3019,15 @@
       const auth = getFirebaseAuth();
       authRef = auth;
 
+      const authWait = setTimeout(() => {
+        if (!loading.hidden) {
+          loading.textContent =
+            "Still checking sign-in… If this hangs, hard-refresh or open login.html.";
+        }
+      }, 8000);
+
       onAuthStateChanged(auth, async (user) => {
+        clearTimeout(authWait);
         if (!user) {
           window.location.replace("login.html");
           return;
@@ -3022,6 +3035,8 @@
 
         loading.hidden = true;
         panel.hidden = false;
+        // Let the browser paint the admin shell before heavy table work.
+        await new Promise((resolve) => requestAnimationFrame(() => resolve()));
         await loadSavedData();
       });
 
