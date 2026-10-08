@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Admin — PR beats</title>
   <script src="js/theme-boot.js"></script>
-  <link rel="stylesheet" href="styles.css?v=loading-hidden-2" />
+  <link rel="stylesheet" href="styles.css?v=sticky-header-1" />
 </head>
 <body class="admin-page">
   <p class="note" id="loading">Checking sign-in…</p>
@@ -1684,7 +1684,7 @@
         const title =
           parseCoverageSectionTitle(row.coverageLinks) ||
           DEFAULT_COVERAGE_SECTION_TITLE;
-        openBtn.textContent = `${title} (${count})`;
+        openBtn.textContent = count === 0 ? "(0)" : `${title} (${count})`;
         openBtn.setAttribute(
           "aria-label",
           count === 0
