@@ -2547,21 +2547,24 @@ body.admin-page:has(.admin-app.is-grid-layout) {
   object-fit: cover;
   background: var(--cover);
   pointer-events: none;
+  transition: box-shadow 0.15s ease, filter 0.15s ease;
 }
 
 .admin-app td.cover-col.is-cover-clickable {
   cursor: pointer;
+  overflow: visible;
 }
 
 .admin-app td.cover-col.is-cover-clickable:hover .grid-cover-thumb,
 .admin-app td.cover-col.is-cover-clickable:focus-visible .grid-cover-thumb {
-  outline: 2px solid var(--border-strong);
-  outline-offset: 1px;
+  filter: brightness(1.08);
+  box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--text-muted);
 }
 
 .admin-app td.cover-col.is-cover-clickable:hover .grid-cover-empty,
 .admin-app td.cover-col.is-cover-clickable:focus-visible .grid-cover-empty {
   border-color: var(--text-muted);
+  box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--text-muted);
 }
 
 .grid-cover-empty {
@@ -2585,7 +2588,7 @@ body.admin-page:has(.admin-app.is-grid-layout) {
   padding: 0;
   border: 0;
   background: transparent;
-  max-width: min(36rem, calc(100vw - 2rem));
+  max-width: min(22rem, calc(100vw - 2rem));
   width: 100%;
   color: var(--text);
 }
@@ -2596,8 +2599,8 @@ body.admin-page:has(.admin-app.is-grid-layout) {
 
 .cover-preview-dialog-panel {
   display: grid;
-  gap: 1rem;
-  padding: 1.1rem 1.15rem 1.15rem;
+  gap: 0.85rem;
+  padding: 1rem 1.05rem 1.05rem;
   border: 1px solid var(--border);
   border-radius: 0.85rem;
   background: var(--panel);
@@ -2614,46 +2617,54 @@ body.admin-page:has(.admin-app.is-grid-layout) {
 
 .cover-preview-dialog-header h2 {
   margin: 0;
-  font-size: 1.2rem;
+  font-size: 1.1rem;
   font-weight: 700;
   letter-spacing: -0.02em;
 }
 
 .cover-preview-dialog-game {
   margin: 0.25rem 0 0;
-  font-size: 0.92rem;
+  font-size: 0.9rem;
   color: var(--text-secondary);
 }
 
 .cover-preview-dialog-body {
   display: grid;
-  gap: 0.65rem;
+  gap: 0.55rem;
 }
 
 .cover-preview-dialog-frame {
+  position: relative;
   width: 100%;
+  max-width: 20rem;
+  margin: 0 auto;
   aspect-ratio: 920 / 430;
-  border-radius: 0.75rem;
+  border-radius: 0.65rem;
   border: 1px solid var(--border);
   background: var(--cover);
   overflow: hidden;
-  display: grid;
-  place-items: center;
 }
 
 .cover-preview-dialog-frame img {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  background: var(--cover);
   display: block;
 }
 
 .cover-preview-dialog-frame img[hidden],
 .cover-preview-dialog-empty[hidden] {
-  display: none;
+  display: none !important;
 }
 
 .cover-preview-dialog-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
   font-size: 0.95rem;
   color: var(--text-muted);
   text-align: center;
