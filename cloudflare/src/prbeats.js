@@ -323,6 +323,7 @@ async function handleApi(request, env, url) {
         json({
           id: share.id,
           games: share.games,
+          months: share.months,
           month: share.month,
         })
       );
@@ -1026,6 +1027,23 @@ function shortShareId(length = 8) {
   return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join("");
 }
 
+function normalizeShareMonths(body) {
+  const fromArray = Array.isArray(body?.months)
+    ? body.months
+    : Array.isArray(body?.month)
+      ? body.month
+      : null;
+  if (fromArray) {
+    return [
+      ...new Set(
+        fromArray.map((value) => String(value || "").trim()).filter(Boolean)
+      ),
+    ];
+  }
+  const single = String(body?.month || "").trim();
+  return single ? [single] : [];
+}
+
 async function createShare(db, ownerUid, body) {
   const games = Array.isArray(body?.games)
     ? [
@@ -1036,11 +1054,14 @@ async function createShare(db, ownerUid, body) {
         ),
       ]
     : [];
-  const month = String(body?.month || "").trim();
+  const months = normalizeShareMonths(body);
 
-  if (games.length === 0 && !month) {
+  if (games.length === 0 && months.length === 0) {
     throw new Error("Pick at least one game or a month for the share link.");
   }
+
+  // Store as JSON array; older single-string values still work in getShare.
+  const monthStored = JSON.stringify(months);
 
   let id = shortShareId();
   for (let attempt = 0; attempt < 5; attempt += 1) {
@@ -1050,9 +1071,9 @@ async function createShare(db, ownerUid, body) {
           `INSERT INTO shares (id, owner_uid, games, month, created_at)
            VALUES (?, ?, ?, ?, datetime('now'))`
         )
-        .bind(id, ownerUid, JSON.stringify(games), month)
+        .bind(id, ownerUid, JSON.stringify(games), monthStored)
         .run();
-      return { id, games, month };
+      return { id, games, months, month: months[0] || "" };
     } catch (error) {
       // Collision on primary key — try another id
       id = shortShareId();
@@ -1061,6 +1082,20 @@ async function createShare(db, ownerUid, body) {
   }
 
   throw new Error("Could not create share link.");
+}
+
+function parseShareMonths(raw) {
+  const value = String(raw || "").trim();
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    if (Array.isArray(parsed)) {
+      return [...new Set(parsed.map((item) => String(item || "").trim()).filter(Boolean))];
+    }
+  } catch {
+    // Legacy plain month string
+  }
+  return [value];
 }
 
 async function getShare(db, id) {
@@ -1078,10 +1113,13 @@ async function getShare(db, id) {
     games = [];
   }
 
+  const months = parseShareMonths(record.month);
+
   return {
     id: record.id,
     games,
-    month: String(record.month || ""),
+    months,
+    month: months[0] || "",
   };
 }
 
@@ -1100,9 +1138,14 @@ async function filterPublicAnnouncements(db, rows, searchParams) {
     gameKeys = [
       ...new Set(share.games.map(normalizeFilterKey).filter(Boolean)),
     ];
-    monthKeys = share.month
-      ? [normalizeFilterKey(share.month)].filter(Boolean)
-      : [];
+    const shareMonths = Array.isArray(share.months)
+      ? share.months
+      : share.month
+        ? [share.month]
+        : [];
+    monthKeys = [
+      ...new Set(shareMonths.map(normalizeFilterKey).filter(Boolean)),
+    ];
   }
 
   const filtered = rows.filter((row) => {

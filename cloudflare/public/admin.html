@@ -17,13 +17,45 @@
         <p class="lede" id="page-lede" hidden></p>
       </div>
       <div class="admin-header-actions">
-        <span class="user-name" id="user-name"></span>
         <span class="save-status" id="save-status" hidden></span>
+        <label class="header-month-filter" id="month-filter-control" hidden>
+          <span class="visually-hidden">Month</span>
+          <select id="month-filter" aria-label="Month" title="Month">
+            <option value="">All months</option>
+          </select>
+        </label>
+        <label class="header-view-filter" id="view-mode-control" hidden>
+          <span class="visually-hidden">View</span>
+          <select id="view-mode" aria-label="View" title="View">
+            <option value="formatted">Formatted view</option>
+            <option value="grid">Grid view</option>
+          </select>
+        </label>
         <button type="button" class="theme-toggle" data-theme-toggle>
           <span data-theme-label>Dark</span>
         </button>
-        <button id="import-btn" type="button" class="btn-primary">Import CSV</button>
-        <button id="save-btn" type="button" class="btn-primary" hidden>Save</button>
+        <button id="import-btn" type="button" class="btn-icon" aria-label="Import CSV" title="Import CSV">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" x2="12" y1="3" y2="15"/>
+          </svg>
+        </button>
+        <button id="add-row-btn" type="button" class="btn-icon" aria-label="Add announcement" title="Add announcement">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 5v14"/>
+            <path d="M5 12h14"/>
+          </svg>
+        </button>
+        <button id="share-btn" type="button" class="btn-icon" aria-label="Share link" title="Share link" hidden>
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="18" cy="5" r="3"/>
+            <circle cx="6" cy="12" r="3"/>
+            <circle cx="18" cy="19" r="3"/>
+            <line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/>
+            <line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/>
+          </svg>
+        </button>
         <button id="settings-btn" type="button" class="btn-icon" aria-label="Settings" title="Settings">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
@@ -38,45 +70,13 @@
 
       <section id="dropzone" class="dropzone">
         <strong>Drop a CSV here</strong>
-        <p>Or use Import CSV. Shows Announcement Title, Date, Month, Platforms, Trailer, Press Release PDF Space, Estimated Reach, and Total Wishlists.</p>
+        <p>Or use the upload button. Shows Announcement Title, Date, Month, Platforms, Trailer, Press Release PDF Space, Estimated Reach, and Total Wishlists.</p>
       </section>
 
       <p class="admin-error" id="error" hidden></p>
       <p class="admin-success" id="success" hidden></p>
 
       <section class="report" id="report" hidden>
-        <div class="toolbar">
-          <div class="toolbar-actions">
-            <label class="toolbar-control">
-              <span>Sort</span>
-              <select id="sort-select">
-                <option value="game">Game title</option>
-                <option value="date-desc">Date (newest first)</option>
-                <option value="date-asc">Date (oldest first)</option>
-                <option value="month-desc">Month (newest first)</option>
-                <option value="month-asc">Month (oldest first)</option>
-              </select>
-            </label>
-            <label class="toolbar-control">
-              <span>Month</span>
-              <select id="month-filter">
-                <option value="">All months</option>
-              </select>
-            </label>
-          </div>
-        </div>
-        <div class="share-bar" id="share-bar">
-          <div class="share-bar-copy">
-            <span class="share-bar-label">Public link</span>
-            <p class="share-bar-hint" id="share-hint">
-              Tick games on the left, and optionally pick a month, then Copy for a short link.
-            </p>
-          </div>
-          <div class="share-bar-controls">
-            <input id="share-url" type="text" readonly placeholder="Select games and/or a month…" />
-            <button id="copy-share-url" type="button" class="btn-primary" disabled>Copy</button>
-          </div>
-        </div>
         <div class="game-sections" id="game-sections"></div>
       </section>
     </div>
@@ -113,6 +113,141 @@
       </div>
     </section>
   </div>
+
+  <div class="row-context-menu" id="row-context-menu" hidden>
+    <button type="button" class="row-context-menu-item is-danger" id="row-context-delete">
+      Delete row
+    </button>
+  </div>
+
+  <dialog class="add-row-dialog" id="add-row-dialog" aria-labelledby="add-row-dialog-title">
+    <form class="add-row-dialog-panel" id="add-row-form" method="dialog">
+      <header class="add-row-dialog-header">
+        <h2 id="add-row-dialog-title">Add announcement</h2>
+        <button type="button" class="btn-ghost" id="add-row-dialog-close">Close</button>
+      </header>
+
+      <div class="add-row-dialog-body">
+        <div class="add-row-game-title-fields">
+          <label>
+            Game title
+            <select id="add-row-game-title-select" required>
+              <option value="">Select a game…</option>
+              <option value="__new__">Add new…</option>
+            </select>
+          </label>
+          <div id="add-row-game-title-new-wrap" class="add-row-new-game" hidden>
+            <label>
+              New game title
+              <input id="add-row-game-title" type="text" autocomplete="off" placeholder="Enter game title" />
+            </label>
+            <div class="add-row-cover">
+              <div class="add-row-cover-preview" id="add-row-cover-preview">
+                <img id="add-row-cover-image" alt="" hidden />
+                <span class="add-row-cover-placeholder" id="add-row-cover-placeholder">
+                  Cover image required
+                </span>
+              </div>
+              <div class="add-row-cover-actions">
+                <input id="add-row-cover-input" type="file" accept="image/*" hidden />
+                <button type="button" class="btn-icon" id="add-row-cover-upload" aria-label="Upload cover" title="Upload cover">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="17 8 12 3 7 8"/>
+                    <line x1="12" x2="12" y1="3" y2="15"/>
+                  </svg>
+                </button>
+                <button type="button" class="btn-icon" id="add-row-cover-clear" aria-label="Remove cover" title="Remove cover" hidden>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M3 6h18"/>
+                    <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
+                    <line x1="10" x2="10" y1="11" y2="17"/>
+                    <line x1="14" x2="14" y1="11" y2="17"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <label>
+          Announcement title
+          <input id="add-row-announcement-title" type="text" autocomplete="off" required />
+        </label>
+        <label>
+          Date
+          <input id="add-row-date" type="text" placeholder="DD/MM/YYYY" autocomplete="off" />
+        </label>
+        <fieldset class="add-row-platforms">
+          <legend>Platforms</legend>
+          <div class="add-row-platform-options" id="add-row-platforms"></div>
+        </fieldset>
+        <label>
+          Trailer
+          <input id="add-row-trailer" type="url" placeholder="https://…" autocomplete="off" />
+        </label>
+        <label>
+          Press release PDF
+          <input id="add-row-press-release" type="url" placeholder="https://…" autocomplete="off" />
+        </label>
+        <label>
+          Estimated reach
+          <input id="add-row-estimated-reach" type="text" autocomplete="off" />
+        </label>
+        <label>
+          Total wishlists
+          <input id="add-row-total-wishlists" type="text" autocomplete="off" />
+        </label>
+        <label>
+          Highlights
+          <textarea id="add-row-highlights" rows="3"></textarea>
+        </label>
+      </div>
+
+      <footer class="add-row-dialog-footer">
+        <p class="add-row-dialog-error" id="add-row-dialog-error" hidden></p>
+        <button type="submit" class="btn-primary" id="add-row-submit">Add entry</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog class="share-dialog" id="share-dialog" aria-labelledby="share-dialog-title">
+    <div class="share-dialog-panel">
+      <header class="share-dialog-header">
+        <h2 id="share-dialog-title">Share link</h2>
+        <button type="button" class="btn-ghost share-dialog-close" id="share-dialog-close">
+          Close
+        </button>
+      </header>
+
+      <div class="share-dialog-body">
+        <section class="share-dialog-section">
+          <div class="share-dialog-section-heading">
+            <h3 class="share-dialog-section-title">Games</h3>
+            <span class="share-dialog-section-count" id="share-games-count">0</span>
+          </div>
+          <div class="share-check-list" id="share-games-list"></div>
+        </section>
+
+        <section class="share-dialog-section">
+          <div class="share-dialog-section-heading">
+            <h3 class="share-dialog-section-title">Months</h3>
+            <span class="share-dialog-section-count" id="share-months-count">0</span>
+          </div>
+          <div class="share-check-list" id="share-months-list"></div>
+        </section>
+      </div>
+
+      <footer class="share-dialog-footer">
+        <button type="button" class="btn-primary" id="share-generate-btn">Generate URL</button>
+        <p class="share-dialog-error" id="share-dialog-error" hidden></p>
+        <div class="share-dialog-result">
+          <input id="share-url" type="text" readonly placeholder="Generated URL appears here…" />
+          <button type="button" class="btn-ghost" id="share-copy-btn" disabled>Copy</button>
+        </div>
+      </footer>
+    </div>
+  </dialog>
 
   <dialog class="coverage-links-dialog" id="coverage-links-dialog" aria-labelledby="coverage-links-dialog-title">
     <div class="coverage-links-dialog-panel">
@@ -168,7 +303,6 @@
       coverageLinksFromCsv,
       csvToTable,
       dateSortValue,
-      displayNameFromEmail,
       emptyCoverageLink,
       monthFromDate,
       parseCoverageLinksValue,
@@ -187,11 +321,30 @@
 
     const panel = document.getElementById("panel");
     const loading = document.getElementById("loading");
-    const userName = document.getElementById("user-name");
     const pageLede = document.getElementById("page-lede");
     const signOutBtn = document.getElementById("sign-out");
     const importBtn = document.getElementById("import-btn");
-    const saveBtn = document.getElementById("save-btn");
+    const addRowBtn = document.getElementById("add-row-btn");
+    const addRowDialog = document.getElementById("add-row-dialog");
+    const addRowForm = document.getElementById("add-row-form");
+    const addRowDialogClose = document.getElementById("add-row-dialog-close");
+    const addRowDialogError = document.getElementById("add-row-dialog-error");
+    const addRowPlatforms = document.getElementById("add-row-platforms");
+    const addRowGameTitleSelect = document.getElementById("add-row-game-title-select");
+    const addRowGameTitleNewWrap = document.getElementById("add-row-game-title-new-wrap");
+    const addRowGameTitle = document.getElementById("add-row-game-title");
+    const addRowCoverInput = document.getElementById("add-row-cover-input");
+    const addRowCoverUpload = document.getElementById("add-row-cover-upload");
+    const addRowCoverClear = document.getElementById("add-row-cover-clear");
+    const addRowCoverImage = document.getElementById("add-row-cover-image");
+    const addRowCoverPlaceholder = document.getElementById("add-row-cover-placeholder");
+    const addRowAnnouncementTitle = document.getElementById("add-row-announcement-title");
+    const addRowDate = document.getElementById("add-row-date");
+    const addRowTrailer = document.getElementById("add-row-trailer");
+    const addRowPressRelease = document.getElementById("add-row-press-release");
+    const addRowEstimatedReach = document.getElementById("add-row-estimated-reach");
+    const addRowTotalWishlists = document.getElementById("add-row-total-wishlists");
+    const addRowHighlights = document.getElementById("add-row-highlights");
     const settingsBtn = document.getElementById("settings-btn");
     const backBtn = document.getElementById("back-to-workspace");
     const workspaceView = document.getElementById("workspace-view");
@@ -203,11 +356,21 @@
     const saveStatus = document.getElementById("save-status");
     const report = document.getElementById("report");
     const gameSections = document.getElementById("game-sections");
-    const sortSelect = document.getElementById("sort-select");
+    const monthFilterControl = document.getElementById("month-filter-control");
     const monthFilter = document.getElementById("month-filter");
+    const viewModeControl = document.getElementById("view-mode-control");
+    const viewModeSelect = document.getElementById("view-mode");
+    const shareBtn = document.getElementById("share-btn");
+    const shareDialog = document.getElementById("share-dialog");
+    const shareDialogClose = document.getElementById("share-dialog-close");
+    const shareGamesList = document.getElementById("share-games-list");
+    const shareMonthsList = document.getElementById("share-months-list");
+    const shareGamesCount = document.getElementById("share-games-count");
+    const shareMonthsCount = document.getElementById("share-months-count");
+    const shareGenerateBtn = document.getElementById("share-generate-btn");
+    const shareDialogError = document.getElementById("share-dialog-error");
     const shareUrlInput = document.getElementById("share-url");
-    const copyShareBtn = document.getElementById("copy-share-url");
-    const shareHint = document.getElementById("share-hint");
+    const shareCopyBtn = document.getElementById("share-copy-btn");
     const passwordForm = document.getElementById("password-form");
     const passwordSubmit = document.getElementById("password-submit");
     const passwordError = document.getElementById("password-error");
@@ -222,6 +385,8 @@
     const coverageDialogDone = document.getElementById("coverage-links-dialog-done");
     const coverageDialogClose = document.getElementById("coverage-links-dialog-close");
     const coverageCsvInput = document.getElementById("coverage-links-csv-input");
+    const rowContextMenu = document.getElementById("row-context-menu");
+    const rowContextDelete = document.getElementById("row-context-delete");
 
     let hasTable = false;
     let currentTable = null;
@@ -230,7 +395,13 @@
     let authRef = null;
     let saveTimer = null;
     let coverageEdit = null;
-    const selectedGames = new Set();
+    let addRowCoverFile = null;
+    let addRowCoverPreviewUrl = "";
+    let gridSortKey = "";
+    let gridSortDirection = "asc";
+    let contextRowIndex = null;
+    const shareSelectedGames = new Set();
+    const shareSelectedMonths = new Set();
     const coveragePreviewCache = new Map();
 
     const PLATFORM_OPTIONS = [
@@ -265,6 +436,27 @@
       return user.getIdToken();
     }
 
+    function emptyAnnouncementRow() {
+      return {
+        id:
+          typeof crypto !== "undefined" && crypto.randomUUID
+            ? crypto.randomUUID()
+            : `row-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        gameTitle: "",
+        announcementTitle: "",
+        date: "",
+        month: "",
+        platforms: "",
+        trailer: "",
+        pressReleasePdf: "",
+        estimatedReach: "",
+        highlights: "",
+        totalWishlists: "",
+        coverageLinks: "",
+        gameImage: "",
+      };
+    }
+
     function tableFromRows(rows, name = "Saved data") {
       const columns = DISPLAY_COLUMNS.map((def) => ({
         key: def.key,
@@ -294,6 +486,208 @@
       };
     }
 
+    function showAddRowError(message) {
+      addRowDialogError.textContent = message || "";
+      addRowDialogError.hidden = !message;
+    }
+
+    function renderAddRowPlatformOptions() {
+      addRowPlatforms.innerHTML = "";
+      PLATFORM_OPTIONS.forEach((option) => {
+        const label = document.createElement("label");
+        label.className = "add-row-platform-option";
+
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.value = option.id;
+        checkbox.name = "add-row-platform";
+
+        const icon = document.createElement("img");
+        icon.src = option.icon;
+        icon.alt = "";
+        icon.className = "platform-icon";
+
+        const text = document.createElement("span");
+        text.textContent = option.label;
+
+        label.appendChild(checkbox);
+        label.appendChild(icon);
+        label.appendChild(text);
+        addRowPlatforms.appendChild(label);
+      });
+    }
+
+    function closeAddRowDialog() {
+      if (typeof addRowDialog.close === "function") addRowDialog.close();
+      else addRowDialog.removeAttribute("open");
+    }
+
+    function populateAddRowGameTitleSelect() {
+      const titles = currentTable ? listGameTitles(currentTable) : [];
+      addRowGameTitleSelect.innerHTML = "";
+
+      const placeholder = document.createElement("option");
+      placeholder.value = "";
+      placeholder.textContent = titles.length
+        ? "Select a game…"
+        : "No games yet — add new";
+      addRowGameTitleSelect.appendChild(placeholder);
+
+      titles.forEach((title) => {
+        const option = document.createElement("option");
+        option.value = title;
+        option.textContent = title;
+        addRowGameTitleSelect.appendChild(option);
+      });
+
+      const addNew = document.createElement("option");
+      addNew.value = "__new__";
+      addNew.textContent = "Add new…";
+      addRowGameTitleSelect.appendChild(addNew);
+
+      if (!titles.length) {
+        addRowGameTitleSelect.value = "__new__";
+      }
+    }
+
+    function clearAddRowCover() {
+      if (addRowCoverPreviewUrl) {
+        URL.revokeObjectURL(addRowCoverPreviewUrl);
+        addRowCoverPreviewUrl = "";
+      }
+      addRowCoverFile = null;
+      addRowCoverInput.value = "";
+      addRowCoverImage.removeAttribute("src");
+      addRowCoverImage.hidden = true;
+      addRowCoverPlaceholder.hidden = false;
+      addRowCoverClear.hidden = true;
+    }
+
+    function setAddRowCoverFile(file) {
+      clearAddRowCover();
+      if (!file) return;
+      addRowCoverFile = file;
+      addRowCoverPreviewUrl = URL.createObjectURL(file);
+      addRowCoverImage.src = addRowCoverPreviewUrl;
+      addRowCoverImage.hidden = false;
+      addRowCoverPlaceholder.hidden = true;
+      addRowCoverClear.hidden = false;
+    }
+
+    function syncAddRowGameTitleMode() {
+      const isNew = addRowGameTitleSelect.value === "__new__";
+      addRowGameTitleNewWrap.hidden = !isNew;
+      addRowGameTitle.required = isNew;
+      if (isNew) {
+        requestAnimationFrame(() => addRowGameTitle.focus());
+      } else {
+        addRowGameTitle.value = "";
+        addRowGameTitle.required = false;
+        clearAddRowCover();
+      }
+    }
+
+    function selectedAddRowGameTitle() {
+      const selected = addRowGameTitleSelect.value;
+      if (selected === "__new__") return addRowGameTitle.value.trim();
+      return selected.trim();
+    }
+
+    function openAddRowDialog() {
+      showAddRowError("");
+      addRowForm.reset();
+      clearAddRowCover();
+      populateAddRowGameTitleSelect();
+      syncAddRowGameTitleMode();
+      renderAddRowPlatformOptions();
+      if (typeof addRowDialog.showModal === "function") {
+        addRowDialog.showModal();
+      } else {
+        addRowDialog.setAttribute("open", "");
+      }
+      requestAnimationFrame(() => {
+        if (addRowGameTitleSelect.value === "__new__") addRowGameTitle.focus();
+        else addRowGameTitleSelect.focus();
+      });
+    }
+
+    async function submitAddRowDialog(event) {
+      event.preventDefault();
+      showAddRowError("");
+
+      const isNewGame = addRowGameTitleSelect.value === "__new__";
+      const gameTitle = selectedAddRowGameTitle();
+      const announcementTitle = addRowAnnouncementTitle.value.trim();
+      if (!gameTitle || !announcementTitle) {
+        showAddRowError(
+          isNewGame
+            ? "Enter a new game title and announcement title."
+            : "Pick a game title and enter an announcement title."
+        );
+        return;
+      }
+
+      if (isNewGame && !addRowCoverFile) {
+        showAddRowError("Upload a cover image for the new game.");
+        return;
+      }
+
+      const date = addRowDate.value.trim();
+      const selectedPlatforms = [
+        ...addRowPlatforms.querySelectorAll('input[type="checkbox"]:checked'),
+      ].map((input) => input.value);
+
+      const submitBtn = document.getElementById("add-row-submit");
+      const previousLabel = submitBtn.textContent;
+      submitBtn.disabled = true;
+      submitBtn.textContent = isNewGame ? "Uploading cover…" : "Adding…";
+
+      try {
+        let gameImage = "";
+        if (isNewGame) {
+          const token = await getIdToken();
+          gameImage = await uploadGameImage(token, addRowCoverFile, gameTitle);
+        } else {
+          gameImage = gameImageForTitle(gameTitle);
+        }
+
+        const row = {
+          ...emptyAnnouncementRow(),
+          gameTitle,
+          announcementTitle,
+          date,
+          month: monthFromDate(date),
+          platforms: serializePlatforms(selectedPlatforms),
+          trailer: addRowTrailer.value.trim(),
+          pressReleasePdf: addRowPressRelease.value.trim(),
+          estimatedReach: addRowEstimatedReach.value.trim(),
+          totalWishlists: addRowTotalWishlists.value.trim(),
+          highlights: addRowHighlights.value.trim(),
+          gameImage,
+        };
+
+        if (!currentTable) {
+          currentTable = tableFromRows([row], "Manual entry");
+        } else {
+          currentTable.rows.push(row);
+        }
+
+        monthFilter.value = "";
+        populateMonthFilter(currentTable);
+        renderTable(currentTable, currentFileName || "Manual entry");
+        scheduleSave();
+        closeAddRowDialog();
+        showSuccess(`Added “${announcementTitle}” under ${gameTitle}.`);
+      } catch (error) {
+        showAddRowError(
+          error instanceof Error ? error.message : "Could not add announcement."
+        );
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = previousLabel || "Add entry";
+      }
+    }
+
     function gameImageForTitle(gameTitle) {
       if (!currentTable) return "";
       const key = (gameTitle || "").trim() || "Untitled";
@@ -317,6 +711,16 @@
       scheduleSave();
     }
 
+    function createIconButton(className, label, innerHtml) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = `btn-icon ${className}`;
+      button.setAttribute("aria-label", label);
+      button.title = label;
+      button.innerHTML = innerHtml;
+      return button;
+    }
+
     function createGameImageControl(gameTitle, identity) {
       const wrap = document.createElement("div");
       wrap.className = "game-image-control";
@@ -328,9 +732,19 @@
       img.hidden = true;
       const placeholder = document.createElement("span");
       placeholder.className = "game-image-placeholder";
-      placeholder.textContent = "No image";
+      placeholder.innerHTML =
+        '<span class="game-image-placeholder-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span><span>No image</span>';
+      placeholder.setAttribute("role", "img");
+      placeholder.setAttribute("aria-label", "No image");
       preview.appendChild(img);
       preview.appendChild(placeholder);
+
+      const details = document.createElement("div");
+      details.className = "game-image-details";
+
+      const heading = document.createElement("h3");
+      heading.className = "game-image-details-title";
+      heading.textContent = "Cover details";
 
       const actions = document.createElement("div");
       actions.className = "game-image-actions";
@@ -340,22 +754,18 @@
       fileInput.accept = "image/*";
       fileInput.hidden = true;
 
-      const uploadBtn = document.createElement("button");
-      uploadBtn.type = "button";
-      uploadBtn.className = "btn-ghost game-image-upload";
-      uploadBtn.textContent = "Upload";
+      const uploadBtn = createIconButton(
+        "game-image-upload",
+        "Upload cover",
+        `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>`
+      );
       uploadBtn.addEventListener("click", () => fileInput.click());
 
-      const downloadBtn = document.createElement("button");
-      downloadBtn.type = "button";
-      downloadBtn.className = "btn-ghost game-image-download";
-      downloadBtn.textContent = "Download";
-      downloadBtn.hidden = true;
-
-      const clearBtn = document.createElement("button");
-      clearBtn.type = "button";
-      clearBtn.className = "btn-ghost game-image-clear";
-      clearBtn.textContent = "Remove";
+      const clearBtn = createIconButton(
+        "game-image-clear",
+        "Remove cover",
+        `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>`
+      );
       clearBtn.hidden = true;
 
       function refreshPreview(url) {
@@ -364,63 +774,14 @@
           img.src = src;
           img.hidden = false;
           placeholder.hidden = true;
-          downloadBtn.hidden = false;
           clearBtn.hidden = false;
         } else {
           img.removeAttribute("src");
           img.hidden = true;
           placeholder.hidden = false;
-          downloadBtn.hidden = true;
           clearBtn.hidden = true;
         }
       }
-
-      function fileNameForDownload(url) {
-        const base =
-          (gameTitle || "game")
-            .trim()
-            .toLowerCase()
-            .replace(/[^a-z0-9]+/g, "-")
-            .replace(/^-+|-+$/g, "")
-            .slice(0, 60) || "game";
-        try {
-          const path = new URL(url, window.location.href).pathname;
-          const ext = path.split(".").pop()?.toLowerCase() || "";
-          if (/^(jpe?g|png|webp|gif)$/.test(ext)) {
-            return `${base}.${ext === "jpeg" ? "jpg" : ext}`;
-          }
-        } catch {
-          /* ignore */
-        }
-        return `${base}.jpg`;
-      }
-
-      downloadBtn.addEventListener("click", async () => {
-        const src = gameImageForTitle(gameTitle);
-        if (!src) return;
-
-        downloadBtn.disabled = true;
-        downloadBtn.textContent = "Downloading…";
-        try {
-          const response = await fetch(src);
-          if (!response.ok) throw new Error("Could not fetch image.");
-          const blob = await response.blob();
-          const objectUrl = URL.createObjectURL(blob);
-          const link = document.createElement("a");
-          link.href = objectUrl;
-          link.download = fileNameForDownload(src);
-          document.body.appendChild(link);
-          link.click();
-          link.remove();
-          URL.revokeObjectURL(objectUrl);
-        } catch {
-          // Cross-origin fallback: open the image so the browser can save it
-          window.open(src, "_blank", "noopener,noreferrer");
-        } finally {
-          downloadBtn.disabled = false;
-          downloadBtn.textContent = "Download";
-        }
-      });
 
       clearBtn.addEventListener("click", () => {
         setGameImageForTitle(gameTitle, "");
@@ -433,30 +794,28 @@
         if (!file) return;
 
         uploadBtn.disabled = true;
-        uploadBtn.textContent = "Uploading…";
         try {
           const token = await getIdToken();
           const url = await uploadGameImage(token, file, gameTitle);
           setGameImageForTitle(gameTitle, url);
           refreshPreview(url);
-          showSuccess("Game image uploaded.");
         } catch (err) {
           showError(
             err instanceof Error ? err.message : "Could not upload image."
           );
         } finally {
           uploadBtn.disabled = false;
-          uploadBtn.textContent = "Upload";
         }
       });
 
       actions.appendChild(uploadBtn);
-      actions.appendChild(downloadBtn);
       actions.appendChild(clearBtn);
       actions.appendChild(fileInput);
+      details.appendChild(heading);
+      details.appendChild(actions);
       wrap.appendChild(preview);
       if (identity) wrap.appendChild(identity);
-      wrap.appendChild(actions);
+      wrap.appendChild(details);
       refreshPreview(gameImageForTitle(gameTitle));
       return wrap;
     }
@@ -467,7 +826,6 @@
         return false;
       }
 
-      saveBtn.disabled = true;
       setSaveStatus("Saving…");
       try {
         const token = await getIdToken();
@@ -481,17 +839,21 @@
         setSaveStatus("Save failed", "error");
         if (!quiet) showError(message);
         return false;
-      } finally {
-        saveBtn.disabled = false;
       }
     }
 
     function scheduleSave() {
       clearTimeout(saveTimer);
-      setSaveStatus("Unsaved changes");
+      setSaveStatus("Saving…");
       saveTimer = setTimeout(() => {
         persistTable({ quiet: true });
-      }, 1200);
+      }, 400);
+    }
+
+    function commitFieldSave() {
+      clearTimeout(saveTimer);
+      setSaveStatus("Saving…");
+      persistTable({ quiet: true });
     }
 
     async function loadSavedData() {
@@ -595,7 +957,7 @@
       });
     }
 
-    function createPlatformCell(row, rowIndex) {
+    function createPlatformCell(row, rowIndex, onChange) {
       const cell = document.createElement("div");
       cell.className = "platform-cell";
 
@@ -625,6 +987,7 @@
         renderMenu();
         scheduleFitTableColumns();
         scheduleSave();
+        onChange?.();
       }
 
       function renderChips() {
@@ -1057,7 +1420,7 @@
       }
     }
 
-    function createCoverageLinksCell(row, rowIndex) {
+    function createCoverageLinksCell(row, rowIndex, onChange) {
       const cell = document.createElement("div");
       cell.className = "coverage-links-cell";
 
@@ -1078,6 +1441,7 @@
             : `Edit ${count} coverage link${count === 1 ? "" : "s"}, row ${rowIndex + 1}`
         );
         scheduleFitTableColumns();
+        onChange?.();
       }
 
       openBtn.addEventListener("click", () => {
@@ -1168,7 +1532,10 @@
       workspaceView.hidden = settings;
       settingsView.hidden = !settings;
       importBtn.hidden = settings;
-      saveBtn.hidden = settings || !hasTable;
+      addRowBtn.hidden = settings;
+      shareBtn.hidden = settings || !hasTable;
+      monthFilterControl.hidden = settings || !hasTable;
+      viewModeControl.hidden = settings || !hasTable;
       settingsBtn.hidden = settings;
       pageLede.textContent = settings ? "Manage your account." : "";
       pageLede.hidden = !settings;
@@ -1180,18 +1547,24 @@
 
     function clearTable({ persist = false } = {}) {
       clearTimeout(saveTimer);
-      selectedGames.clear();
-      updateShareUrl();
+      shareSelectedGames.clear();
+      shareSelectedMonths.clear();
       gameSections.innerHTML = "";
       report.hidden = true;
       dropzone.hidden = false;
       hasTable = false;
       currentTable = null;
       currentFileName = "";
-      saveBtn.hidden = true;
+      shareBtn.hidden = true;
+      monthFilterControl.hidden = true;
+      viewModeControl.hidden = true;
       csvInput.value = "";
-      sortSelect.value = "game";
       monthFilter.innerHTML = '<option value="">All months</option>';
+      viewModeSelect.value = "formatted";
+      gridSortKey = "";
+      gridSortDirection = "asc";
+      gameSections.classList.remove("is-grid-view");
+      panel.classList.remove("is-grid-layout");
       showError("");
       showSuccess("");
 
@@ -1213,44 +1586,117 @@
       return url;
     }
 
-    function buildShareUrl(gameTitles, month) {
+    function buildShareUrl(gameTitles, months) {
       const url = publicHomeBase();
       if (gameTitles.length === 1) {
         url.searchParams.set("game", gameTitles[0]);
       } else if (gameTitles.length > 1) {
         url.searchParams.set("games", gameTitles.join(","));
       }
-      if (month) {
-        url.searchParams.set("month", month);
+      if (months.length === 1) {
+        url.searchParams.set("month", months[0]);
+      } else if (months.length > 1) {
+        url.searchParams.set("months", months.join(","));
       }
       return url.toString();
     }
 
-    function updateShareUrl() {
-      const titles = [...selectedGames].sort((a, b) =>
+    function listGameTitles(table) {
+      return [
+        ...new Set(
+          (table?.rows || [])
+            .map((row) => (row.gameTitle || "").trim() || "Untitled")
+        ),
+      ].sort((a, b) =>
         a.localeCompare(b, undefined, { sensitivity: "base", numeric: true })
       );
-      const month = monthFilter.value.trim();
+    }
 
-      if (titles.length === 0 && !month) {
-        shareUrlInput.value = "";
-        shareUrlInput.placeholder = "Select games and/or a month…";
-        copyShareBtn.disabled = true;
-        shareHint.textContent =
-          "Tick games on the left, and optionally pick a month, then Copy for a short link.";
+    function listMonths(table) {
+      return [
+        ...new Set(
+          (table?.rows || []).map((row) => row.month).filter(Boolean)
+        ),
+      ].sort((a, b) => {
+        const aValue = dateSortValue(`1 ${a}`) ?? 0;
+        const bValue = dateSortValue(`1 ${b}`) ?? 0;
+        return bValue - aValue;
+      });
+    }
+
+    function updateShareSelectionCounts() {
+      shareGamesCount.textContent = String(shareSelectedGames.size);
+      shareMonthsCount.textContent = String(shareSelectedMonths.size);
+    }
+
+    function renderShareCheckList(container, values, selectedSet, name) {
+      container.innerHTML = "";
+      if (values.length === 0) {
+        const empty = document.createElement("p");
+        empty.className = "share-check-empty";
+        empty.textContent = `No ${name} available.`;
+        container.appendChild(empty);
         return;
       }
 
-      // Preview the long filter URL; Copy creates a short ?s= token.
-      shareUrlInput.value = buildShareUrl(titles, month);
-      copyShareBtn.disabled = false;
+      values.forEach((value) => {
+        const label = document.createElement("label");
+        label.className = "share-check-item";
 
-      const parts = [];
-      if (titles.length === 1) parts.push(titles[0]);
-      else if (titles.length > 1) parts.push(`${titles.length} games`);
-      else parts.push("all games");
-      if (month) parts.push(`in ${month}`);
-      shareHint.textContent = `Copy creates a short public link for ${parts.join(" ")}.`;
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.checked = selectedSet.has(value);
+        checkbox.addEventListener("change", () => {
+          if (checkbox.checked) selectedSet.add(value);
+          else selectedSet.delete(value);
+          updateShareSelectionCounts();
+          shareUrlInput.value = "";
+          shareCopyBtn.disabled = true;
+          shareDialogError.hidden = true;
+        });
+
+        const text = document.createElement("span");
+        text.textContent = value;
+
+        label.appendChild(checkbox);
+        label.appendChild(text);
+        container.appendChild(label);
+      });
+    }
+
+    function openShareDialog() {
+      if (!currentTable) return;
+      shareDialogError.hidden = true;
+      shareUrlInput.value = "";
+      shareCopyBtn.disabled = true;
+      renderShareCheckList(
+        shareGamesList,
+        listGameTitles(currentTable),
+        shareSelectedGames,
+        "games"
+      );
+      renderShareCheckList(
+        shareMonthsList,
+        listMonths(currentTable),
+        shareSelectedMonths,
+        "months"
+      );
+      updateShareSelectionCounts();
+      if (typeof shareDialog.showModal === "function") {
+        shareDialog.showModal();
+      } else {
+        shareDialog.setAttribute("open", "");
+      }
+    }
+
+    function closeShareDialog() {
+      if (typeof shareDialog.close === "function") shareDialog.close();
+      else shareDialog.removeAttribute("open");
+    }
+
+    function showShareDialogError(message) {
+      shareDialogError.textContent = message || "";
+      shareDialogError.hidden = !message;
     }
 
     function getVisibleRows() {
@@ -1286,32 +1732,6 @@
       monthFilter.value = months.includes(selected) ? selected : "";
     }
 
-    function compareByDate(a, b, direction) {
-      const aValue = dateSortValue(a.row.date);
-      const bValue = dateSortValue(b.row.date);
-      if (aValue == null && bValue == null) return 0;
-      if (aValue == null) return 1;
-      if (bValue == null) return -1;
-      return direction === "date-asc" ? aValue - bValue : bValue - aValue;
-    }
-
-    function monthSortValue(row) {
-      return (
-        dateSortValue(`1 ${row.month || ""}`) ??
-        dateSortValue(row.date) ??
-        null
-      );
-    }
-
-    function compareByMonth(a, b, direction) {
-      const aValue = monthSortValue(a.row);
-      const bValue = monthSortValue(b.row);
-      if (aValue == null && bValue == null) return 0;
-      if (aValue == null) return 1;
-      if (bValue == null) return -1;
-      return direction === "month-asc" ? aValue - bValue : bValue - aValue;
-    }
-
     function groupRowsByGame(entries) {
       const groups = new Map();
 
@@ -1321,39 +1741,12 @@
         groups.get(key).push(entry);
       });
 
-      const sortMode = sortSelect.value;
-      let grouped = [...groups.entries()];
-
-      grouped.forEach(([, rows]) => {
-        if (sortMode === "date-asc" || sortMode === "date-desc") {
-          rows.sort((a, b) => compareByDate(a, b, sortMode));
-        } else if (sortMode === "month-asc" || sortMode === "month-desc") {
-          rows.sort((a, b) => compareByMonth(a, b, sortMode));
-        }
-      });
-
-      if (sortMode === "date-asc" || sortMode === "date-desc") {
-        grouped.sort((a, b) => {
-          const aBest = a[1][0];
-          const bBest = b[1][0];
-          return compareByDate(aBest, bBest, sortMode);
-        });
-      } else if (sortMode === "month-asc" || sortMode === "month-desc") {
-        grouped.sort((a, b) => {
-          const aBest = a[1][0];
-          const bBest = b[1][0];
-          return compareByMonth(aBest, bBest, sortMode);
-        });
-      } else {
-        grouped.sort((a, b) =>
-          a[0].localeCompare(b[0], undefined, {
-            sensitivity: "base",
-            numeric: true,
-          })
-        );
-      }
-
-      return grouped;
+      return [...groups.entries()].sort((a, b) =>
+        a[0].localeCompare(b[0], undefined, {
+          sensitivity: "base",
+          numeric: true,
+        })
+      );
     }
 
     function columnClassName(column) {
@@ -1362,6 +1755,9 @@
 
     let fitColumnsTimer = null;
     const COLUMN_WIDTH_FLOOR = {
+      status: 3.25 * 16,
+      cover: 4.5 * 16,
+      gameTitle: 10 * 16,
       announcementTitle: 12 * 16,
       date: 8 * 16,
       month: 8 * 16,
@@ -1371,13 +1767,16 @@
       estimatedReach: 8 * 16,
       highlights: 12 * 16,
       totalWishlists: 8 * 16,
-      coverageLinks: 12 * 16,
+      coverageLinks: 0,
     };
     const COLUMN_WIDTH_CAP = {
+      status: 3.5 * 16,
+      cover: 5.5 * 16,
       trailer: 28 * 16,
       pressReleasePdf: 28 * 16,
       highlights: 22 * 16,
     };
+    const HEADER_ONLY_COLUMNS = new Set(["status", "cover", "coverageLinks"]);
 
     function scheduleFitTableColumns() {
       clearTimeout(fitColumnsTimer);
@@ -1427,26 +1826,28 @@
           maxPx = Math.max(maxPx, measureText(th, th.textContent || key) + 36);
         });
 
-        gameSections.querySelectorAll(`td${selector}`).forEach((td) => {
-          const input = td.querySelector(".cell-input");
-          if (input?.tagName === "TEXTAREA") {
-            const lines = String(input.value || "").split(/\r?\n/);
-            if (!lines.length) {
-              maxPx = Math.max(maxPx, measureText(input, " ") + 36);
+        if (!HEADER_ONLY_COLUMNS.has(key)) {
+          gameSections.querySelectorAll(`td${selector}`).forEach((td) => {
+            const input = td.querySelector(".cell-input");
+            if (input?.tagName === "TEXTAREA") {
+              const lines = String(input.value || "").split(/\r?\n/);
+              if (!lines.length) {
+                maxPx = Math.max(maxPx, measureText(input, " ") + 36);
+              } else {
+                lines.forEach((line) => {
+                  maxPx = Math.max(maxPx, measureText(input, line || " ") + 36);
+                });
+              }
+            } else if (input) {
+              maxPx = Math.max(
+                maxPx,
+                measureText(input, input.value || " ") + 36
+              );
             } else {
-              lines.forEach((line) => {
-                maxPx = Math.max(maxPx, measureText(input, line || " ") + 36);
-              });
+              maxPx = Math.max(maxPx, Math.ceil(td.scrollWidth) + 8);
             }
-          } else if (input) {
-            maxPx = Math.max(
-              maxPx,
-              measureText(input, input.value || " ") + 36
-            );
-          } else {
-            maxPx = Math.max(maxPx, Math.ceil(td.scrollWidth) + 8);
-          }
-        });
+          });
+        }
 
         if (COLUMN_WIDTH_CAP[key] != null) {
           maxPx = Math.min(maxPx, COLUMN_WIDTH_CAP[key]);
@@ -1469,19 +1870,180 @@
       });
     }
 
+    function dataColumnsForStatus(columns) {
+      return columns.filter(
+        (column) => column.key !== "status" && column.key !== "cover"
+      );
+    }
+
+    function coverUrlForRow(row) {
+      const direct = String(row?.gameImage || "").trim();
+      if (direct) return direct;
+      return gameImageForTitle(row?.gameTitle || "");
+    }
+
+    function isRowFieldMissing(row, key) {
+      if (key === "coverageLinks") {
+        return parseCoverageLinksValue(row.coverageLinks).length === 0;
+      }
+      if (key === "platforms") {
+        return parsePlatforms(row.platforms).length === 0;
+      }
+      if (key === "cover") {
+        return !coverUrlForRow(row);
+      }
+      return !String(row[key] ?? "").trim();
+    }
+
+    function getRowMissingLabels(row, columns) {
+      return dataColumnsForStatus(columns)
+        .filter((column) => isRowFieldMissing(row, column.key))
+        .map((column) => column.label);
+    }
+
+    function paintStatusCell(td, row, columns) {
+      const missing = getRowMissingLabels(row, columns);
+      const ok = missing.length === 0;
+      td.className = `col-status status-col ${ok ? "is-ok" : "is-warn"}`;
+      td.innerHTML = "";
+
+      const icon = document.createElement("span");
+      icon.className = "row-status-icon";
+      icon.setAttribute("role", "img");
+      if (ok) {
+        icon.title = "All fields complete";
+        icon.setAttribute("aria-label", "All fields complete");
+        icon.innerHTML =
+          '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 2.5 2.5L16 9"/></svg>';
+      } else {
+        const detail = `Missing: ${missing.join(", ")}`;
+        icon.title = detail;
+        icon.setAttribute("aria-label", detail);
+        icon.innerHTML =
+          '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>';
+      }
+      td.appendChild(icon);
+    }
+
+    function createStatusCell(row, columns) {
+      const td = document.createElement("td");
+      paintStatusCell(td, row, columns);
+      return td;
+    }
+
+    function closeRowContextMenu() {
+      contextRowIndex = null;
+      rowContextMenu.hidden = true;
+      rowContextMenu.classList.remove("is-open");
+      document
+        .querySelectorAll("tr.is-context-target")
+        .forEach((row) => row.classList.remove("is-context-target"));
+    }
+
+    function openRowContextMenu(event, rowIndex) {
+      event.preventDefault();
+      closePlatformMenu();
+      contextRowIndex = rowIndex;
+
+      document
+        .querySelectorAll("tr.is-context-target")
+        .forEach((row) => row.classList.remove("is-context-target"));
+      event.currentTarget.classList.add("is-context-target");
+
+      rowContextMenu.hidden = false;
+      rowContextMenu.classList.add("is-open");
+
+      const menuWidth = rowContextMenu.offsetWidth || 160;
+      const menuHeight = rowContextMenu.offsetHeight || 40;
+      let left = event.clientX;
+      let top = event.clientY;
+      if (left + menuWidth > window.innerWidth - 8) {
+        left = Math.max(8, window.innerWidth - menuWidth - 8);
+      }
+      if (top + menuHeight > window.innerHeight - 8) {
+        top = Math.max(8, window.innerHeight - menuHeight - 8);
+      }
+      rowContextMenu.style.left = `${left}px`;
+      rowContextMenu.style.top = `${top}px`;
+    }
+
+    function deleteAnnouncementRow(rowIndex) {
+      if (!currentTable || rowIndex == null || rowIndex < 0) return;
+      if (rowIndex >= currentTable.rows.length) return;
+
+      const removed = currentTable.rows[rowIndex];
+      const label =
+        (removed?.announcementTitle || "").trim() ||
+        (removed?.gameTitle || "").trim() ||
+        "row";
+
+      currentTable.rows.splice(rowIndex, 1);
+      closeRowContextMenu();
+
+      if (currentTable.rows.length === 0) {
+        clearTable({ persist: true });
+        showSuccess(`Deleted “${label}”.`);
+        return;
+      }
+
+      populateMonthFilter(currentTable);
+      renderTable(currentTable, currentFileName);
+      scheduleSave();
+      showSuccess(`Deleted “${label}”.`);
+    }
+
     function buildDataRow(row, rowIndex, columns) {
       const tr = document.createElement("tr");
+      tr.dataset.rowIndex = String(rowIndex);
+      tr.classList.add("data-row");
+      const statusColumns = dataColumnsForStatus(columns);
+
+      tr.addEventListener("contextmenu", (event) => {
+        openRowContextMenu(event, rowIndex);
+      });
+
+      function refreshStatus() {
+        const cell = tr.querySelector(".status-col");
+        if (!cell || !currentTable?.rows[rowIndex]) return;
+        paintStatusCell(cell, currentTable.rows[rowIndex], statusColumns);
+      }
 
       columns.forEach((column) => {
+        if (column.key === "status") {
+          tr.appendChild(createStatusCell(row, statusColumns));
+          return;
+        }
+
         const td = document.createElement("td");
         td.className = columnClassName(column);
 
-        if (column.key === "platforms") {
+        if (column.key === "cover") {
+          td.classList.add("cover-col");
+          const src = coverUrlForRow(row);
+          if (src) {
+            const img = document.createElement("img");
+            img.className = "grid-cover-thumb";
+            img.src = src;
+            img.alt = "";
+            img.loading = "lazy";
+            img.referrerPolicy = "no-referrer";
+            td.appendChild(img);
+          } else {
+            td.classList.add("is-empty-cover");
+            const empty = document.createElement("span");
+            empty.className = "grid-cover-empty";
+            empty.title = "No cover image";
+            empty.setAttribute("aria-label", "No cover image");
+            empty.innerHTML =
+              '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>';
+            td.appendChild(empty);
+          }
+        } else if (column.key === "platforms") {
           td.classList.add("platforms-col");
-          td.appendChild(createPlatformCell(row, rowIndex));
+          td.appendChild(createPlatformCell(row, rowIndex, refreshStatus));
         } else if (column.key === "coverageLinks") {
           td.classList.add("coverage-links-col");
-          td.appendChild(createCoverageLinksCell(row, rowIndex));
+          td.appendChild(createCoverageLinksCell(row, rowIndex, refreshStatus));
         } else {
           const input = document.createElement(
             column.key === "highlights" ? "textarea" : "input"
@@ -1508,21 +2070,34 @@
               if (monthInput) monthInput.value = monthValue;
             }
 
+            refreshStatus();
             scheduleFitTableColumns();
-            scheduleSave();
           });
+
+          input.addEventListener("change", () => {
+            currentTable.rows[rowIndex][column.key] = input.value;
+            refreshStatus();
+            if (column.key === "date") {
+              populateMonthFilter(currentTable);
+            }
+            if (column.key === "gameTitle" || column.key === "date") {
+              commitFieldSave();
+              renderTable(currentTable, currentFileName);
+              return;
+            }
+            commitFieldSave();
+          });
+
+          if (input.tagName !== "TEXTAREA") {
+            input.addEventListener("keydown", (event) => {
+              if (event.key !== "Enter") return;
+              event.preventDefault();
+              input.blur();
+            });
+          }
 
           if (column.key === "month") {
             input.dataset.column = "month";
-          }
-
-          if (column.key === "gameTitle" || column.key === "date") {
-            input.addEventListener("change", () => {
-              if (column.key === "date") {
-                populateMonthFilter(currentTable);
-              }
-              renderTable(currentTable, currentFileName);
-            });
           }
 
           td.appendChild(input);
@@ -1534,23 +2109,31 @@
       return tr;
     }
 
-    function renderTable(table, name) {
-      currentTable = table;
-      currentFileName = name || currentFileName;
-      closePlatformMenu();
-      gameSections.innerHTML = "";
-
-      const visible = getVisibleRows();
-      const groups = groupRowsByGame(visible);
+    function tableColumns(table, { grid = false } = {}) {
       const columns = table.columns.filter(
-        (column) => !column.perGame && !column.hiddenInTable
+        (column) =>
+          !column.hiddenInTable &&
+          (column.key === "gameTitle" || !column.perGame)
       );
+      if (grid) {
+        return [
+          { key: "status", label: "Status" },
+          { key: "cover", label: "Cover" },
+          ...columns,
+        ];
+      }
+      return [{ key: "status", label: "Status" }, ...columns];
+    }
+
+    function renderFormattedView(visible, columns) {
+      const groups = groupRowsByGame(visible);
 
       if (groups.length === 0) {
         const empty = document.createElement("p");
         empty.className = "empty-filter";
         empty.textContent = "No rows match this month filter.";
         gameSections.appendChild(empty);
+        return;
       }
 
       groups.forEach(([gameTitle, entries]) => {
@@ -1559,23 +2142,6 @@
 
         const header = document.createElement("div");
         header.className = "game-section-header";
-
-        const selectLabel = document.createElement("label");
-        selectLabel.className = "game-share-select";
-        selectLabel.title = "Include in public link";
-
-        const checkbox = document.createElement("input");
-        checkbox.type = "checkbox";
-        checkbox.checked = selectedGames.has(gameTitle);
-        checkbox.setAttribute("aria-label", `Include ${gameTitle} in public link`);
-        checkbox.addEventListener("change", () => {
-          if (checkbox.checked) selectedGames.add(gameTitle);
-          else selectedGames.delete(gameTitle);
-          updateShareUrl();
-        });
-
-        selectLabel.appendChild(checkbox);
-        header.appendChild(selectLabel);
 
         const copy = document.createElement("div");
         copy.className = "game-section-copy";
@@ -1619,21 +2185,171 @@
         section.appendChild(wrap);
         gameSections.appendChild(section);
       });
+    }
+
+    function gridSortValue(row, key, columns = []) {
+      if (key === "status") {
+        return getRowMissingLabels(row, columns).length;
+      }
+      if (key === "cover") {
+        return coverUrlForRow(row) ? 0 : 1;
+      }
+      if (key === "date") return dateSortValue(row.date);
+      if (key === "month") {
+        return dateSortValue(`1 ${row.month || ""}`) ?? dateSortValue(row.date);
+      }
+      if (key === "coverageLinks") {
+        return parseCoverageLinksValue(row.coverageLinks).length;
+      }
+      if (key === "platforms") {
+        return String(row.platforms || "")
+          .split(/[,|;/]+/)
+          .map((part) => part.trim())
+          .filter(Boolean)
+          .join(", ")
+          .toLowerCase();
+      }
+      return String(row[key] ?? "").trim().toLowerCase();
+    }
+
+    function sortVisibleForGrid(visible, columns = []) {
+      if (!gridSortKey) return visible;
+      const direction = gridSortDirection === "desc" ? -1 : 1;
+      return [...visible].sort((a, b) => {
+        const aValue = gridSortValue(a.row, gridSortKey, columns);
+        const bValue = gridSortValue(b.row, gridSortKey, columns);
+        if (aValue == null && bValue == null) return 0;
+        if (aValue == null) return 1;
+        if (bValue == null) return -1;
+        if (typeof aValue === "number" && typeof bValue === "number") {
+          return (aValue - bValue) * direction;
+        }
+        return (
+          String(aValue).localeCompare(String(bValue), undefined, {
+            sensitivity: "base",
+            numeric: true,
+          }) * direction
+        );
+      });
+    }
+
+    function setGridSort(columnKey) {
+      if (gridSortKey === columnKey) {
+        gridSortDirection = gridSortDirection === "asc" ? "desc" : "asc";
+      } else {
+        gridSortKey = columnKey;
+        gridSortDirection = "asc";
+      }
+      if (currentTable) renderTable(currentTable, currentFileName);
+    }
+
+    function renderGridView(visible, columns) {
+      const rows = sortVisibleForGrid(visible, columns);
+
+      if (rows.length === 0) {
+        const empty = document.createElement("p");
+        empty.className = "empty-filter";
+        empty.textContent = "No rows match this month filter.";
+        gameSections.appendChild(empty);
+        return;
+      }
+
+      const wrap = document.createElement("div");
+      wrap.className = "table-wrap grid-table-wrap";
+
+      const tableEl = document.createElement("table");
+      tableEl.className = "grid-table";
+
+      const thead = document.createElement("thead");
+      const headRow = document.createElement("tr");
+      columns.forEach((column) => {
+        const th = document.createElement("th");
+        th.className = `${columnClassName(column)} grid-sortable`;
+        if (gridSortKey === column.key) {
+          th.classList.add(
+            gridSortDirection === "asc" ? "is-sort-asc" : "is-sort-desc"
+          );
+        }
+
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "grid-sort-btn";
+        button.setAttribute(
+          "aria-label",
+          `Sort by ${column.label}${
+            gridSortKey === column.key
+              ? gridSortDirection === "asc"
+                ? ", ascending"
+                : ", descending"
+              : ""
+          }`
+        );
+
+        const label = document.createElement("span");
+        label.textContent = column.label;
+        button.appendChild(label);
+
+        const marker = document.createElement("span");
+        marker.className = "grid-sort-marker";
+        marker.setAttribute("aria-hidden", "true");
+        marker.textContent =
+          gridSortKey === column.key
+            ? gridSortDirection === "asc"
+              ? "▲"
+              : "▼"
+            : "⇅";
+        button.appendChild(marker);
+
+        button.addEventListener("click", () => setGridSort(column.key));
+        th.appendChild(button);
+        headRow.appendChild(th);
+      });
+      thead.appendChild(headRow);
+
+      const tbody = document.createElement("tbody");
+      rows.forEach(({ row, rowIndex }) => {
+        tbody.appendChild(buildDataRow(row, rowIndex, columns));
+      });
+
+      tableEl.appendChild(thead);
+      tableEl.appendChild(tbody);
+      wrap.appendChild(tableEl);
+      gameSections.appendChild(wrap);
+    }
+
+    function renderTable(table, name) {
+      currentTable = table;
+      currentFileName = name || currentFileName;
+      closePlatformMenu();
+      gameSections.innerHTML = "";
+
+      const visible = getVisibleRows();
+      const isGrid = viewModeSelect.value === "grid";
+      const columns = tableColumns(table, { grid: isGrid });
+      gameSections.classList.toggle("is-grid-view", isGrid);
+      panel.classList.toggle("is-grid-layout", isGrid);
+
+      if (isGrid) renderGridView(visible, columns);
+      else renderFormattedView(visible, columns);
 
       fitTableColumns();
 
-      // Drop selections for games no longer present
-      const visibleTitles = new Set(groups.map(([title]) => title));
-      [...selectedGames].forEach((title) => {
-        if (!visibleTitles.has(title)) selectedGames.delete(title);
+      const allTitles = new Set(listGameTitles(currentTable));
+      [...shareSelectedGames].forEach((title) => {
+        if (!allTitles.has(title)) shareSelectedGames.delete(title);
       });
-      updateShareUrl();
+      const allMonths = new Set(listMonths(currentTable));
+      [...shareSelectedMonths].forEach((month) => {
+        if (!allMonths.has(month)) shareSelectedMonths.delete(month);
+      });
 
       dropzone.hidden = true;
       report.hidden = false;
       hasTable = true;
       if (settingsView.hidden) {
-        saveBtn.hidden = false;
+        shareBtn.hidden = false;
+        monthFilterControl.hidden = false;
+        viewModeControl.hidden = false;
       }
       showError("");
     }
@@ -1662,78 +2378,98 @@
       reader.readAsText(file);
     }
 
-    document.addEventListener("click", closePlatformMenu);
+    document.addEventListener("click", (event) => {
+      closePlatformMenu();
+      if (!rowContextMenu.contains(event.target)) closeRowContextMenu();
+    });
     document.addEventListener(
       "scroll",
       () => {
         if (openPlatformMenu) closePlatformMenu();
+        closeRowContextMenu();
       },
       true
     );
     window.addEventListener("resize", () => {
       if (openPlatformMenu) closePlatformMenu();
+      closeRowContextMenu();
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") closeRowContextMenu();
+    });
+    rowContextDelete.addEventListener("click", () => {
+      const index = contextRowIndex;
+      closeRowContextMenu();
+      deleteAnnouncementRow(index);
     });
 
-    sortSelect.addEventListener("change", () => {
-      if (currentTable) renderTable(currentTable, currentFileName);
-    });
     monthFilter.addEventListener("change", () => {
       if (currentTable) renderTable(currentTable, currentFileName);
-      else updateShareUrl();
+    });
+    viewModeSelect.addEventListener("change", () => {
+      if (currentTable) renderTable(currentTable, currentFileName);
     });
 
-    copyShareBtn.addEventListener("click", async () => {
-      const titles = [...selectedGames].sort((a, b) =>
+    shareBtn.addEventListener("click", () => openShareDialog());
+    shareDialogClose.addEventListener("click", () => closeShareDialog());
+    shareDialog.addEventListener("click", (event) => {
+      if (event.target === shareDialog) closeShareDialog();
+    });
+
+    shareGenerateBtn.addEventListener("click", async () => {
+      const titles = [...shareSelectedGames].sort((a, b) =>
         a.localeCompare(b, undefined, { sensitivity: "base", numeric: true })
       );
-      const month = monthFilter.value.trim();
-      if (titles.length === 0 && !month) return;
+      const months = listMonths(currentTable).filter((month) =>
+        shareSelectedMonths.has(month)
+      );
+      if (titles.length === 0 && months.length === 0) {
+        showShareDialogError("Pick at least one game or month.");
+        return;
+      }
 
-      const previous = copyShareBtn.textContent;
-      copyShareBtn.disabled = true;
-      copyShareBtn.textContent = "Creating…";
+      const previous = shareGenerateBtn.textContent;
+      shareGenerateBtn.disabled = true;
+      shareGenerateBtn.textContent = "Generating…";
+      shareCopyBtn.disabled = true;
+      showShareDialogError("");
 
       try {
         const token = await getIdToken();
-        const share = await createShare(token, { games: titles, month });
+        const share = await createShare(token, { games: titles, months });
         const shortUrl = publicHomeBase();
         shortUrl.searchParams.set("s", share.id);
-        const value = shortUrl.toString();
-        shareUrlInput.value = value;
-        shareHint.textContent = "Short link ready — paste it on the public page.";
-
-        try {
-          await navigator.clipboard.writeText(value);
-          copyShareBtn.textContent = "Copied";
-        } catch {
-          shareUrlInput.focus();
-          shareUrlInput.select();
-          copyShareBtn.textContent = "Ready";
-        }
+        shareUrlInput.value = shortUrl.toString();
+        shareCopyBtn.disabled = false;
       } catch (error) {
-        // Fall back to the long query URL if share creation fails
-        const fallback = buildShareUrl(titles, month);
-        shareUrlInput.value = fallback;
-        shareHint.textContent =
+        shareUrlInput.value = buildShareUrl(titles, months);
+        shareCopyBtn.disabled = false;
+        showShareDialogError(
           error instanceof Error
-            ? `${error.message} Long URL left in the box instead.`
-            : "Could not create short link. Long URL left in the box instead.";
-        try {
-          await navigator.clipboard.writeText(fallback);
-          copyShareBtn.textContent = "Copied long URL";
-        } catch {
-          shareUrlInput.focus();
-          shareUrlInput.select();
-          copyShareBtn.textContent = previous;
-        }
+            ? `${error.message} Long URL shown instead.`
+            : "Could not create short link. Long URL shown instead."
+        );
       } finally {
-        setTimeout(() => {
-          copyShareBtn.textContent = previous;
-          copyShareBtn.disabled = !(
-            selectedGames.size > 0 || monthFilter.value.trim()
-          );
-        }, 1600);
+        shareGenerateBtn.textContent = previous;
+        shareGenerateBtn.disabled = false;
       }
+    });
+
+    shareCopyBtn.addEventListener("click", async () => {
+      const value = shareUrlInput.value.trim();
+      if (!value) return;
+      const previous = shareCopyBtn.textContent;
+      try {
+        await navigator.clipboard.writeText(value);
+        shareCopyBtn.textContent = "Copied";
+      } catch {
+        shareUrlInput.focus();
+        shareUrlInput.select();
+        shareCopyBtn.textContent = "Select & copy";
+      }
+      setTimeout(() => {
+        shareCopyBtn.textContent = previous;
+      }, 1400);
     });
 
     shareUrlInput.addEventListener("focus", () => {
@@ -1741,7 +2477,32 @@
     });
 
     importBtn.addEventListener("click", () => csvInput.click());
-    saveBtn.addEventListener("click", () => persistTable({ quiet: false }));
+    addRowBtn.addEventListener("click", () => openAddRowDialog());
+    addRowDialogClose.addEventListener("click", () => closeAddRowDialog());
+    addRowDialog.addEventListener("click", (event) => {
+      if (event.target === addRowDialog) closeAddRowDialog();
+    });
+    addRowGameTitleSelect.addEventListener("change", () => {
+      syncAddRowGameTitleMode();
+      showAddRowError("");
+    });
+    addRowCoverUpload.addEventListener("click", () => addRowCoverInput.click());
+    addRowCoverClear.addEventListener("click", () => {
+      clearAddRowCover();
+      showAddRowError("");
+    });
+    addRowCoverInput.addEventListener("change", () => {
+      const file = addRowCoverInput.files?.[0];
+      if (!file) return;
+      if (!file.type.startsWith("image/")) {
+        showAddRowError("Please choose an image file for the cover.");
+        addRowCoverInput.value = "";
+        return;
+      }
+      setAddRowCoverFile(file);
+      showAddRowError("");
+    });
+    addRowForm.addEventListener("submit", submitAddRowDialog);
     settingsBtn.addEventListener("click", () => setView("settings"));
     backBtn.addEventListener("click", () => setView("workspace"));
     csvInput.addEventListener("change", () => handleFile(csvInput.files?.[0]));
@@ -1772,8 +2533,6 @@
           return;
         }
 
-        userName.textContent = displayNameFromEmail(user.email);
-        userName.title = user.email || "";
         loading.hidden = true;
         panel.hidden = false;
         await loadSavedData();

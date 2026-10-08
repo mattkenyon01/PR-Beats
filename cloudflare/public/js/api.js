@@ -50,11 +50,16 @@ export function saveAnnouncements(token, rows) {
   });
 }
 
-export function createShare(token, { games = [], month = "" } = {}) {
+export function createShare(token, { games = [], months = [], month = "" } = {}) {
+  const monthList = Array.isArray(months) && months.length
+    ? months
+    : month
+      ? [month]
+      : [];
   return api("/api/shares", {
     token,
     method: "POST",
-    body: { games, month },
+    body: { games, months: monthList, month: monthList[0] || "" },
   });
 }
 

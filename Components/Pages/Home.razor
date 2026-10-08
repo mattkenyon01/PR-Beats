@@ -312,7 +312,7 @@
 
             _groups = rows
                 .GroupBy(row => string.IsNullOrWhiteSpace(row.GameTitle) ? "Untitled" : row.GameTitle.Trim())
-                .OrderBy(group => group.Key, StringComparer.OrdinalIgnoreCase)
+                .OrderBy(group => group.Key, StringComparer.CurrentCultureIgnoreCase)
                 .Select(group => new KeyValuePair<string, List<AnnouncementRow>>(group.Key, group.ToList()))
                 .ToList();
 
