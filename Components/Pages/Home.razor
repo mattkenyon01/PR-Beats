@@ -27,6 +27,40 @@
     @if (_groups.Count > 0)
     {
         var active = _groups[_activeIndex];
+        <div class="game-search">
+            <label class="visually-hidden" for="game-search-input">Search games</label>
+            <input id="game-search-input"
+                   class="game-search-input"
+                   type="search"
+                   placeholder="Search games…"
+                   value="@_searchQuery"
+                   autocomplete="off"
+                   spellcheck="false"
+                   @oninput="OnSearchInput" />
+            @if (!string.IsNullOrWhiteSpace(_searchQuery))
+            {
+                @if (_searchMatches.Count > 0)
+                {
+                    <ul class="game-search-results" role="listbox" aria-label="Matching games">
+                        @foreach (var match in _searchMatches)
+                        {
+                            var index = match.Index;
+                            <li role="option">
+                                <button type="button"
+                                        class="game-search-result @(_activeIndex == index ? "is-active" : null)"
+                                        @onclick="() => SelectSearchResult(index)">
+                                    <span class="game-search-result-title">@match.Title</span>
+                                </button>
+                            </li>
+                        }
+                    </ul>
+                }
+                else
+                {
+                    <p class="game-search-empty">No games match</p>
+                }
+            }
+        </div>
         <div class="announcement-carousel is-ready"
              tabindex="0"
              @onkeydown="OnKeyDown"
@@ -167,7 +201,17 @@
                     </section>
 
                     <section class="trailer-card @(string.IsNullOrWhiteSpace(pdfEmbed) ? "is-empty" : null)" aria-label="Press release PDF">
-                        <h3 class="detail-card-label">Press release PDF</h3>
+                        <div class="media-card-heading">
+                            <h3 class="detail-card-label">Press release PDF</h3>
+                            @if (!string.IsNullOrWhiteSpace(pdfEmbed))
+                            {
+                                <button type="button"
+                                        class="btn-ghost media-expand-btn"
+                                        @onclick="() => OpenPdfViewer(pdfEmbed)">
+                                    Expand
+                                </button>
+                            }
+                        </div>
                         <div class="trailer-embed">
                             @if (!string.IsNullOrWhiteSpace(pdfEmbed))
                             {
@@ -276,6 +320,30 @@
     }
 </div>
 
+@if (_pdfViewerOpen && !string.IsNullOrWhiteSpace(_pdfViewerUrl))
+{
+    <div class="pdf-viewer-overlay"
+         role="dialog"
+         aria-modal="true"
+         aria-labelledby="pdf-viewer-title"
+         tabindex="-1"
+         @onkeydown="OnPdfViewerKeyDown"
+         @onclick="ClosePdfViewer">
+        <div class="pdf-viewer-panel" @onclick:stopPropagation="true">
+            <header class="pdf-viewer-header">
+                <h2 id="pdf-viewer-title">Press release PDF</h2>
+                <button type="button" class="btn-ghost" @onclick="ClosePdfViewer">Close</button>
+            </header>
+            <div class="pdf-viewer-frame">
+                <iframe src="@_pdfViewerUrl"
+                        title="Press release PDF"
+                        allow="fullscreen"
+                        allowfullscreen></iframe>
+            </div>
+        </div>
+    </div>
+}
+
 <a class="admin-link" href="/login.html">Admin</a>
 
 @code {
@@ -285,6 +353,10 @@
     private bool _isError;
     private int _activeIndex;
     private double _touchStartX;
+    private bool _pdfViewerOpen;
+    private string? _pdfViewerUrl;
+    private string _searchQuery = "";
+    private List<(int Index, string Title)> _searchMatches = [];
     private List<KeyValuePair<string, List<AnnouncementRow>>> _groups = [];
 
     protected override async Task OnInitializedAsync()
@@ -325,14 +397,66 @@
         }
     }
 
+    private void OnSearchInput(ChangeEventArgs e)
+    {
+        _searchQuery = e.Value?.ToString() ?? "";
+        UpdateSearchMatches();
+    }
+
+    private void UpdateSearchMatches()
+    {
+        var query = _searchQuery.Trim();
+        if (string.IsNullOrEmpty(query))
+        {
+            _searchMatches = [];
+            return;
+        }
+
+        _searchMatches = _groups
+            .Select((group, index) => (Index: index, Title: group.Key))
+            .Where(item => item.Title.Contains(query, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+    }
+
+    private void SelectSearchResult(int index)
+    {
+        ShowSlide(index);
+        _searchQuery = "";
+        _searchMatches = [];
+    }
+
     private void ShowSlide(int index)
     {
         if (_groups.Count == 0) return;
+        ClosePdfViewer();
         _activeIndex = ((index % _groups.Count) + _groups.Count) % _groups.Count;
+    }
+
+    private void OpenPdfViewer(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url)) return;
+        _pdfViewerUrl = url;
+        _pdfViewerOpen = true;
+    }
+
+    private void ClosePdfViewer()
+    {
+        _pdfViewerOpen = false;
+        _pdfViewerUrl = null;
+    }
+
+    private void OnPdfViewerKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape") ClosePdfViewer();
     }
 
     private void OnKeyDown(KeyboardEventArgs e)
     {
+        if (_pdfViewerOpen)
+        {
+            if (e.Key == "Escape") ClosePdfViewer();
+            return;
+        }
         if (e.Key == "ArrowRight") ShowSlide(_activeIndex + 1);
         else if (e.Key == "ArrowLeft") ShowSlide(_activeIndex - 1);
     }

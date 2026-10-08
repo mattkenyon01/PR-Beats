@@ -186,10 +186,25 @@
           Trailer
           <input id="add-row-trailer" type="url" placeholder="https://…" autocomplete="off" />
         </label>
-        <label>
-          Press release PDF
-          <input id="add-row-press-release" type="url" placeholder="https://…" autocomplete="off" />
-        </label>
+        <div class="add-row-press-release">
+          <span class="add-row-field-label">Press release PDF</span>
+          <div class="add-row-press-release-row">
+            <span class="add-row-press-release-name" id="add-row-press-release-name">No PDF</span>
+            <div class="add-row-press-release-actions">
+              <input id="add-row-press-release-input" type="file" accept="application/pdf,.pdf" hidden />
+              <button type="button" class="btn-ghost" id="add-row-press-release-upload">Upload PDF</button>
+              <button type="button" class="btn-icon" id="add-row-press-release-clear" aria-label="Remove PDF" title="Remove PDF" hidden>
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M3 6h18"/>
+                  <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
+                  <line x1="10" x2="10" y1="11" y2="17"/>
+                  <line x1="14" x2="14" y1="11" y2="17"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
         <label>
           Estimated reach
           <input id="add-row-estimated-reach" type="text" autocomplete="off" />
@@ -313,6 +328,7 @@
       saveAnnouncements,
       createShare,
       uploadGameImage,
+      uploadPressReleasePdf,
       fetchLinkPreview,
       linkPreviewImageUrl,
       isPersistedCoverUrl,
@@ -341,7 +357,10 @@
     const addRowAnnouncementTitle = document.getElementById("add-row-announcement-title");
     const addRowDate = document.getElementById("add-row-date");
     const addRowTrailer = document.getElementById("add-row-trailer");
-    const addRowPressRelease = document.getElementById("add-row-press-release");
+    const addRowPressReleaseInput = document.getElementById("add-row-press-release-input");
+    const addRowPressReleaseUpload = document.getElementById("add-row-press-release-upload");
+    const addRowPressReleaseClear = document.getElementById("add-row-press-release-clear");
+    const addRowPressReleaseName = document.getElementById("add-row-press-release-name");
     const addRowEstimatedReach = document.getElementById("add-row-estimated-reach");
     const addRowTotalWishlists = document.getElementById("add-row-total-wishlists");
     const addRowHighlights = document.getElementById("add-row-highlights");
@@ -397,6 +416,7 @@
     let coverageEdit = null;
     let addRowCoverFile = null;
     let addRowCoverPreviewUrl = "";
+    let addRowPressReleaseFile = null;
     let gridSortKey = "";
     let gridSortDirection = "asc";
     let contextRowIndex = null;
@@ -603,6 +623,23 @@
       addRowCoverClear.hidden = false;
     }
 
+    function clearAddRowPressRelease() {
+      addRowPressReleaseFile = null;
+      addRowPressReleaseInput.value = "";
+      addRowPressReleaseName.textContent = "No PDF";
+      addRowPressReleaseName.classList.remove("has-file");
+      addRowPressReleaseClear.hidden = true;
+    }
+
+    function setAddRowPressReleaseFile(file) {
+      clearAddRowPressRelease();
+      if (!file) return;
+      addRowPressReleaseFile = file;
+      addRowPressReleaseName.textContent = file.name || "PDF selected";
+      addRowPressReleaseName.classList.add("has-file");
+      addRowPressReleaseClear.hidden = false;
+    }
+
     function syncAddRowGameTitleMode() {
       const isNew = addRowGameTitleSelect.value === "__new__";
       addRowGameTitleNewWrap.hidden = !isNew;
@@ -626,6 +663,7 @@
       showAddRowError("");
       addRowForm.reset();
       clearAddRowCover();
+      clearAddRowPressRelease();
       populateAddRowGameTitleSelect();
       syncAddRowGameTitleMode();
       renderAddRowPlatformOptions();
@@ -669,15 +707,30 @@
       const submitBtn = document.getElementById("add-row-submit");
       const previousLabel = submitBtn.textContent;
       submitBtn.disabled = true;
-      submitBtn.textContent = isNewGame ? "Uploading cover…" : "Adding…";
+      submitBtn.textContent = isNewGame
+        ? "Uploading…"
+        : addRowPressReleaseFile
+          ? "Uploading PDF…"
+          : "Adding…";
 
       try {
+        const needsUpload = isNewGame || Boolean(addRowPressReleaseFile);
+        const token = needsUpload ? await getIdToken() : null;
+
         let gameImage = "";
         if (isNewGame) {
-          const token = await getIdToken();
           gameImage = await uploadGameImage(token, addRowCoverFile, gameTitle);
         } else {
           gameImage = gameImageForTitle(gameTitle);
+        }
+
+        let pressReleasePdf = "";
+        if (addRowPressReleaseFile) {
+          pressReleasePdf = await uploadPressReleasePdf(
+            token,
+            addRowPressReleaseFile,
+            announcementTitle || gameTitle
+          );
         }
 
         const row = {
@@ -688,7 +741,7 @@
           month: monthFromDate(date),
           platforms: serializePlatforms(selectedPlatforms),
           trailer: addRowTrailer.value.trim(),
-          pressReleasePdf: addRowPressRelease.value.trim(),
+          pressReleasePdf,
           estimatedReach: addRowEstimatedReach.value.trim(),
           totalWishlists: addRowTotalWishlists.value.trim(),
           highlights: addRowHighlights.value.trim(),
@@ -1803,7 +1856,12 @@
       pressReleasePdf: 28 * 16,
       highlights: 22 * 16,
     };
-    const HEADER_ONLY_COLUMNS = new Set(["status", "cover", "coverageLinks"]);
+    const HEADER_ONLY_COLUMNS = new Set([
+      "status",
+      "cover",
+      "coverageLinks",
+      "pressReleasePdf",
+    ]);
 
     function scheduleFitTableColumns() {
       clearTimeout(fitColumnsTimer);
@@ -2019,6 +2077,110 @@
       showSuccess(`Deleted “${label}”.`);
     }
 
+    function pressReleaseFileLabel(url) {
+      const src = String(url || "").trim();
+      if (!src) return "";
+      try {
+        const name = decodeURIComponent(
+          new URL(src, window.location.origin).pathname.split("/").pop() || ""
+        );
+        if (!name) return "PDF uploaded";
+        return name.replace(/-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i, "") || "PDF uploaded";
+      } catch {
+        return "PDF uploaded";
+      }
+    }
+
+    function createPressReleasePdfCell(row, rowIndex, onChanged) {
+      const wrap = document.createElement("div");
+      wrap.className = "press-release-cell";
+
+      const status = document.createElement("a");
+      status.className = "press-release-status";
+      status.target = "_blank";
+      status.rel = "noopener noreferrer";
+
+      const actions = document.createElement("div");
+      actions.className = "press-release-actions";
+
+      const fileInput = document.createElement("input");
+      fileInput.type = "file";
+      fileInput.accept = "application/pdf,.pdf";
+      fileInput.hidden = true;
+
+      const uploadBtn = createIconButton(
+        "press-release-upload",
+        "Upload PDF",
+        `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>`
+      );
+      uploadBtn.addEventListener("click", () => fileInput.click());
+
+      const clearBtn = createIconButton(
+        "press-release-clear",
+        "Remove PDF",
+        `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>`
+      );
+
+      function refresh(url) {
+        const src = String(url || "").trim();
+        if (src) {
+          status.textContent = pressReleaseFileLabel(src);
+          status.href = src;
+          status.classList.add("has-file");
+          status.removeAttribute("aria-disabled");
+          clearBtn.hidden = false;
+        } else {
+          status.textContent = "No PDF";
+          status.removeAttribute("href");
+          status.classList.remove("has-file");
+          status.setAttribute("aria-disabled", "true");
+          clearBtn.hidden = true;
+        }
+      }
+
+      clearBtn.addEventListener("click", () => {
+        if (!currentTable?.rows[rowIndex]) return;
+        currentTable.rows[rowIndex].pressReleasePdf = "";
+        refresh("");
+        onChanged?.();
+        commitFieldSave();
+      });
+
+      fileInput.addEventListener("change", async () => {
+        const file = fileInput.files?.[0];
+        fileInput.value = "";
+        if (!file || !currentTable?.rows[rowIndex]) return;
+
+        uploadBtn.disabled = true;
+        try {
+          const token = await getIdToken();
+          const label =
+            currentTable.rows[rowIndex].announcementTitle ||
+            currentTable.rows[rowIndex].gameTitle ||
+            "press-release";
+          const url = await uploadPressReleasePdf(token, file, label);
+          currentTable.rows[rowIndex].pressReleasePdf = url;
+          refresh(url);
+          onChanged?.();
+          commitFieldSave();
+        } catch (err) {
+          showError(
+            err instanceof Error ? err.message : "Could not upload PDF."
+          );
+        } finally {
+          uploadBtn.disabled = false;
+        }
+      });
+
+      actions.appendChild(uploadBtn);
+      actions.appendChild(clearBtn);
+      actions.appendChild(fileInput);
+      wrap.appendChild(status);
+      wrap.appendChild(actions);
+      refresh(row.pressReleasePdf);
+      return wrap;
+    }
+
     function buildDataRow(row, rowIndex, columns) {
       const tr = document.createElement("tr");
       tr.dataset.rowIndex = String(rowIndex);
@@ -2071,6 +2233,11 @@
         } else if (column.key === "coverageLinks") {
           td.classList.add("coverage-links-col");
           td.appendChild(createCoverageLinksCell(row, rowIndex, refreshStatus));
+        } else if (column.key === "pressReleasePdf") {
+          td.classList.add("press-release-col");
+          td.appendChild(
+            createPressReleasePdfCell(row, rowIndex, refreshStatus)
+          );
         } else {
           const input = document.createElement(
             column.key === "highlights" ? "textarea" : "input"
@@ -2530,6 +2697,29 @@
         return;
       }
       setAddRowCoverFile(file);
+      showAddRowError("");
+    });
+    addRowPressReleaseUpload.addEventListener("click", () =>
+      addRowPressReleaseInput.click()
+    );
+    addRowPressReleaseClear.addEventListener("click", () => {
+      clearAddRowPressRelease();
+      showAddRowError("");
+    });
+    addRowPressReleaseInput.addEventListener("change", () => {
+      const file = addRowPressReleaseInput.files?.[0];
+      if (!file) return;
+      const type = String(file.type || "").toLowerCase();
+      const looksLikePdf =
+        type === "application/pdf" ||
+        type === "application/x-pdf" ||
+        /\.pdf$/i.test(file.name || "");
+      if (!looksLikePdf) {
+        showAddRowError("Please choose a PDF file.");
+        addRowPressReleaseInput.value = "";
+        return;
+      }
+      setAddRowPressReleaseFile(file);
       showAddRowError("");
     });
     addRowForm.addEventListener("submit", submitAddRowDialog);

@@ -101,6 +101,38 @@ export async function uploadGameImage(token, file, gameTitle = "") {
   return data.url;
 }
 
+export async function uploadPressReleasePdf(token, file, label = "") {
+  if (!file) throw new Error("Choose a PDF file.");
+  const type = String(file.type || "").toLowerCase();
+  const name = String(file.name || "");
+  const looksLikePdf =
+    type === "application/pdf" ||
+    type === "application/x-pdf" ||
+    /\.pdf$/i.test(name);
+  if (!looksLikePdf) {
+    throw new Error("Please choose a PDF file.");
+  }
+
+  const form = new FormData();
+  form.append("file", file);
+  if (label) form.append("label", label);
+
+  const headers = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const response = await fetch(`${API_BASE}/api/press-release-pdfs`, {
+    method: "POST",
+    headers,
+    body: form,
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.error || `Upload failed (${response.status})`);
+  }
+  return data.url;
+}
+
 export function isPersistedCoverUrl(url) {
   return /\/api\/(?:game-images|coverage-covers)\//i.test(String(url || "").trim());
 }

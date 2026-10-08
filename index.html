@@ -14,6 +14,19 @@
 <body class="public-page">
   <div class="public-app">
     <p class="note" id="status">Loading…</p>
+    <div class="game-search" id="game-search" hidden>
+      <label class="visually-hidden" for="game-search-input">Search games</label>
+      <input
+        id="game-search-input"
+        class="game-search-input"
+        type="search"
+        placeholder="Search games…"
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <ul class="game-search-results" id="game-search-results" role="listbox" aria-label="Matching games" hidden></ul>
+      <p class="game-search-empty" id="game-search-empty" hidden>No games match</p>
+    </div>
     <div class="announcement-carousel" id="carousel" hidden tabindex="0">
       <div
         class="carousel-dots"
@@ -58,7 +71,10 @@
           </section>
 
           <section class="trailer-card is-empty" id="pdf-card" aria-label="Press release PDF">
-            <h3 class="detail-card-label">Press release PDF</h3>
+            <div class="media-card-heading">
+              <h3 class="detail-card-label">Press release PDF</h3>
+              <button type="button" class="btn-ghost media-expand-btn" id="pdf-expand-btn" hidden>Expand</button>
+            </div>
             <div class="trailer-embed" id="pdf-embed">
               <span class="trailer-placeholder" id="pdf-placeholder">No PDF</span>
             </div>
@@ -72,6 +88,16 @@
           </div>
         </section>
       </div>
+    </div>
+  </div>
+
+  <div class="pdf-viewer-overlay" id="pdf-viewer" hidden>
+    <div class="pdf-viewer-panel" role="dialog" aria-modal="true" aria-labelledby="pdf-viewer-title">
+      <header class="pdf-viewer-header">
+        <h2 id="pdf-viewer-title">Press release PDF</h2>
+        <button type="button" class="btn-ghost" id="pdf-viewer-close">Close</button>
+      </header>
+      <div class="pdf-viewer-frame" id="pdf-viewer-frame"></div>
     </div>
   </div>
 
@@ -99,6 +125,10 @@
     initThemeToggle();
 
     const statusEl = document.getElementById("status");
+    const gameSearchEl = document.getElementById("game-search");
+    const gameSearchInput = document.getElementById("game-search-input");
+    const gameSearchResults = document.getElementById("game-search-results");
+    const gameSearchEmpty = document.getElementById("game-search-empty");
     const coverBannerEl = document.getElementById("cover-banner");
     const coverPlaceholderEl = document.getElementById("cover-placeholder");
     const carouselEl = document.getElementById("carousel");
@@ -115,6 +145,11 @@
     const pdfCardEl = document.getElementById("pdf-card");
     const pdfEmbedEl = document.getElementById("pdf-embed");
     const pdfPlaceholderEl = document.getElementById("pdf-placeholder");
+    const pdfExpandBtn = document.getElementById("pdf-expand-btn");
+    const pdfViewerEl = document.getElementById("pdf-viewer");
+    const pdfViewerFrameEl = document.getElementById("pdf-viewer-frame");
+    const pdfViewerCloseBtn = document.getElementById("pdf-viewer-close");
+    let currentPdfUrl = "";
     const estimatedReachEl = document.getElementById("estimated-reach");
     const totalWishlistsEl = document.getElementById("total-wishlists");
     const coverageLinksGridEl = document.getElementById("coverage-links-grid");
@@ -653,6 +688,27 @@
       });
     }
 
+    function closePdfViewer() {
+      currentPdfUrl = "";
+      pdfViewerEl.hidden = true;
+      pdfViewerFrameEl.innerHTML = "";
+    }
+
+    function openPdfViewer(url) {
+      const src = String(url || "").trim();
+      if (!src) return;
+      currentPdfUrl = src;
+      pdfViewerFrameEl.innerHTML = "";
+      const iframe = document.createElement("iframe");
+      iframe.src = src;
+      iframe.title = "Press release PDF";
+      iframe.allow = "fullscreen";
+      iframe.allowFullscreen = true;
+      pdfViewerFrameEl.appendChild(iframe);
+      pdfViewerEl.hidden = false;
+      pdfViewerCloseBtn.focus();
+    }
+
     function setPdf(entries) {
       const embedUrl = entries
         .map((row) => pdfEmbedUrl(row.pressReleasePdf))
@@ -660,6 +716,7 @@
 
       const existing = pdfEmbedEl.querySelector("iframe");
       if (existing) existing.remove();
+      closePdfViewer();
 
       if (embedUrl) {
         const iframe = document.createElement("iframe");
@@ -669,9 +726,13 @@
         iframe.allowFullscreen = true;
         pdfEmbedEl.appendChild(iframe);
         pdfPlaceholderEl.hidden = true;
+        pdfExpandBtn.hidden = false;
+        pdfExpandBtn.onclick = () => openPdfViewer(embedUrl);
         pdfCardEl.classList.remove("is-empty");
       } else {
         pdfPlaceholderEl.hidden = false;
+        pdfExpandBtn.hidden = true;
+        pdfExpandBtn.onclick = null;
         pdfCardEl.classList.add("is-empty");
       }
     }
@@ -689,6 +750,56 @@
           numeric: true,
         })
       );
+    }
+
+    function clearGameSearch() {
+      gameSearchInput.value = "";
+      gameSearchResults.innerHTML = "";
+      gameSearchResults.hidden = true;
+      gameSearchEmpty.hidden = true;
+    }
+
+    function updateGameSearch() {
+      const query = gameSearchInput.value.trim().toLowerCase();
+      gameSearchResults.innerHTML = "";
+
+      if (!query) {
+        gameSearchResults.hidden = true;
+        gameSearchEmpty.hidden = true;
+        return;
+      }
+
+      const matches = groups
+        .map(([title], index) => ({ title, index }))
+        .filter(({ title }) => title.toLowerCase().includes(query));
+
+      if (matches.length === 0) {
+        gameSearchResults.hidden = true;
+        gameSearchEmpty.hidden = false;
+        return;
+      }
+
+      gameSearchEmpty.hidden = true;
+      matches.forEach(({ title, index }) => {
+        const li = document.createElement("li");
+        li.setAttribute("role", "option");
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = `game-search-result${
+          index === activeIndex ? " is-active" : ""
+        }`;
+        const label = document.createElement("span");
+        label.className = "game-search-result-title";
+        label.textContent = title;
+        button.appendChild(label);
+        button.addEventListener("click", () => {
+          showSlide(index);
+          clearGameSearch();
+        });
+        li.appendChild(button);
+        gameSearchResults.appendChild(li);
+      });
+      gameSearchResults.hidden = false;
     }
 
     function showSlide(index) {
@@ -771,6 +882,8 @@
       if (!groups.length) {
         carouselEl.hidden = true;
         carouselEl.classList.remove("is-ready");
+        gameSearchEl.hidden = true;
+        clearGameSearch();
         gameImageEl.removeAttribute("src");
         gameImageEl.hidden = true;
         coverPlaceholderEl.hidden = false;
@@ -792,6 +905,8 @@
 
       statusEl.textContent = "";
       statusEl.hidden = true;
+      gameSearchEl.hidden = false;
+      clearGameSearch();
       dotsEl.innerHTML = "";
 
       groups.forEach(([gameTitle], index) => {
@@ -821,13 +936,39 @@
       }
     }
 
+    gameSearchInput.addEventListener("input", () => updateGameSearch());
+    gameSearchInput.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        clearGameSearch();
+      }
+    });
+
     carouselEl.addEventListener("keydown", (event) => {
+      if (!pdfViewerEl.hidden) {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          closePdfViewer();
+        }
+        return;
+      }
       if (event.key === "ArrowRight") {
         event.preventDefault();
         showSlide(activeIndex + 1);
       } else if (event.key === "ArrowLeft") {
         event.preventDefault();
         showSlide(activeIndex - 1);
+      }
+    });
+
+    pdfViewerCloseBtn.addEventListener("click", () => closePdfViewer());
+    pdfViewerEl.addEventListener("click", (event) => {
+      if (event.target === pdfViewerEl) closePdfViewer();
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && !pdfViewerEl.hidden) {
+        event.preventDefault();
+        closePdfViewer();
       }
     });
 

@@ -6,12 +6,18 @@
 
 const MAX_GAME_IMAGE_BYTES = 100 * 1024 * 1024;
 const MAX_COVERAGE_COVER_BYTES = 8 * 1024 * 1024;
+const MAX_PRESS_RELEASE_PDF_BYTES = 50 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = new Set([
   "image/jpeg",
   "image/jpg",
   "image/png",
   "image/webp",
   "image/gif",
+]);
+const ALLOWED_STORAGE_FOLDERS = new Set([
+  "game-images",
+  "coverage-covers",
+  "press-release-pdfs",
 ]);
 
 const DEFAULT_FIREBASE_PROJECT_ID = "prbeats-996dd";
@@ -134,6 +140,8 @@ async function handleApi(request, env, url) {
             getImage: "GET /api/game-images/:ownerUid/:fileName",
             storeCoverageCover: "POST /api/coverage-covers",
             getCoverageCover: "GET /api/coverage-covers/:ownerUid/:fileName",
+            uploadPressReleasePdf: "POST /api/press-release-pdfs",
+            getPressReleasePdf: "GET /api/press-release-pdfs/:ownerUid/:fileName",
             linkPreview: "GET /api/link-preview?url=",
             linkPreviewImage: "GET /api/link-preview/image?url=",
           },
@@ -225,6 +233,45 @@ async function handleApi(request, env, url) {
       }
 
       const uploaded = await uploadGameImage(
+        env,
+        auth.user.uid,
+        request,
+        url.origin
+      );
+      return withCors(request, json(uploaded));
+    }
+
+    const pressReleasePdfMatch = url.pathname.match(
+      /^\/api\/press-release-pdfs\/([^/]+)\/([^/]+)$/
+    );
+    if (pressReleasePdfMatch) {
+      if (request.method !== "GET" && request.method !== "HEAD") {
+        return withCors(request, json({ error: "Method not allowed." }, 405));
+      }
+      return withCors(
+        request,
+        await serveStoredImage(
+          env,
+          "press-release-pdfs",
+          pressReleasePdfMatch[1],
+          pressReleasePdfMatch[2],
+          request
+        )
+      );
+    }
+
+    if (url.pathname === "/api/press-release-pdfs") {
+      const auth = await requireFirebaseUser(
+        request,
+        env.FIREBASE_PROJECT_ID || DEFAULT_FIREBASE_PROJECT_ID
+      );
+      if (auth.error) return withCors(request, auth.error);
+
+      if (request.method !== "POST") {
+        return withCors(request, json({ error: "Method not allowed." }, 405));
+      }
+
+      const uploaded = await uploadPressReleasePdf(
         env,
         auth.user.uid,
         request,
@@ -833,6 +880,60 @@ async function uploadGameImage(env, ownerUid, request, origin) {
   };
 }
 
+async function uploadPressReleasePdf(env, ownerUid, request, origin) {
+  if (!env.IMAGES) {
+    throw new Error(
+      "File storage is not configured. Create an R2 bucket and bind it as IMAGES."
+    );
+  }
+
+  const form = await request.formData();
+  const file = form.get("file");
+  const label = String(form.get("label") || form.get("gameTitle") || "press-release");
+
+  if (!(file instanceof File) && !(file instanceof Blob)) {
+    throw new Error("Choose a PDF file.");
+  }
+
+  const contentType = String(file.type || "").toLowerCase();
+  const fileNameHint = typeof file.name === "string" ? file.name : "";
+  const looksLikePdf =
+    contentType === "application/pdf" ||
+    contentType === "application/x-pdf" ||
+    /\.pdf$/i.test(fileNameHint);
+  if (!looksLikePdf) {
+    throw new Error("Please choose a PDF file.");
+  }
+
+  if (typeof file.size === "number" && file.size > MAX_PRESS_RELEASE_PDF_BYTES) {
+    throw new Error("PDF must be 50 MB or smaller.");
+  }
+
+  const baseName = sanitizePathPart(
+    fileNameHint.replace(/\.pdf$/i, "") || label
+  );
+  const fileName = `${baseName}-${crypto.randomUUID()}.pdf`;
+  const key = `press-release-pdfs/${ownerUid}/${fileName}`;
+
+  await env.IMAGES.put(key, file.stream(), {
+    httpMetadata: {
+      contentType: "application/pdf",
+      contentDisposition: `inline; filename="${fileName}"`,
+      cacheControl: "public, max-age=31536000, immutable",
+    },
+    customMetadata: {
+      ownerUid,
+      label: String(label).slice(0, 200),
+      originalName: fileNameHint.slice(0, 200),
+    },
+  });
+
+  return {
+    key,
+    url: `${origin}/api/press-release-pdfs/${encodeURIComponent(ownerUid)}/${encodeURIComponent(fileName)}`,
+  };
+}
+
 function isPersistedImagePath(pathname) {
   return /^\/api\/(?:game-images|coverage-covers)\/[^/]+\/[^/]+$/i.test(
     String(pathname || "")
@@ -943,7 +1044,7 @@ async function serveStoredImage(env, folder, ownerUid, fileName, request) {
     safeOwner.includes("..") ||
     safeName.includes("/") ||
     safeName.includes("..") ||
-    (folder !== "game-images" && folder !== "coverage-covers")
+    !ALLOWED_STORAGE_FOLDERS.has(folder)
   ) {
     return json({ error: "Not found." }, 404);
   }
@@ -955,7 +1056,7 @@ async function serveStoredImage(env, folder, ownerUid, fileName, request) {
       : await env.IMAGES.get(key);
 
   if (!object) {
-    return json({ error: "Image not found." }, 404);
+    return json({ error: "File not found." }, 404);
   }
 
   const headers = new Headers();
@@ -963,6 +1064,15 @@ async function serveStoredImage(env, folder, ownerUid, fileName, request) {
   headers.set("etag", object.httpEtag);
   headers.set("Cache-Control", "public, max-age=31536000, immutable");
   headers.set("Access-Control-Allow-Origin", "*");
+  if (folder === "press-release-pdfs") {
+    headers.set("Content-Type", "application/pdf");
+    if (!headers.has("Content-Disposition")) {
+      headers.set(
+        "Content-Disposition",
+        `inline; filename="${safeName.replace(/"/g, "")}"`
+      );
+    }
+  }
 
   if (request.method === "HEAD") {
     return new Response(null, { status: 200, headers });
