@@ -308,6 +308,30 @@
     </div>
   </dialog>
 
+  <dialog class="cover-preview-dialog" id="cover-preview-dialog" aria-labelledby="cover-preview-dialog-title">
+    <div class="cover-preview-dialog-panel">
+      <header class="cover-preview-dialog-header">
+        <div>
+          <h2 id="cover-preview-dialog-title">Cover</h2>
+          <p class="cover-preview-dialog-game" id="cover-preview-dialog-game"></p>
+        </div>
+        <button type="button" class="btn-ghost" id="cover-preview-dialog-close">Close</button>
+      </header>
+      <div class="cover-preview-dialog-body">
+        <div class="cover-preview-dialog-frame" id="cover-preview-dialog-frame">
+          <img id="cover-preview-dialog-image" alt="" hidden />
+          <span class="cover-preview-dialog-empty" id="cover-preview-dialog-empty">No cover image</span>
+        </div>
+        <p class="cover-preview-dialog-error" id="cover-preview-dialog-error" hidden></p>
+      </div>
+      <footer class="cover-preview-dialog-footer">
+        <input id="cover-preview-dialog-input" type="file" accept="image/*" hidden />
+        <button type="button" class="btn-ghost" id="cover-preview-dialog-clear" hidden>Remove</button>
+        <button type="button" class="btn-primary" id="cover-preview-dialog-replace">Replace cover</button>
+      </footer>
+    </div>
+  </dialog>
+
   <script type="module">
     import { initThemeToggle } from "./js/theme.js";
     import {
@@ -416,6 +440,17 @@
     const coverageDialogDone = document.getElementById("coverage-links-dialog-done");
     const coverageDialogClose = document.getElementById("coverage-links-dialog-close");
     const coverageCsvInput = document.getElementById("coverage-links-csv-input");
+    const coverPreviewDialog = document.getElementById("cover-preview-dialog");
+    const coverPreviewDialogTitle = document.getElementById("cover-preview-dialog-title");
+    const coverPreviewDialogGame = document.getElementById("cover-preview-dialog-game");
+    const coverPreviewDialogClose = document.getElementById("cover-preview-dialog-close");
+    const coverPreviewDialogImage = document.getElementById("cover-preview-dialog-image");
+    const coverPreviewDialogEmpty = document.getElementById("cover-preview-dialog-empty");
+    const coverPreviewDialogError = document.getElementById("cover-preview-dialog-error");
+    const coverPreviewDialogInput = document.getElementById("cover-preview-dialog-input");
+    const coverPreviewDialogClear = document.getElementById("cover-preview-dialog-clear");
+    const coverPreviewDialogReplace = document.getElementById("cover-preview-dialog-replace");
+    let coverPreviewGameTitle = "";
     const rowContextMenu = document.getElementById("row-context-menu");
     const rowContextDelete = document.getElementById("row-context-delete");
 
@@ -803,6 +838,48 @@
         if (title === key) row.gameImage = value;
       });
       scheduleSave();
+    }
+
+    function showCoverPreviewError(message) {
+      coverPreviewDialogError.textContent = message || "";
+      coverPreviewDialogError.hidden = !message;
+    }
+
+    function refreshCoverPreviewDialog() {
+      const src = gameImageForTitle(coverPreviewGameTitle);
+      if (src) {
+        coverPreviewDialogImage.src = src;
+        coverPreviewDialogImage.hidden = false;
+        coverPreviewDialogEmpty.hidden = true;
+        coverPreviewDialogClear.hidden = false;
+      } else {
+        coverPreviewDialogImage.removeAttribute("src");
+        coverPreviewDialogImage.hidden = true;
+        coverPreviewDialogEmpty.hidden = false;
+        coverPreviewDialogClear.hidden = true;
+      }
+    }
+
+    function closeCoverPreviewDialog() {
+      if (typeof coverPreviewDialog.close === "function") coverPreviewDialog.close();
+      else coverPreviewDialog.removeAttribute("open");
+      coverPreviewGameTitle = "";
+      coverPreviewDialogInput.value = "";
+      showCoverPreviewError("");
+    }
+
+    function openCoverPreviewDialog(gameTitle) {
+      coverPreviewGameTitle = (gameTitle || "").trim() || "Untitled";
+      coverPreviewDialogTitle.textContent = "Cover";
+      coverPreviewDialogGame.textContent = coverPreviewGameTitle;
+      showCoverPreviewError("");
+      coverPreviewDialogInput.value = "";
+      refreshCoverPreviewDialog();
+      if (typeof coverPreviewDialog.showModal === "function") {
+        coverPreviewDialog.showModal();
+      } else {
+        coverPreviewDialog.setAttribute("open", "");
+      }
     }
 
     function createIconButton(className, label, innerHtml) {
@@ -1614,6 +1691,55 @@
       if (event.target === coverageDialog) closeCoverageLinksDialog();
     });
 
+    coverPreviewDialogClose.addEventListener("click", () => closeCoverPreviewDialog());
+    coverPreviewDialog.addEventListener("cancel", (event) => {
+      event.preventDefault();
+      closeCoverPreviewDialog();
+    });
+    coverPreviewDialog.addEventListener("click", (event) => {
+      if (event.target === coverPreviewDialog) closeCoverPreviewDialog();
+    });
+    coverPreviewDialogReplace.addEventListener("click", () => {
+      coverPreviewDialogInput.click();
+    });
+    coverPreviewDialogClear.addEventListener("click", () => {
+      if (!coverPreviewGameTitle) return;
+      setGameImageForTitle(coverPreviewGameTitle, "");
+      showCoverPreviewError("");
+      refreshCoverPreviewDialog();
+      if (currentTable) renderTable(currentTable, currentFileName);
+    });
+    coverPreviewDialogInput.addEventListener("change", async () => {
+      const file = coverPreviewDialogInput.files?.[0];
+      coverPreviewDialogInput.value = "";
+      if (!file || !coverPreviewGameTitle) return;
+      if (!file.type.startsWith("image/")) {
+        showCoverPreviewError("Please choose an image file.");
+        return;
+      }
+
+      coverPreviewDialogReplace.disabled = true;
+      coverPreviewDialogClear.disabled = true;
+      const previousLabel = coverPreviewDialogReplace.textContent;
+      coverPreviewDialogReplace.textContent = "Uploading…";
+      showCoverPreviewError("");
+      try {
+        const token = await getIdToken();
+        const url = await uploadGameImage(token, file, coverPreviewGameTitle);
+        setGameImageForTitle(coverPreviewGameTitle, url);
+        refreshCoverPreviewDialog();
+        if (currentTable) renderTable(currentTable, currentFileName);
+      } catch (err) {
+        showCoverPreviewError(
+          err instanceof Error ? err.message : "Could not upload cover."
+        );
+      } finally {
+        coverPreviewDialogReplace.disabled = false;
+        coverPreviewDialogClear.disabled = false;
+        coverPreviewDialogReplace.textContent = previousLabel || "Replace cover";
+      }
+    });
+
     function showPasswordMessage(errorMessage, successMessage) {
       passwordError.textContent = errorMessage || "";
       passwordError.hidden = !errorMessage;
@@ -2227,7 +2353,22 @@
 
         if (column.key === "cover") {
           td.classList.add("cover-col");
+          const gameTitle = (row.gameTitle || "").trim() || "Untitled";
           const src = coverUrlForRow(row);
+          const openCover = (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            openCoverPreviewDialog(gameTitle);
+          };
+          td.classList.add("is-cover-clickable");
+          td.title = "View or replace cover";
+          td.setAttribute("role", "button");
+          td.tabIndex = 0;
+          td.addEventListener("click", openCover);
+          td.addEventListener("keydown", (event) => {
+            if (event.key !== "Enter" && event.key !== " ") return;
+            openCover(event);
+          });
           if (src) {
             const img = document.createElement("img");
             img.className = "grid-cover-thumb";
