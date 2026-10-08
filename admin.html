@@ -1529,20 +1529,41 @@
       coverageCsvInput.value = "";
     }
 
-    async function persistCoverageCovers(rows) {
+    function coverageCoverNeedsUpload(row, baselineByUrl) {
+      const candidate = String(row?.coverImage || "").trim();
+      if (!candidate || isPersistedCoverUrl(candidate)) return false;
+      const pageUrl = String(row?.url || "").trim().toLowerCase();
+      const previous = pageUrl ? baselineByUrl.get(pageUrl) : null;
+      const previousCover = String(previous?.coverImage || "").trim();
+      // Unchanged remote cover — don't re-upload on Done (e.g. title-only edits).
+      return candidate !== previousCover;
+    }
+
+    async function persistCoverageCovers(rows, baselineRows = []) {
+      const baselineByUrl = new Map();
+      for (const row of baselineRows) {
+        const pageUrl = String(row?.url || "").trim().toLowerCase();
+        if (pageUrl) baselineByUrl.set(pageUrl, row);
+      }
+
+      const needsUpload = rows.some((row) =>
+        coverageCoverNeedsUpload(row, baselineByUrl)
+      );
+      if (!needsUpload) {
+        return rows.map((row) => ({ ...row }));
+      }
+
       const token = await getIdToken();
       const out = [];
       for (const row of rows) {
         const next = { ...row };
         const pageUrl = String(next.url || "").trim();
-        const candidate = String(
-          next.coverImage || ""
-        ).trim();
-        if (!candidate) {
-          out.push(next);
-          continue;
-        }
-        if (isPersistedCoverUrl(candidate)) {
+        const candidate = String(next.coverImage || "").trim();
+        if (
+          !candidate ||
+          isPersistedCoverUrl(candidate) ||
+          !coverageCoverNeedsUpload(next, baselineByUrl)
+        ) {
           out.push(next);
           continue;
         }
@@ -1563,24 +1584,46 @@
       }
 
       const doneLabel = coverageDialogDone.textContent;
+      const collected = collectCoverageDialogRows();
+      const sectionTitle =
+        coverageDialogTitleInput.value.trim() || DEFAULT_COVERAGE_SECTION_TITLE;
+      const baselineRows = coverageEdit.baselineRows || [];
+      const baselineByUrl = new Map();
+      for (const row of baselineRows) {
+        const pageUrl = String(row?.url || "").trim().toLowerCase();
+        if (pageUrl) baselineByUrl.set(pageUrl, row);
+      }
+      const coverUploads = collected.filter((row) =>
+        coverageCoverNeedsUpload(row, baselineByUrl)
+      ).length;
+
       coverageDialogDone.disabled = true;
-      coverageDialogDone.textContent = "Saving covers…";
-      setCoverageDialogHint("Saving cover images…");
+      if (coverUploads > 0) {
+        coverageDialogDone.textContent = "Saving covers…";
+        setCoverageDialogHint(
+          coverUploads === 1
+            ? "Saving 1 new cover image…"
+            : `Saving ${coverUploads} new cover images…`
+        );
+      } else {
+        coverageDialogDone.textContent = "Saving…";
+        setCoverageDialogHint("");
+      }
 
       try {
-        const rows = await persistCoverageCovers(collectCoverageDialogRows());
-        // Reflect persisted URLs back into the dialog rows in case Done is slow.
+        const rows = await persistCoverageCovers(collected, baselineRows);
         [...coverageDialogBody.querySelectorAll("tr")].forEach((tr, index) => {
           const cover = String(rows[index]?.coverImage || "").trim();
           if (cover) setRowCoverImage(tr, cover);
         });
 
-        currentTable.rows[coverageEdit.rowIndex].coverageLinks =
-          serializeCoverageLinksValue(
-            rows,
-            coverageDialogTitleInput.value.trim() ||
-              DEFAULT_COVERAGE_SECTION_TITLE
-          );
+        const nextValue = serializeCoverageLinksValue(rows, sectionTitle);
+        if (nextValue === (coverageEdit.baselineSerialized || "")) {
+          closeCoverageLinksDialog();
+          return;
+        }
+
+        currentTable.rows[coverageEdit.rowIndex].coverageLinks = nextValue;
         coverageEdit.refresh();
         scheduleSave();
         closeCoverageLinksDialog();
@@ -1603,7 +1646,14 @@
       );
       const rows = addBlank ? [...existing, emptyCoverageLink()] : existing;
 
-      coverageEdit = { rowIndex, refresh };
+      coverageEdit = {
+        rowIndex,
+        refresh,
+        baselineRows: existing.map((row) => ({ ...row })),
+        baselineSerialized: String(
+          currentTable.rows[rowIndex].coverageLinks || ""
+        ),
+      };
       setCoverageDialogHint("");
       coverageDialogTitleInput.value = parseCoverageSectionTitle(
         currentTable.rows[rowIndex].coverageLinks
