@@ -107,8 +107,10 @@
       coverageLinkDisplayLabel,
       coverageLinkUrls,
       coverageStatSortValue,
+      DEFAULT_COVERAGE_SECTION_TITLE,
       formatCoverageStat,
       parseCoverageLinksValue,
+      parseCoverageSectionTitle,
     } from "./js/csv.js";
 
     initThemeToggle();
@@ -138,6 +140,7 @@
     const estimatedReachEl = document.getElementById("estimated-reach");
     const totalWishlistsEl = document.getElementById("total-wishlists");
     const coverageLinksGridEl = document.getElementById("coverage-links-grid");
+    const coverageLinksHeadingEl = document.getElementById("coverage-links-heading");
     const dotsEl = document.getElementById("carousel-dots");
     const linkPreviewCache = new Map();
 
@@ -504,8 +507,24 @@
       coverageLinksGridEl.innerHTML = "";
       const links = [];
       const seen = new Set();
+      let sectionTitle = DEFAULT_COVERAGE_SECTION_TITLE;
+      let foundCustomTitle = false;
 
       entries.forEach((row) => {
+        const title = parseCoverageSectionTitle(row.coverageLinks);
+        if (!foundCustomTitle && title) {
+          if (
+            title.localeCompare(DEFAULT_COVERAGE_SECTION_TITLE, undefined, {
+              sensitivity: "base",
+            }) !== 0
+          ) {
+            sectionTitle = title;
+            foundCustomTitle = true;
+          } else if (sectionTitle === DEFAULT_COVERAGE_SECTION_TITLE) {
+            sectionTitle = title;
+          }
+        }
+
         parseCoverageLinksValue(row.coverageLinks).forEach((item) => {
           const url = String(item.url || "").trim();
           if (!/^https?:\/\//i.test(url) || seen.has(url.toLowerCase())) return;
@@ -525,6 +544,10 @@
           coverageStatSortValue(b.outletStats) -
           coverageStatSortValue(a.outletStats)
       );
+
+      if (coverageLinksHeadingEl) {
+        coverageLinksHeadingEl.textContent = `${sectionTitle} (${links.length})`;
+      }
 
       if (!links.length) {
         const empty = document.createElement("p");

@@ -652,30 +652,57 @@ function coverageRowHasContent(row) {
   );
 }
 
+export const DEFAULT_COVERAGE_SECTION_TITLE = "Coverage links";
+
+function mapCoverageLinkItems(parsed) {
+  if (!Array.isArray(parsed)) return [];
+  return parsed
+    .map((item) => {
+      const row = emptyCoverageLink();
+      if (typeof item === "string") {
+        row.url = item.trim();
+        return row;
+      }
+      COVERAGE_LINK_COLUMNS.forEach((column) => {
+        row[column.key] = String(item?.[column.key] ?? "").trim();
+      });
+      row.coverImage = String(item?.coverImage ?? item?.image ?? "").trim();
+      return row;
+    })
+    .filter(coverageRowHasContent);
+}
+
+export function parseCoverageSectionTitle(value) {
+  const text = String(value || "").trim();
+  if (!text) return DEFAULT_COVERAGE_SECTION_TITLE;
+  if (text.startsWith("{")) {
+    try {
+      const parsed = JSON.parse(text);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        const title = String(
+          parsed.sectionTitle ?? parsed.title ?? ""
+        ).trim();
+        return title || DEFAULT_COVERAGE_SECTION_TITLE;
+      }
+    } catch {
+      /* fall through */
+    }
+  }
+  return DEFAULT_COVERAGE_SECTION_TITLE;
+}
+
 export function parseCoverageLinksValue(value) {
   const text = String(value || "").trim();
   if (!text) return [];
 
-  if (text.startsWith("[")) {
+  if (text.startsWith("{") || text.startsWith("[")) {
     try {
       const parsed = JSON.parse(text);
       if (Array.isArray(parsed)) {
-        return parsed
-          .map((item) => {
-            const row = emptyCoverageLink();
-            if (typeof item === "string") {
-              row.url = item.trim();
-              return row;
-            }
-            COVERAGE_LINK_COLUMNS.forEach((column) => {
-              row[column.key] = String(item?.[column.key] ?? "").trim();
-            });
-            row.coverImage = String(
-              item?.coverImage ?? item?.image ?? ""
-            ).trim();
-            return row;
-          })
-          .filter(coverageRowHasContent);
+        return mapCoverageLinkItems(parsed);
+      }
+      if (parsed && typeof parsed === "object") {
+        return mapCoverageLinkItems(parsed.links ?? parsed.rows ?? []);
       }
     } catch {
       /* fall through to legacy parsing */
@@ -707,7 +734,10 @@ export function parseCoverageLinksValue(value) {
     });
 }
 
-export function serializeCoverageLinksValue(rows) {
+export function serializeCoverageLinksValue(
+  rows,
+  sectionTitle = DEFAULT_COVERAGE_SECTION_TITLE
+) {
   const cleaned = (Array.isArray(rows) ? rows : [])
     .map((item) => {
       const row = emptyCoverageLink();
@@ -719,7 +749,14 @@ export function serializeCoverageLinksValue(rows) {
     })
     .filter(coverageRowHasContent);
 
-  return cleaned.length ? JSON.stringify(cleaned) : "";
+  if (!cleaned.length) return "";
+
+  const title =
+    String(sectionTitle || "").trim() || DEFAULT_COVERAGE_SECTION_TITLE;
+  return JSON.stringify({
+    sectionTitle: title,
+    links: cleaned,
+  });
 }
 
 export function coverageLinksFromCsv(text) {

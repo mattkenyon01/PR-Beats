@@ -729,8 +729,16 @@ body.admin-page:has(.admin-app.is-grid-layout) {
   cursor: pointer;
 }
 
+.btn-icon[hidden] {
+  display: none !important;
+}
+
 .btn-icon:hover {
   background: var(--btn-ghost-hover);
+}
+
+.admin-app.is-grid-layout #add-row-btn {
+  display: none !important;
 }
 
 .btn-icon svg {
@@ -2404,6 +2412,19 @@ body.admin-page:has(.admin-app.is-grid-layout) {
   background: var(--panel-elevated);
 }
 
+.grid-add-row-bar {
+  display: flex;
+  justify-content: flex-start;
+  padding: 0.55rem 0.15rem 0.15rem;
+  flex: 0 0 auto;
+}
+
+.grid-add-row-btn {
+  padding: 0.4rem 0.75rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
 .game-sections.is-grid-view .grid-table .cell-input {
   padding: 0.3rem 0.4rem;
   border-radius: 0.2rem;
@@ -3016,15 +3037,9 @@ body.admin-page:has(.admin-app.is-grid-layout) {
   width: 100%;
 }
 
-.admin-success {
-  margin: 1rem auto 0;
-  padding: 0.75rem 1rem;
-  border-radius: 0.5rem;
-  max-width: 42rem;
-  color: #7dcea0;
-  background: rgba(15, 81, 50, 0.28);
-  border: 1px solid rgba(125, 206, 160, 0.25);
-  text-align: left;
+.admin-success,
+#success.admin-success {
+  display: none !important;
 }
 
 .visually-hidden {
@@ -3052,7 +3067,6 @@ body.admin-page:has(.admin-app.is-grid-layout) {
 .coverage-links-count-btn {
   display: block;
   width: 100%;
-  max-width: 100%;
   margin: 0;
   padding: 0.4rem 0.55rem;
   border: 1px solid rgba(255, 255, 255, 0.18);
@@ -3064,8 +3078,6 @@ body.admin-page:has(.admin-app.is-grid-layout) {
   background: rgba(255, 255, 255, 0.05);
   cursor: pointer;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   text-align: center;
   box-sizing: border-box;
 }
@@ -3112,16 +3124,45 @@ body.admin-page:has(.admin-app.is-grid-layout) {
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.coverage-links-dialog-header h2 {
+.coverage-links-dialog-heading {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+  flex: 1 1 auto;
+  text-align: left;
+}
+
+.coverage-links-dialog-title-label {
+  display: grid;
+  gap: 0.3rem;
   margin: 0;
-  font-size: 1.15rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #9aa3b2;
+}
+
+.coverage-links-dialog-title-input {
+  width: min(28rem, 100%);
+  margin: 0;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 0.5rem;
+  font: inherit;
+  font-size: 1.1rem;
   font-weight: 700;
   letter-spacing: -0.02em;
   color: #f0f3f7;
+  background: #171c24;
+  box-sizing: border-box;
+}
+
+.coverage-links-dialog-title-input:focus {
+  outline: 2px solid #9aa8bc;
+  outline-offset: 1px;
 }
 
 .coverage-links-dialog-hint {
-  margin: 0.3rem 0 0;
+  margin: 0;
   font-size: 0.85rem;
   color: #9aa3b2;
 }

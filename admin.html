@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Admin — PR beats</title>
   <script src="js/theme-boot.js"></script>
-  <link rel="stylesheet" href="styles.css?v=cover-preview-2" />
+  <link rel="stylesheet" href="styles.css?v=no-success-bar-1" />
 </head>
 <body class="admin-page">
   <p class="note" id="loading">Checking sign-in…</p>
@@ -278,8 +278,18 @@
   <dialog class="coverage-links-dialog" id="coverage-links-dialog" aria-labelledby="coverage-links-dialog-title">
     <div class="coverage-links-dialog-panel">
       <header class="coverage-links-dialog-header">
-        <div>
-          <h2 id="coverage-links-dialog-title">Coverage links</h2>
+        <div class="coverage-links-dialog-heading">
+          <label class="coverage-links-dialog-title-label" for="coverage-links-dialog-title">
+            Section name
+            <input
+              id="coverage-links-dialog-title"
+              class="coverage-links-dialog-title-input"
+              type="text"
+              value="Coverage links"
+              autocomplete="off"
+              maxlength="80"
+            />
+          </label>
           <p class="coverage-links-dialog-hint" id="coverage-links-dialog-hint">
             Add rows manually or import a coverage CSV.
           </p>
@@ -353,9 +363,11 @@
       coverageLinksFromCsv,
       csvToTable,
       dateSortValue,
+      DEFAULT_COVERAGE_SECTION_TITLE,
       emptyCoverageLink,
       monthFromDate,
       parseCoverageLinksValue,
+      parseCoverageSectionTitle,
       serializeCoverageLinksValue,
     } from "./js/csv.js";
     import {
@@ -433,6 +445,7 @@
     const coverageDialog = document.getElementById("coverage-links-dialog");
     const coverageDialogHead = document.getElementById("coverage-links-dialog-head");
     const coverageDialogBody = document.getElementById("coverage-links-dialog-body");
+    const coverageDialogTitleInput = document.getElementById("coverage-links-dialog-title");
     const coverageDialogHint = document.getElementById("coverage-links-dialog-hint");
     const coverageDialogAdd = document.getElementById("coverage-links-dialog-add");
     const coverageDialogClear = document.getElementById("coverage-links-dialog-clear");
@@ -487,6 +500,12 @@
       }
     }
 
+    function syncAddRowButtonVisibility() {
+      const settings = !settingsView.hidden;
+      const isGrid = viewModeSelect.value === "grid";
+      addRowBtn.hidden = settings || !hasTable || isGrid;
+    }
+
     function setViewMode(mode, { updateUrl = true, render = true } = {}) {
       const next = mode === "grid" ? "grid" : "formatted";
       viewModeSelect.value = next;
@@ -495,6 +514,7 @@
         gridSortDirection = "asc";
       }
       if (updateUrl) syncViewModeToUrl(next);
+      syncAddRowButtonVisibility();
       if (render && currentTable) renderTable(currentTable, currentFileName);
     }
 
@@ -513,10 +533,9 @@
       if (message) successEl.hidden = true;
     }
 
-    function showSuccess(message) {
-      successEl.textContent = message;
-      successEl.hidden = !message;
-      if (message) errorEl.hidden = true;
+    function showSuccess(_message) {
+      successEl.textContent = "";
+      successEl.hidden = true;
     }
 
     function setSaveStatus(message, kind = "") {
@@ -1128,7 +1147,7 @@
       });
     }
 
-    function createPlatformCell(row, rowIndex, onChange) {
+    function createPlatformCell(row, getRowIndex, onChange) {
       const cell = document.createElement("div");
       cell.className = "platform-cell";
 
@@ -1142,18 +1161,21 @@
       addBtn.type = "button";
       addBtn.className = "platform-add-btn";
       addBtn.textContent = "+ Add";
-      addBtn.setAttribute("aria-label", `Add platform, row ${rowIndex + 1}`);
+      addBtn.setAttribute("aria-label", "Add platform");
 
       const menu = document.createElement("div");
       menu.className = "platform-menu";
       menu.hidden = true;
 
       function getSelected() {
-        return parsePlatforms(currentTable.rows[rowIndex].platforms);
+        return parsePlatforms(row.platforms);
       }
 
       function setSelected(ids) {
-        currentTable.rows[rowIndex].platforms = serializePlatforms(ids);
+        const index = getRowIndex();
+        const value = serializePlatforms(ids);
+        row.platforms = value;
+        currentTable.rows[index].platforms = value;
         renderChips();
         renderMenu();
         scheduleFitTableColumns();
@@ -1247,9 +1269,7 @@
 
       // Normalize imported free text into stored ids on first render
       // Avoid marking unsaved on initial paint by writing directly then rendering.
-      currentTable.rows[rowIndex].platforms = serializePlatforms(
-        parsePlatforms(row.platforms)
-      );
+      row.platforms = serializePlatforms(parsePlatforms(row.platforms));
       renderChips();
       renderMenu();
 
@@ -1556,7 +1576,11 @@
         });
 
         currentTable.rows[coverageEdit.rowIndex].coverageLinks =
-          serializeCoverageLinksValue(rows);
+          serializeCoverageLinksValue(
+            rows,
+            coverageDialogTitleInput.value.trim() ||
+              DEFAULT_COVERAGE_SECTION_TITLE
+          );
         coverageEdit.refresh();
         scheduleSave();
         closeCoverageLinksDialog();
@@ -1581,6 +1605,9 @@
 
       coverageEdit = { rowIndex, refresh };
       setCoverageDialogHint("");
+      coverageDialogTitleInput.value = parseCoverageSectionTitle(
+        currentTable.rows[rowIndex].coverageLinks
+      );
       renderCoverageDialogRows(rows, {
         focusLast: addBlank || !existing.length,
       });
@@ -1589,9 +1616,12 @@
       } else {
         coverageDialog.setAttribute("open", "");
       }
+      if (!(addBlank || !existing.length)) {
+        requestAnimationFrame(() => coverageDialogTitleInput.focus());
+      }
     }
 
-    function createCoverageLinksCell(row, rowIndex, onChange) {
+    function createCoverageLinksCell(row, getRowIndex, onChange) {
       const cell = document.createElement("div");
       cell.className = "coverage-links-cell";
 
@@ -1600,26 +1630,30 @@
       openBtn.className = "coverage-links-count-btn";
 
       function refresh() {
-        const count = parseCoverageLinksValue(
-          currentTable.rows[rowIndex].coverageLinks
-        ).length;
-        openBtn.textContent =
-          count === 1 ? "1 link" : `${count} links`;
+        const count = parseCoverageLinksValue(row.coverageLinks).length;
+        const title =
+          parseCoverageSectionTitle(row.coverageLinks) ||
+          DEFAULT_COVERAGE_SECTION_TITLE;
+        openBtn.textContent = `${title} (${count})`;
         openBtn.setAttribute(
           "aria-label",
           count === 0
-            ? `Add coverage links, row ${rowIndex + 1}`
-            : `Edit ${count} coverage link${count === 1 ? "" : "s"}, row ${rowIndex + 1}`
+            ? `Add ${title}`
+            : `Edit ${title} (${count})`
         );
         scheduleFitTableColumns();
         onChange?.();
       }
 
       openBtn.addEventListener("click", () => {
+        const index = getRowIndex();
         const count = parseCoverageLinksValue(
-          currentTable.rows[rowIndex].coverageLinks
+          currentTable.rows[index].coverageLinks
         ).length;
-        openCoverageLinksDialog(rowIndex, refresh, {
+        openCoverageLinksDialog(index, () => {
+          row.coverageLinks = currentTable.rows[index].coverageLinks;
+          refresh();
+        }, {
           addBlank: count === 0,
         });
       });
@@ -1752,13 +1786,13 @@
       workspaceView.hidden = settings;
       settingsView.hidden = !settings;
       importBtn.hidden = settings;
-      addRowBtn.hidden = settings;
       shareBtn.hidden = settings || !hasTable;
       monthFilterControl.hidden = settings || !hasTable;
       viewModeControl.hidden = settings || !hasTable;
       settingsBtn.hidden = settings;
       pageLede.textContent = settings ? "Manage your account." : "";
       pageLede.hidden = !settings;
+      syncAddRowButtonVisibility();
       if (settings) {
         showPasswordMessage("", "");
         passwordForm.reset();
@@ -1784,6 +1818,7 @@
       setViewMode("formatted", { updateUrl: true, render: false });
       gameSections.classList.remove("is-grid-view");
       panel.classList.remove("is-grid-layout");
+      syncAddRowButtonVisibility();
       showError("");
       showSuccess("");
 
@@ -1992,7 +2027,7 @@
       estimatedReach: 8 * 16,
       highlights: 12 * 16,
       totalWishlists: 8 * 16,
-      coverageLinks: 0,
+      coverageLinks: 9 * 16,
     };
     const COLUMN_WIDTH_CAP = {
       status: 3.5 * 16,
@@ -2004,7 +2039,6 @@
     const HEADER_ONLY_COLUMNS = new Set([
       "status",
       "cover",
-      "coverageLinks",
       "pressReleasePdf",
     ]);
 
@@ -2058,6 +2092,17 @@
 
         if (!HEADER_ONLY_COLUMNS.has(key)) {
           gameSections.querySelectorAll(`td${selector}`).forEach((td) => {
+            if (key === "coverageLinks") {
+              const btn = td.querySelector(".coverage-links-count-btn");
+              if (btn) {
+                maxPx = Math.max(
+                  maxPx,
+                  measureText(btn, btn.textContent || " ") + 48
+                );
+              }
+              return;
+            }
+
             const input = td.querySelector(".cell-input");
             if (input?.tagName === "TEXTAREA") {
               const lines = String(input.value || "").split(/\r?\n/);
@@ -2236,7 +2281,7 @@
       }
     }
 
-    function createPressReleasePdfCell(row, rowIndex, onChanged) {
+    function createPressReleasePdfCell(row, getRowIndex, onChanged) {
       const wrap = document.createElement("div");
       wrap.className = "press-release-cell";
 
@@ -2284,8 +2329,10 @@
       }
 
       clearBtn.addEventListener("click", () => {
-        if (!currentTable?.rows[rowIndex]) return;
-        currentTable.rows[rowIndex].pressReleasePdf = "";
+        const index = getRowIndex();
+        if (!currentTable?.rows[index]) return;
+        row.pressReleasePdf = "";
+        currentTable.rows[index].pressReleasePdf = "";
         refresh("");
         onChanged?.();
         commitFieldSave();
@@ -2294,17 +2341,20 @@
       fileInput.addEventListener("change", async () => {
         const file = fileInput.files?.[0];
         fileInput.value = "";
-        if (!file || !currentTable?.rows[rowIndex]) return;
+        if (!file) return;
+        const index = getRowIndex();
+        if (!currentTable?.rows[index]) return;
 
         uploadBtn.disabled = true;
         try {
           const token = await getIdToken();
           const label =
-            currentTable.rows[rowIndex].announcementTitle ||
-            currentTable.rows[rowIndex].gameTitle ||
+            currentTable.rows[index].announcementTitle ||
+            currentTable.rows[index].gameTitle ||
             "press-release";
           const url = await uploadPressReleasePdf(token, file, label);
-          currentTable.rows[rowIndex].pressReleasePdf = url;
+          row.pressReleasePdf = url;
+          currentTable.rows[index].pressReleasePdf = url;
           refresh(url);
           onChanged?.();
           commitFieldSave();
@@ -2326,11 +2376,35 @@
       return wrap;
     }
 
+    function addGridRow() {
+      if (!currentTable) {
+        currentTable = tableFromRows([], currentFileName || "Manual entry");
+      }
+      monthFilter.value = "";
+      gameSearchInput.value = "";
+      currentTable.rows.push(emptyAnnouncementRow());
+      hasTable = true;
+      dropzone.hidden = true;
+      report.hidden = false;
+      populateMonthFilter(currentTable);
+      renderTable(currentTable, currentFileName || "Manual entry");
+      syncAddRowButtonVisibility();
+      requestAnimationFrame(() => {
+        const rows = gameSections.querySelectorAll("tr.data-row");
+        const last = rows[rows.length - 1];
+        const input = last?.querySelector(
+          '.col-gameTitle .cell-input, .cell-input:not([data-column="month"])'
+        );
+        input?.focus();
+      });
+    }
+
     function buildDataRow(row, rowIndex, columns) {
       const tr = document.createElement("tr");
-      tr.dataset.rowIndex = String(rowIndex);
       tr.classList.add("data-row");
+      tr.dataset.rowIndex = String(rowIndex);
       const statusColumns = dataColumnsForStatus(columns);
+      const getRowIndex = () => rowIndex;
 
       tr.addEventListener("contextmenu", (event) => {
         openRowContextMenu(event, rowIndex);
@@ -2389,14 +2463,16 @@
           }
         } else if (column.key === "platforms") {
           td.classList.add("platforms-col");
-          td.appendChild(createPlatformCell(row, rowIndex, refreshStatus));
+          td.appendChild(createPlatformCell(row, getRowIndex, refreshStatus));
         } else if (column.key === "coverageLinks") {
           td.classList.add("coverage-links-col");
-          td.appendChild(createCoverageLinksCell(row, rowIndex, refreshStatus));
+          td.appendChild(
+            createCoverageLinksCell(row, getRowIndex, refreshStatus)
+          );
         } else if (column.key === "pressReleasePdf") {
           td.classList.add("press-release-col");
           td.appendChild(
-            createPressReleasePdfCell(row, rowIndex, refreshStatus)
+            createPressReleasePdfCell(row, getRowIndex, refreshStatus)
           );
         } else {
           const input = document.createElement(
@@ -2415,10 +2491,12 @@
           }
 
           input.addEventListener("input", () => {
+            row[column.key] = input.value;
             currentTable.rows[rowIndex][column.key] = input.value;
 
             if (column.key === "date") {
               const monthValue = monthFromDate(input.value);
+              row.month = monthValue;
               currentTable.rows[rowIndex].month = monthValue;
               const monthInput = tr.querySelector('[data-column="month"]');
               if (monthInput) monthInput.value = monthValue;
@@ -2429,6 +2507,7 @@
           });
 
           input.addEventListener("change", () => {
+            row[column.key] = input.value;
             currentTable.rows[rowIndex][column.key] = input.value;
             refreshStatus();
             if (column.key === "date") {
@@ -2601,8 +2680,11 @@
 
     function renderGridView(visible, columns) {
       const rows = sortVisibleForGrid(visible, columns);
+      const filterActive = Boolean(
+        gameSearchInput.value.trim() || monthFilter.value
+      );
 
-      if (rows.length === 0) {
+      if (rows.length === 0 && filterActive && currentTable?.rows.length > 0) {
         const empty = document.createElement("p");
         empty.className = "empty-filter";
         empty.textContent = gameSearchInput.value.trim()
@@ -2672,6 +2754,17 @@
       tableEl.appendChild(thead);
       tableEl.appendChild(tbody);
       wrap.appendChild(tableEl);
+
+      const addRowBar = document.createElement("div");
+      addRowBar.className = "grid-add-row-bar";
+      const addRowUnder = document.createElement("button");
+      addRowUnder.type = "button";
+      addRowUnder.className = "btn-ghost grid-add-row-btn";
+      addRowUnder.textContent = "+ Add row";
+      addRowUnder.addEventListener("click", () => addGridRow());
+      addRowBar.appendChild(addRowUnder);
+      wrap.appendChild(addRowBar);
+
       gameSections.appendChild(wrap);
     }
 
@@ -2709,6 +2802,7 @@
         monthFilterControl.hidden = false;
         viewModeControl.hidden = false;
       }
+      syncAddRowButtonVisibility();
       showError("");
     }
 

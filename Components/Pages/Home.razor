@@ -196,9 +196,10 @@
 
                 @{
                     var coverageLinks = CoverageLinksForEntries(active.Value);
+                    var coverageSectionTitle = CoverageSectionTitleForEntries(active.Value);
                 }
                 <section class="coverage-links-section" aria-labelledby="coverage-links-heading">
-                    <h3 class="detail-card-label coverage-links-heading" id="coverage-links-heading">Coverage links</h3>
+                    <h3 class="detail-card-label coverage-links-heading" id="coverage-links-heading">@coverageSectionTitle (@coverageLinks.Count)</h3>
                     <div class="coverage-links-panel">
                     <div class="coverage-links-grid">
                         @if (coverageLinks.Count == 0)
@@ -630,77 +631,141 @@
             : double.NegativeInfinity;
     }
 
+    private const string DefaultCoverageSectionTitle = "Coverage links";
+
+    private static string CoverageSectionTitleForEntries(IEnumerable<AnnouncementRow> entries)
+    {
+        string? fallback = null;
+        foreach (var row in entries)
+        {
+            var title = ParseCoverageSectionTitle(row.CoverageLinks);
+            if (string.IsNullOrWhiteSpace(title)) continue;
+            fallback ??= title;
+            if (!title.Equals(DefaultCoverageSectionTitle, StringComparison.OrdinalIgnoreCase))
+            {
+                return title;
+            }
+        }
+        return fallback ?? DefaultCoverageSectionTitle;
+    }
+
+    private static string ParseCoverageSectionTitle(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return DefaultCoverageSectionTitle;
+        var text = value.Trim();
+        if (!text.StartsWith('{')) return DefaultCoverageSectionTitle;
+        try
+        {
+            using var document = System.Text.Json.JsonDocument.Parse(text);
+            if (document.RootElement.ValueKind != System.Text.Json.JsonValueKind.Object)
+            {
+                return DefaultCoverageSectionTitle;
+            }
+            if (document.RootElement.TryGetProperty("sectionTitle", out var sectionTitle) ||
+                document.RootElement.TryGetProperty("title", out sectionTitle))
+            {
+                var title = sectionTitle.GetString()?.Trim() ?? "";
+                return string.IsNullOrWhiteSpace(title) ? DefaultCoverageSectionTitle : title;
+            }
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            // Fall through.
+        }
+        return DefaultCoverageSectionTitle;
+    }
+
+    private static List<CoverageLinkItem> ParseCoverageLinkArray(System.Text.Json.JsonElement array)
+    {
+        return array
+            .EnumerateArray()
+            .Select(item =>
+            {
+                if (item.ValueKind == System.Text.Json.JsonValueKind.String)
+                {
+                    var url = item.GetString()?.Trim() ?? "";
+                    return string.IsNullOrWhiteSpace(url)
+                        ? null
+                        : new CoverageLinkItem(url, "", "", "");
+                }
+
+                if (item.ValueKind != System.Text.Json.JsonValueKind.Object)
+                {
+                    return null;
+                }
+
+                var urlValue = item.TryGetProperty("url", out var urlProperty)
+                    ? urlProperty.GetString()?.Trim() ?? ""
+                    : "";
+                if (!urlValue.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                {
+                    return null;
+                }
+
+                var title = item.TryGetProperty("title", out var titleProperty)
+                    ? titleProperty.GetString()?.Trim() ?? ""
+                    : "";
+                var outlet = item.TryGetProperty("outletName", out var outletProperty)
+                    ? outletProperty.GetString()?.Trim() ?? ""
+                    : "";
+                var cover = item.TryGetProperty("coverImage", out var coverProperty)
+                    ? coverProperty.GetString()?.Trim() ?? ""
+                    : item.TryGetProperty("image", out var imageProperty)
+                        ? imageProperty.GetString()?.Trim() ?? ""
+                        : "";
+                var country = item.TryGetProperty("outletCountry", out var countryProperty)
+                    ? countryProperty.GetString()?.Trim() ?? ""
+                    : "";
+                string Read(string name) =>
+                    item.TryGetProperty(name, out var prop)
+                        ? prop.GetString()?.Trim() ?? ""
+                        : "";
+                return new CoverageLinkItem(
+                    urlValue,
+                    title,
+                    outlet,
+                    cover,
+                    country,
+                    Read("resultType"),
+                    Read("outletType"),
+                    Read("outletStats"),
+                    Read("globalDomain"),
+                    Read("countryDomain"),
+                    Read("sentiment"));
+            })
+            .Where(item => item is not null)
+            .Cast<CoverageLinkItem>()
+            .ToList();
+    }
+
     private static List<CoverageLinkItem> ParseCoverageLinkItems(string? value)
     {
         if (string.IsNullOrWhiteSpace(value)) return [];
 
         var text = value.Trim();
-        if (text.StartsWith('['))
+        if (text.StartsWith('{') || text.StartsWith('['))
         {
             try
             {
                 using var document = System.Text.Json.JsonDocument.Parse(text);
                 if (document.RootElement.ValueKind == System.Text.Json.JsonValueKind.Array)
                 {
-                    return document.RootElement
-                        .EnumerateArray()
-                        .Select(item =>
-                        {
-                            if (item.ValueKind == System.Text.Json.JsonValueKind.String)
-                            {
-                                var url = item.GetString()?.Trim() ?? "";
-                                return string.IsNullOrWhiteSpace(url)
-                                    ? null
-                                    : new CoverageLinkItem(url, "", "", "");
-                            }
+                    return ParseCoverageLinkArray(document.RootElement);
+                }
 
-                            if (item.ValueKind != System.Text.Json.JsonValueKind.Object)
-                            {
-                                return null;
-                            }
+                if (document.RootElement.ValueKind == System.Text.Json.JsonValueKind.Object)
+                {
+                    if (document.RootElement.TryGetProperty("links", out var links) &&
+                        links.ValueKind == System.Text.Json.JsonValueKind.Array)
+                    {
+                        return ParseCoverageLinkArray(links);
+                    }
 
-                            var urlValue = item.TryGetProperty("url", out var urlProperty)
-                                ? urlProperty.GetString()?.Trim() ?? ""
-                                : "";
-                            if (!urlValue.StartsWith("http", StringComparison.OrdinalIgnoreCase))
-                            {
-                                return null;
-                            }
-
-                            var title = item.TryGetProperty("title", out var titleProperty)
-                                ? titleProperty.GetString()?.Trim() ?? ""
-                                : "";
-                            var outlet = item.TryGetProperty("outletName", out var outletProperty)
-                                ? outletProperty.GetString()?.Trim() ?? ""
-                                : "";
-                            var cover = item.TryGetProperty("coverImage", out var coverProperty)
-                                ? coverProperty.GetString()?.Trim() ?? ""
-                                : item.TryGetProperty("image", out var imageProperty)
-                                    ? imageProperty.GetString()?.Trim() ?? ""
-                                    : "";
-                            var country = item.TryGetProperty("outletCountry", out var countryProperty)
-                                ? countryProperty.GetString()?.Trim() ?? ""
-                                : "";
-                            string Read(string name) =>
-                                item.TryGetProperty(name, out var prop)
-                                    ? prop.GetString()?.Trim() ?? ""
-                                    : "";
-                            return new CoverageLinkItem(
-                                urlValue,
-                                title,
-                                outlet,
-                                cover,
-                                country,
-                                Read("resultType"),
-                                Read("outletType"),
-                                Read("outletStats"),
-                                Read("globalDomain"),
-                                Read("countryDomain"),
-                                Read("sentiment"));
-                        })
-                        .Where(item => item is not null)
-                        .Cast<CoverageLinkItem>()
-                        .ToList();
+                    if (document.RootElement.TryGetProperty("rows", out var rows) &&
+                        rows.ValueKind == System.Text.Json.JsonValueKind.Array)
+                    {
+                        return ParseCoverageLinkArray(rows);
+                    }
                 }
             }
             catch (System.Text.Json.JsonException)
