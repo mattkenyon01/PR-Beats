@@ -136,6 +136,8 @@ async function handleApi(request, env, url) {
             createShare: "POST /api/shares",
             load: "GET /api/announcements",
             save: "POST /api/announcements",
+            saveRow: "PATCH /api/announcements/:id",
+            deleteRow: "DELETE /api/announcements/:id",
             uploadImage: "POST /api/game-images",
             getImage: "GET /api/game-images/:ownerUid/:fileName",
             storeCoverageCover: "POST /api/coverage-covers",
@@ -386,18 +388,42 @@ async function handleApi(request, env, url) {
       if (request.method === "GET") {
         // Shared dataset: every signed-in admin sees the same announcements.
         const rows = await listAllAnnouncements(env.DB);
-        return withCors(request, json(datasetResponse(rows)));
+        const revision = await getDatasetRevision(env.DB);
+        return withCors(request, json(datasetResponse(rows, revision)));
       }
 
       // POST and PUT both replace the dataset (POST avoids asset-server 405s)
       if (request.method === "PUT" || request.method === "POST") {
         const body = await request.json();
-        const rows = await replaceAnnouncements(
-          env.DB,
-          auth.user.uid,
-          body.rows ?? []
-        );
-        return withCors(request, json(datasetResponse(rows)));
+        try {
+          const result = await replaceAnnouncements(
+            env.DB,
+            auth.user.uid,
+            body.rows ?? [],
+            body.revision
+          );
+          return withCors(
+            request,
+            json(datasetResponse(result.rows, result.revision))
+          );
+        } catch (error) {
+          if (error?.code === "REVISION_CONFLICT") {
+            return withCors(
+              request,
+              json(
+                {
+                  error:
+                    error.message ||
+                    "This data was updated elsewhere. Reload and try again.",
+                  revision: error.revision || "",
+                  rows: error.rows || [],
+                },
+                409
+              )
+            );
+          }
+          throw error;
+        }
       }
 
       return withCors(
@@ -406,6 +432,58 @@ async function handleApi(request, env, url) {
           {
             error: "Method not allowed.",
             allowed: ["GET", "POST", "PUT", "OPTIONS"],
+            method: request.method,
+            path: url.pathname,
+          },
+          405
+        )
+      );
+    }
+
+    const announcementRowMatch = url.pathname.match(
+      /^\/api\/announcements\/([^/]+)$/
+    );
+    if (announcementRowMatch) {
+      const auth = await requireFirebaseUser(
+        request,
+        env.FIREBASE_PROJECT_ID || DEFAULT_FIREBASE_PROJECT_ID
+      );
+      if (auth.error) return withCors(request, auth.error);
+
+      const rowId = decodeURIComponent(announcementRowMatch[1] || "").trim();
+      if (!rowId) {
+        return withCors(request, json({ error: "Missing announcement id." }, 400));
+      }
+
+      if (request.method === "PATCH" || request.method === "PUT") {
+        const body = await request.json();
+        const row = body?.row && typeof body.row === "object" ? body.row : body;
+        const result = await upsertAnnouncement(
+          env.DB,
+          auth.user.uid,
+          rowId,
+          row || {}
+        );
+        return withCors(
+          request,
+          json({ row: result.row, revision: result.revision })
+        );
+      }
+
+      if (request.method === "DELETE") {
+        const result = await deleteAnnouncementById(env.DB, rowId);
+        return withCors(
+          request,
+          json({ id: rowId, revision: result.revision })
+        );
+      }
+
+      return withCors(
+        request,
+        json(
+          {
+            error: "Method not allowed.",
+            allowed: ["PATCH", "PUT", "DELETE", "OPTIONS"],
             method: request.method,
             path: url.pathname,
           },
@@ -449,7 +527,7 @@ function corsHeaders(request) {
   const origin = request.headers.get("Origin") || "*";
   return {
     "Access-Control-Allow-Origin": origin,
-    "Access-Control-Allow-Methods": "GET,HEAD,POST,PUT,OPTIONS",
+    "Access-Control-Allow-Methods": "GET,HEAD,POST,PUT,PATCH,DELETE,OPTIONS",
     "Access-Control-Allow-Headers": "Authorization, Content-Type",
     "Access-Control-Max-Age": "86400",
     Vary: "Origin",
@@ -1278,9 +1356,122 @@ async function filterPublicAnnouncements(db, rows, searchParams) {
   return { rows: filtered };
 }
 
-async function replaceAnnouncements(db, ownerUid, rows) {
+async function getDatasetRevision(db) {
+  const result = await db
+    .prepare(
+      `SELECT COUNT(*) AS cnt,
+              COALESCE(MAX(updated_at), '') AS stamp
+       FROM announcements`
+    )
+    .first();
+  return `${Number(result?.cnt ?? 0)}:${String(result?.stamp ?? "")}`;
+}
+
+async function nextSortOrder(db) {
+  const result = await db
+    .prepare(`SELECT COALESCE(MAX(sort_order), -1) AS m FROM announcements`)
+    .first();
+  return Number(result?.m ?? -1) + 1;
+}
+
+async function upsertAnnouncement(db, ownerUid, id, row) {
+  const rowId =
+    typeof id === "string" && id.trim()
+      ? id.trim()
+      : typeof row?.id === "string" && row.id.trim()
+        ? row.id.trim()
+        : crypto.randomUUID();
+
+  const existing = await db
+    .prepare(`SELECT sort_order FROM announcements WHERE id = ?`)
+    .bind(rowId)
+    .first();
+  const sortOrder =
+    existing?.sort_order != null
+      ? Number(existing.sort_order)
+      : await nextSortOrder(db);
+
+  await db
+    .prepare(
+      `INSERT INTO announcements (
+        id, owner_uid, game_title, announcement_title, date, month,
+        platforms, trailer, press_release_pdf, estimated_reach,
+        highlights, total_wishlists, coverage_links, game_image,
+        sort_order, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+      ON CONFLICT(id) DO UPDATE SET
+        owner_uid = excluded.owner_uid,
+        game_title = excluded.game_title,
+        announcement_title = excluded.announcement_title,
+        date = excluded.date,
+        month = excluded.month,
+        platforms = excluded.platforms,
+        trailer = excluded.trailer,
+        press_release_pdf = excluded.press_release_pdf,
+        estimated_reach = excluded.estimated_reach,
+        highlights = excluded.highlights,
+        total_wishlists = excluded.total_wishlists,
+        coverage_links = excluded.coverage_links,
+        game_image = excluded.game_image,
+        sort_order = excluded.sort_order,
+        updated_at = datetime('now')`
+    )
+    .bind(
+      rowId,
+      ownerUid,
+      String(row.gameTitle ?? ""),
+      String(row.announcementTitle ?? ""),
+      String(row.date ?? ""),
+      String(row.month ?? ""),
+      String(row.platforms ?? ""),
+      String(row.trailer ?? ""),
+      String(row.pressReleasePdf ?? ""),
+      String(row.estimatedReach ?? ""),
+      String(row.highlights ?? ""),
+      String(row.totalWishlists ?? ""),
+      String(row.coverageLinks ?? ""),
+      String(row.gameImage ?? ""),
+      sortOrder
+    )
+    .run();
+
+  const saved = await db
+    .prepare(`SELECT * FROM announcements WHERE id = ?`)
+    .bind(rowId)
+    .first();
+  const revision = await getDatasetRevision(db);
+  return { row: rowFromDb(saved), revision };
+}
+
+async function deleteAnnouncementById(db, id) {
+  await db.prepare(`DELETE FROM announcements WHERE id = ?`).bind(id).run();
+  const revision = await getDatasetRevision(db);
+  return { revision };
+}
+
+async function replaceAnnouncements(db, ownerUid, rows, expectedRevision) {
   if (!Array.isArray(rows)) {
     throw new Error("Body must include a rows array.");
+  }
+
+  const currentRevision = await getDatasetRevision(db);
+  const expected =
+    expectedRevision === undefined || expectedRevision === null
+      ? ""
+      : String(expectedRevision);
+  const dbCount = Number(String(currentRevision).split(":")[0] || 0);
+  // Reject stale/missing revisions so an older tab cannot wipe newer shared edits
+  // (e.g. coverage links saved elsewhere). Empty revision is only OK on an empty DB.
+  const revisionMismatch =
+    expected !== currentRevision && (expected !== "" || dbCount > 0);
+  if (revisionMismatch) {
+    const error = new Error(
+      "This data was updated elsewhere. Loaded the latest version."
+    );
+    error.code = "REVISION_CONFLICT";
+    error.revision = currentRevision;
+    error.rows = await listAllAnnouncements(db);
+    throw error;
   }
 
   // Shared dataset: any admin save replaces the full announcement table.
@@ -1288,10 +1479,9 @@ async function replaceAnnouncements(db, ownerUid, rows) {
   const statements = [db.prepare(`DELETE FROM announcements`)];
 
   rows.forEach((row, index) => {
-    const id =
-      typeof row.id === "string" && row.id.trim()
-        ? row.id.trim()
-        : crypto.randomUUID();
+    const rawId = String(row?.id ?? "").trim();
+    // Ignore legacy numeric CSV indexes; always persist stable string ids.
+    const id = rawId && !/^\d+$/.test(rawId) ? rawId : crypto.randomUUID();
 
     statements.push(
       db
@@ -1324,12 +1514,16 @@ async function replaceAnnouncements(db, ownerUid, rows) {
   });
 
   await db.batch(statements);
-  return listAllAnnouncements(db);
+  const nextRows = await listAllAnnouncements(db);
+  const revision = await getDatasetRevision(db);
+  return { rows: nextRows, revision };
 }
 
-function datasetResponse(rows) {
-  return {
+function datasetResponse(rows, revision) {
+  const payload = {
     columns: DISPLAY_COLUMNS,
     rows,
   };
+  if (revision !== undefined) payload.revision = revision;
+  return payload;
 }

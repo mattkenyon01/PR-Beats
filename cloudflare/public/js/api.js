@@ -18,7 +18,10 @@ async function api(path, { token, method = "GET", body } = {}) {
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(data.error || `Request failed (${response.status})`);
+    const error = new Error(data.error || `Request failed (${response.status})`);
+    error.status = response.status;
+    error.data = data;
+    throw error;
   }
   return data;
 }
@@ -42,11 +45,30 @@ export function loadPublicAnnouncements(search = "") {
   return api(`/api/public/announcements${suffix}`, { method: "GET" });
 }
 
-export function saveAnnouncements(token, rows) {
+export function saveAnnouncements(token, rows, revision = "") {
   return api("/api/announcements", {
     token,
     method: "POST",
-    body: { rows },
+    body: { rows, revision },
+  });
+}
+
+export function saveAnnouncementRow(token, row) {
+  const id = encodeURIComponent(String(row?.id || "").trim());
+  if (!id) throw new Error("Row id is required.");
+  return api(`/api/announcements/${id}`, {
+    token,
+    method: "PATCH",
+    body: { row },
+  });
+}
+
+export function deleteAnnouncementRow(token, id) {
+  const rowId = encodeURIComponent(String(id || "").trim());
+  if (!rowId) throw new Error("Row id is required.");
+  return api(`/api/announcements/${rowId}`, {
+    token,
+    method: "DELETE",
   });
 }
 

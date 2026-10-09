@@ -219,7 +219,7 @@ body.public-page .note.is-error {
 
 .platform-chips.readonly {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 0.55rem 0.85rem;
   align-items: center;
   justify-content: center;
@@ -233,17 +233,34 @@ body.public-page .note.is-error {
 }
 
 .platform-chips.readonly .platform-icon[src*="Xbox"],
+.platform-chips.readonly .platform-icon[src*="Steam"],
 .platform-chip img[src*="Xbox"],
-.platform-menu-item img[src*="Xbox"] {
+.platform-chip img[src*="Steam"],
+.platform-menu-item img[src*="Xbox"],
+.platform-menu-item img[src*="Steam"] {
   border-radius: 50%;
 }
 
+.platform-chips.readonly .platform-icon[src*="Switch"],
+.platform-chip img[src*="Switch"],
+.platform-menu-item img[src*="Switch"],
+.add-row-dialog-body .add-row-platform-option img[src*="Switch"],
+.platform-chips.readonly .platform-icon[src*="PS"],
+.platform-chip img[src*="PS"],
+.platform-menu-item img[src*="PS"],
+.add-row-dialog-body .add-row-platform-option img[src*="PS"] {
+  border-radius: 0.45rem;
+}
+
 .detail-card .platform-chips.readonly {
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.65rem;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.75rem 1rem;
   width: max-content;
-  margin-inline: auto;
+  margin-inline: 0;
+  overflow: visible;
 }
 
 .detail-card .platform-entry {
@@ -1047,7 +1064,19 @@ body.admin-page:has(.admin-app.is-grid-layout) {
 }
 
 .detail-cards-row {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: max-content repeat(3, minmax(0, 1fr));
+  width: max-content;
+  min-width: 100%;
+  max-width: none;
+  justify-self: stretch;
+}
+
+.detail-cards-row > .detail-card:has(.platform-chips.readonly) {
+  width: max-content;
+  min-width: max-content;
+  max-width: none;
+  justify-self: start;
+  overflow: hidden;
 }
 
 .detail-card {
@@ -1059,6 +1088,8 @@ body.admin-page:has(.admin-app.is-grid-layout) {
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 0.9rem;
+  overflow: hidden;
+  min-width: 0;
 }
 
 .detail-card-label {
@@ -1567,7 +1598,7 @@ body.admin-page:has(.admin-app.is-grid-layout) {
 
 @media (max-width: 900px) {
   .detail-cards-row {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: max-content minmax(0, 1fr);
   }
 }
 
@@ -1576,6 +1607,17 @@ body.admin-page:has(.admin-app.is-grid-layout) {
   .detail-cards-row,
   .media-cards {
     grid-template-columns: 1fr;
+  }
+
+  .detail-cards-row > .detail-card:has(.platform-chips.readonly) {
+    width: 100%;
+    min-width: 0;
+    justify-self: stretch;
+  }
+
+  .detail-card .platform-chips.readonly {
+    flex-wrap: wrap;
+    width: 100%;
   }
 
   .coverage-links-grid {
@@ -1990,7 +2032,8 @@ body.admin-page:has(.admin-app.is-grid-layout) {
   text-overflow: ellipsis;
 }
 
-.add-row-dialog-body .add-row-platform-option img[src*="Xbox"] {
+.add-row-dialog-body .add-row-platform-option img[src*="Xbox"],
+.add-row-dialog-body .add-row-platform-option img[src*="Steam"] {
   border-radius: 50%;
 }
 
@@ -2502,15 +2545,22 @@ body.admin-page:has(.admin-app.is-grid-layout) {
 .admin-app .col-announcementTitle,
 .admin-app .col-date,
 .admin-app .col-month,
-.admin-app .col-platforms,
 .admin-app .col-trailer,
 .admin-app .col-pressReleasePdf,
 .admin-app .col-estimatedReach,
 .admin-app .col-highlights,
-.admin-app .col-totalWishlists,
-.admin-app td.platforms-col {
+.admin-app .col-totalWishlists {
   width: 10rem;
   min-width: 10rem;
+}
+
+.admin-app .col-platforms,
+.admin-app td.platforms-col {
+  width: auto;
+  min-width: 11rem;
+  max-width: none;
+  overflow: hidden;
+  white-space: nowrap;
 }
 
 .admin-app .col-coverageLinks,
@@ -2859,16 +2909,20 @@ body.admin-page:has(.admin-app.is-grid-layout) {
 
 .platform-cell {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 0.4rem;
+  width: max-content;
+  max-width: 100%;
 }
 
 .platform-chips {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 0.35rem;
+  width: max-content;
+  overflow: visible;
 }
 
 .platform-chip {
@@ -2882,12 +2936,39 @@ body.admin-page:has(.admin-app.is-grid-layout) {
   border-radius: 0.45rem;
   background: #171c24;
   cursor: pointer;
+  gap: 0.4rem;
+  font: inherit;
+  color: #e8eaed;
 }
 
-.platform-chip:has(img[src*="Xbox"]) {
+.platform-chip.has-label {
+  width: auto;
+  height: auto;
+  min-height: 2rem;
+  padding: 0.2rem 0.55rem 0.2rem 0.25rem;
+}
+
+.platform-chip-label {
+  font-size: 0.8rem;
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.platform-chip:has(img[src*="Xbox"]):not(.has-label),
+.platform-chip:has(img[src*="Steam"]):not(.has-label) {
   padding: 0;
   border: 0;
   border-radius: 50%;
+  background: transparent;
+  overflow: hidden;
+}
+
+.platform-chip:has(img[src*="Switch"]):not(.has-label),
+.platform-chip:has(img[src*="PS"]):not(.has-label) {
+  padding: 0;
+  border: 0;
+  border-radius: 0.45rem;
   background: transparent;
   overflow: hidden;
 }
@@ -2897,7 +2978,10 @@ body.admin-page:has(.admin-app.is-grid-layout) {
   background: rgba(155, 28, 28, 0.25);
 }
 
-.platform-chip:has(img[src*="Xbox"]):hover {
+.platform-chip:has(img[src*="Xbox"]):not(.has-label):hover,
+.platform-chip:has(img[src*="Steam"]):not(.has-label):hover,
+.platform-chip:has(img[src*="Switch"]):not(.has-label):hover,
+.platform-chip:has(img[src*="PS"]):not(.has-label):hover {
   border: 0;
   background: transparent;
   filter: brightness(0.92);
@@ -2908,6 +2992,12 @@ body.admin-page:has(.admin-app.is-grid-layout) {
   height: 100%;
   object-fit: contain;
   display: block;
+}
+
+.platform-chip.has-label img {
+  width: 1.6rem;
+  height: 1.6rem;
+  flex-shrink: 0;
 }
 
 .platform-add-wrap {

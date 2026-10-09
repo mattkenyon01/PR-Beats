@@ -383,8 +383,13 @@ export function csvToTable(text) {
     );
   }
 
-  const data = rows.slice(1).map((row, rowIndex) => {
-    const record = { id: rowIndex };
+  const data = rows.slice(1).map((row) => {
+    const record = {
+      id:
+        typeof crypto !== "undefined" && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `row-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    };
     columns.forEach((column) => {
       if (column.derived) {
         record[column.key] = "";

@@ -145,9 +145,11 @@
 
     const PLATFORM_OPTIONS = [
       { id: "steam", label: "Steam", icon: "images/Steam Icon.webp" },
-      { id: "switch2", label: "Switch 2", icon: "images/Switch 2 Icon.webp" },
+      { id: "switch2", label: "Switch 2", icon: "images/Switch 2.png" },
       { id: "switch", label: "Switch", icon: "images/Switch Icon.png" },
       { id: "xbox", label: "Xbox", icon: "images/Xbox.png" },
+      { id: "ps5", label: "PS5", icon: "images/PS.jpg" },
+      { id: "ps4", label: "PS4", icon: "images/PS.jpg" },
     ];
 
     let slides = [];
@@ -164,6 +166,8 @@
         { id: "switch", patterns: ["nintendo switch", "switch", "nsw"] },
         { id: "steam", patterns: ["steam", "pc"] },
         { id: "xbox", patterns: ["xbox", "series x", "series s"] },
+        { id: "ps5", patterns: ["ps5", "ps 5", "playstation 5", "playstation5"] },
+        { id: "ps4", patterns: ["ps4", "ps 4", "playstation 4", "playstation4"] },
       ];
 
       ordered.forEach((option) => {

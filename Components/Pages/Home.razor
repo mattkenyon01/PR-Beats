@@ -392,9 +392,11 @@
     private static readonly (string Id, string Label, string Icon)[] PlatformOptions =
     [
         ("steam", "Steam", "images/Steam Icon.webp"),
-        ("switch2", "Switch 2", "images/Switch 2 Icon.webp"),
+        ("switch2", "Switch 2", "images/Switch 2.png"),
         ("switch", "Switch", "images/Switch Icon.png"),
         ("xbox", "Xbox", "images/Xbox.png"),
+        ("ps5", "PS5", "images/PS.jpg"),
+        ("ps4", "PS4", "images/PS.jpg"),
     ];
 
     private static List<(string Id, string Label, string Icon)> PlatformsForEntries(
@@ -426,6 +428,8 @@
             ("switch", ["nintendo switch", "switch", "nsw"]),
             ("steam", ["steam", "pc"]),
             ("xbox", ["xbox", "series x", "series s"]),
+            ("ps5", ["ps5", "ps 5", "playstation 5", "playstation5"]),
+            ("ps4", ["ps4", "ps 4", "playstation 4", "playstation4"]),
         ];
 
         foreach (var option in ordered)

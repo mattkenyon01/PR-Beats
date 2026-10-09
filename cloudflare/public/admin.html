@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Admin — PR beats</title>
   <script src="js/theme-boot.js"></script>
-  <link rel="stylesheet" href="styles.css?v=coverage-sticky-2" />
+  <link rel="stylesheet" href="styles.css?v=platforms-fit-width-1" />
 </head>
 <body class="admin-page">
   <p class="note" id="loading">Checking sign-in…</p>
@@ -373,6 +373,8 @@
     import {
       loadAnnouncements,
       saveAnnouncements,
+      saveAnnouncementRow,
+      deleteAnnouncementRow as deleteAnnouncementRowApi,
       createShare,
       uploadGameImage,
       uploadPressReleasePdf,
@@ -469,10 +471,17 @@
 
     let hasTable = false;
     let currentTable = null;
+    let datasetRevision = "";
     let openPlatformMenu = null;
+    let platformMenuRowId = "";
+    let pendingRenderAfterUi = false;
     let currentFileName = "";
     let authRef = null;
     let saveTimer = null;
+    let pollTimer = null;
+    let persistInFlight = false;
+    let persistQueued = false;
+    let persistQueuedMode = "dirty";
     let coverageEdit = null;
     let addRowCoverFile = null;
     let addRowCoverPreviewUrl = "";
@@ -480,6 +489,7 @@
     let gridSortKey = "";
     let gridSortDirection = "asc";
     let contextRowIndex = null;
+    const dirtyRowIds = new Set();
     const shareSelectedGames = new Set();
     const shareSelectedMonths = new Set();
     const coveragePreviewCache = new Map();
@@ -522,9 +532,11 @@
 
     const PLATFORM_OPTIONS = [
       { id: "steam", label: "Steam", icon: "images/Steam Icon.webp" },
-      { id: "switch2", label: "Switch 2", icon: "images/Switch 2 Icon.webp" },
+      { id: "switch2", label: "Switch 2", icon: "images/Switch 2.png" },
       { id: "switch", label: "Switch", icon: "images/Switch Icon.png" },
       { id: "xbox", label: "Xbox", icon: "images/Xbox.png" },
+      { id: "ps5", label: "PS5", icon: "images/PS.jpg" },
+      { id: "ps4", label: "PS4", icon: "images/PS.jpg" },
     ];
 
     function showError(message) {
@@ -551,25 +563,77 @@
       return user.getIdToken();
     }
 
-    function emptyAnnouncementRow() {
+    function newRowId() {
+      return typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `row-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    }
+
+    function isStableRowId(id) {
+      const value = String(id ?? "").trim();
+      if (!value) return false;
+      // Reject legacy CSV rowIndex ids like "0", "1", …
+      if (/^\d+$/.test(value)) return false;
+      return true;
+    }
+
+    function ensureRowId(row) {
+      if (isStableRowId(row?.id)) {
+        row.id = String(row.id).trim();
+        return row.id;
+      }
+      row.id = newRowId();
+      return row.id;
+    }
+
+    function markRowDirty(row) {
+      if (!row) return;
+      dirtyRowIds.add(ensureRowId(row));
+    }
+
+    function markRowsDirty(rows) {
+      (rows || []).forEach((row) => markRowDirty(row));
+    }
+
+    function normalizeAnnouncementRow(row = {}) {
+      const id = isStableRowId(row.id) ? String(row.id).trim() : newRowId();
       return {
-        id:
-          typeof crypto !== "undefined" && crypto.randomUUID
-            ? crypto.randomUUID()
-            : `row-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-        gameTitle: "",
-        announcementTitle: "",
-        date: "",
-        month: "",
-        platforms: "",
-        trailer: "",
-        pressReleasePdf: "",
-        estimatedReach: "",
-        highlights: "",
-        totalWishlists: "",
-        coverageLinks: "",
-        gameImage: "",
+        id,
+        gameTitle: row.gameTitle ?? "",
+        announcementTitle: row.announcementTitle ?? "",
+        date: row.date ?? "",
+        month: row.month || monthFromDate(row.date ?? ""),
+        platforms: row.platforms ?? "",
+        trailer: row.trailer ?? "",
+        pressReleasePdf: row.pressReleasePdf ?? "",
+        estimatedReach: row.estimatedReach ?? "",
+        highlights: row.highlights ?? "",
+        totalWishlists: row.totalWishlists ?? "",
+        coverageLinks: row.coverageLinks ?? "",
+        gameImage: row.gameImage ?? "",
       };
+    }
+
+    function rowContentKey(row) {
+      const normalized = normalizeAnnouncementRow(row);
+      return JSON.stringify({
+        gameTitle: normalized.gameTitle,
+        announcementTitle: normalized.announcementTitle,
+        date: normalized.date,
+        month: normalized.month,
+        platforms: normalized.platforms,
+        trailer: normalized.trailer,
+        pressReleasePdf: normalized.pressReleasePdf,
+        estimatedReach: normalized.estimatedReach,
+        highlights: normalized.highlights,
+        totalWishlists: normalized.totalWishlists,
+        coverageLinks: normalized.coverageLinks,
+        gameImage: normalized.gameImage,
+      });
+    }
+
+    function emptyAnnouncementRow() {
+      return normalizeAnnouncementRow({ id: newRowId() });
     }
 
     function tableFromRows(rows, name = "Saved data") {
@@ -583,21 +647,7 @@
       }));
       return {
         columns,
-        rows: (rows || []).map((row, index) => ({
-          id: row.id ?? index,
-          gameTitle: row.gameTitle ?? "",
-          announcementTitle: row.announcementTitle ?? "",
-          date: row.date ?? "",
-          month: row.month || monthFromDate(row.date ?? ""),
-          platforms: row.platforms ?? "",
-          trailer: row.trailer ?? "",
-          pressReleasePdf: row.pressReleasePdf ?? "",
-          estimatedReach: row.estimatedReach ?? "",
-          highlights: row.highlights ?? "",
-          totalWishlists: row.totalWishlists ?? "",
-          coverageLinks: row.coverageLinks ?? "",
-          gameImage: row.gameImage ?? "",
-        })),
+        rows: (rows || []).map((row) => normalizeAnnouncementRow(row)),
       };
     }
 
@@ -823,7 +873,7 @@
         monthFilter.value = "";
         populateMonthFilter(currentTable);
         renderTable(currentTable, currentFileName || "Manual entry");
-        scheduleSave();
+        scheduleSave(row);
         closeAddRowDialog();
         showSuccess(`Added “${announcementTitle}” under ${gameTitle}.`);
       } catch (error) {
@@ -852,10 +902,15 @@
       if (!currentTable) return;
       const key = (gameTitle || "").trim() || "Untitled";
       const value = String(url || "").trim();
+      const touched = [];
       currentTable.rows.forEach((row) => {
         const title = (row.gameTitle || "").trim() || "Untitled";
-        if (title === key) row.gameImage = value;
+        if (title === key) {
+          row.gameImage = value;
+          touched.push(row);
+        }
       });
+      markRowsDirty(touched);
       scheduleSave();
     }
 
@@ -1010,16 +1065,180 @@
       return wrap;
     }
 
-    async function persistTable({ quiet = false } = {}) {
+    function applyLoadedDataset(data, name = "Saved data") {
+      datasetRevision = String(data?.revision ?? "");
+      dirtyRowIds.clear();
+      const rows = data?.rows ?? [];
+      if (rows.length) {
+        const table = tableFromRows(rows, name);
+        populateMonthFilter(table);
+        renderTable(table, name);
+        setSaveStatus("");
+        return true;
+      }
+      currentTable = null;
+      setSaveStatus("No saved data yet");
+      return false;
+    }
+
+    function protectedRowIds() {
+      const ids = new Set(dirtyRowIds);
+      if (coverageEdit != null && currentTable?.rows[coverageEdit.rowIndex]) {
+        ids.add(ensureRowId(currentTable.rows[coverageEdit.rowIndex]));
+      }
+      // While the platform menu is open, allow remote platform updates on that row
+      // (unless the row is dirty) so options disappear as others add them.
+      if (!platformMenuRowId) {
+        const focused = document.activeElement?.closest?.("tr[data-row-id]");
+        const focusedId = focused?.getAttribute("data-row-id");
+        if (focusedId) ids.add(focusedId);
+      }
+      return ids;
+    }
+
+    function uiBlocksRemoteRender() {
+      // Platform menu re-opens after render; only coverage dialog blocks paint.
+      return coverageEdit != null;
+    }
+
+    function flushPendingRemoteRender() {
+      if (!pendingRenderAfterUi || !currentTable || uiBlocksRemoteRender()) return;
+      pendingRenderAfterUi = false;
+      populateMonthFilter(currentTable);
+      renderTable(currentTable, currentFileName || "Saved data");
+    }
+
+    function openPlatformMenuForRow(rowId) {
+      const id = String(rowId || "").trim();
+      if (!id) return;
+      const tr = gameSections.querySelector(
+        `tr[data-row-id="${CSS.escape(id)}"]`
+      );
+      const btn = tr?.querySelector(".platform-add-btn");
+      if (!btn || btn.hidden) {
+        platformMenuRowId = "";
+        return;
+      }
+      btn.click();
+    }
+
+    function mergeRemoteDataset(data) {
+      const remoteRows = (data?.rows || []).map((row) =>
+        normalizeAnnouncementRow(row)
+      );
+      datasetRevision = String(data?.revision ?? datasetRevision);
+
+      if (!currentTable) {
+        if (remoteRows.length) applyLoadedDataset(data, "Saved data");
+        return;
+      }
+
+      const protectedIds = protectedRowIds();
+      const localById = new Map(
+        currentTable.rows.map((row) => [ensureRowId(row), row])
+      );
+      const remoteById = new Map(remoteRows.map((row) => [row.id, row]));
+      const nextRows = [];
+      let changed = false;
+
+      for (const remote of remoteRows) {
+        if (protectedIds.has(remote.id)) {
+          const local = localById.get(remote.id);
+          nextRows.push(local || remote);
+          if (!local) changed = true;
+          continue;
+        }
+        const local = localById.get(remote.id);
+        if (!local || rowContentKey(local) !== rowContentKey(remote)) {
+          changed = true;
+        }
+        nextRows.push(remote);
+      }
+
+      for (const local of currentTable.rows) {
+        const id = ensureRowId(local);
+        if (remoteById.has(id)) continue;
+        if (protectedIds.has(id)) {
+          nextRows.push(local);
+          changed = true;
+        } else {
+          changed = true;
+        }
+      }
+
+      if (!changed) return;
+
+      const coverageRowId =
+        coverageEdit != null && currentTable.rows[coverageEdit.rowIndex]
+          ? ensureRowId(currentTable.rows[coverageEdit.rowIndex])
+          : "";
+
+      currentTable.rows = nextRows;
+
+      if (coverageEdit != null && coverageRowId) {
+        const nextIndex = currentTable.rows.findIndex(
+          (row) => String(row.id) === coverageRowId
+        );
+        if (nextIndex >= 0) coverageEdit.rowIndex = nextIndex;
+      }
+
+      // Coverage dialog stays open; paint when it closes.
+      if (uiBlocksRemoteRender()) {
+        pendingRenderAfterUi = true;
+        return;
+      }
+
+      const prevFocusedId = platformMenuRowId
+        ? ""
+        : document.activeElement
+            ?.closest?.("tr[data-row-id]")
+            ?.getAttribute("data-row-id");
+      const prevColumn = document.activeElement?.dataset?.column || "";
+
+      populateMonthFilter(currentTable);
+      renderTable(currentTable, currentFileName || "Saved data");
+
+      if (prevFocusedId) {
+        const tr = gameSections.querySelector(
+          `tr[data-row-id="${CSS.escape(prevFocusedId)}"]`
+        );
+        const input = prevColumn
+          ? tr?.querySelector(`[data-column="${prevColumn}"]`)
+          : tr?.querySelector(".cell-input");
+        input?.focus?.();
+      }
+    }
+
+    async function persistDirtyRows({ quiet = false } = {}) {
       if (!currentTable) {
         if (!quiet) showError("Nothing to save yet.");
         return false;
+      }
+      if (dirtyRowIds.size === 0) {
+        setSaveStatus("Saved", "ok");
+        return true;
       }
 
       setSaveStatus("Saving…");
       try {
         const token = await getIdToken();
-        await saveAnnouncements(token, currentTable.rows);
+        const ids = [...dirtyRowIds];
+        for (const id of ids) {
+          const row = currentTable.rows.find(
+            (item) => String(item.id) === String(id)
+          );
+          if (!row) {
+            dirtyRowIds.delete(id);
+            continue;
+          }
+          ensureRowId(row);
+          const data = await saveAnnouncementRow(token, row);
+          if (data?.row) {
+            Object.assign(row, normalizeAnnouncementRow(data.row));
+          }
+          datasetRevision = String(data?.revision ?? datasetRevision);
+          dirtyRowIds.delete(id);
+        }
         setSaveStatus("Saved", "ok");
         if (!quiet) showSuccess("Saved to the cloud.");
         return true;
@@ -1032,18 +1251,110 @@
       }
     }
 
-    function scheduleSave() {
+    async function persistBulkTable({ quiet = false } = {}) {
+      if (!currentTable) {
+        if (!quiet) showError("Nothing to save yet.");
+        return false;
+      }
+
+      setSaveStatus("Saving…");
+      try {
+        const token = await getIdToken();
+        currentTable.rows.forEach((row) => ensureRowId(row));
+        const data = await saveAnnouncements(
+          token,
+          currentTable.rows,
+          datasetRevision
+        );
+        datasetRevision = String(data?.revision ?? datasetRevision);
+        dirtyRowIds.clear();
+        if (Array.isArray(data?.rows)) {
+          currentTable.rows = data.rows.map((row) =>
+            normalizeAnnouncementRow(row)
+          );
+        }
+        setSaveStatus("Saved", "ok");
+        if (!quiet) showSuccess("Saved to the cloud.");
+        return true;
+      } catch (error) {
+        if (error?.status === 409) {
+          closeCoverageLinksDialog();
+          if (Array.isArray(error.data?.rows)) {
+            applyLoadedDataset(error.data, "Saved data");
+          } else {
+            await loadSavedData();
+          }
+          setSaveStatus("Updated elsewhere", "error");
+          showError(
+            error instanceof Error
+              ? error.message
+              : "This data was updated elsewhere. Loaded the latest version."
+          );
+          return false;
+        }
+        const message =
+          error instanceof Error ? error.message : "Could not save.";
+        setSaveStatus("Save failed", "error");
+        if (!quiet) showError(message);
+        return false;
+      }
+    }
+
+    async function persistTable({ quiet = false, mode = "dirty" } = {}) {
+      if (persistInFlight) {
+        persistQueued = true;
+        persistQueuedMode = mode === "bulk" ? "bulk" : persistQueuedMode;
+        return false;
+      }
+      persistInFlight = true;
+      try {
+        if (mode === "bulk") {
+          return await persistBulkTable({ quiet });
+        }
+        return await persistDirtyRows({ quiet });
+      } finally {
+        persistInFlight = false;
+        if (persistQueued) {
+          const nextMode = persistQueuedMode;
+          persistQueued = false;
+          persistQueuedMode = "dirty";
+          await persistTable({ quiet: true, mode: nextMode });
+        }
+      }
+    }
+
+    function scheduleSave(row) {
+      if (row) markRowDirty(row);
       clearTimeout(saveTimer);
       setSaveStatus("Saving…");
       saveTimer = setTimeout(() => {
-        persistTable({ quiet: true });
+        persistTable({ quiet: true, mode: "dirty" });
       }, 400);
     }
 
-    function commitFieldSave() {
+    function commitFieldSave(row) {
+      if (row) markRowDirty(row);
       clearTimeout(saveTimer);
       setSaveStatus("Saving…");
-      persistTable({ quiet: true });
+      persistTable({ quiet: true, mode: "dirty" });
+    }
+
+    async function pollRemoteChanges() {
+      if (persistInFlight || document.hidden) return;
+      try {
+        const token = await getIdToken();
+        const data = await loadAnnouncements(token);
+        const revision = String(data?.revision ?? "");
+        if (!revision || revision === datasetRevision) return;
+        mergeRemoteDataset(data);
+      } catch {
+        // Ignore transient poll errors; next tick retries.
+      }
+    }
+
+    function startRemotePoll() {
+      if (pollTimer) return;
+      pollTimer = setInterval(pollRemoteChanges, 2000);
     }
 
     async function loadSavedData() {
@@ -1051,14 +1362,8 @@
       try {
         const token = await getIdToken();
         const data = await loadAnnouncements(token);
-        if (data.rows?.length) {
-          const table = tableFromRows(data.rows, "Saved data");
-          populateMonthFilter(table);
-          renderTable(table, "Saved data");
-          setSaveStatus("");
-        } else {
-          setSaveStatus("No saved data yet");
-        }
+        applyLoadedDataset(data, "Saved data");
+        startRemotePoll();
       } catch (error) {
         const message =
           error instanceof Error ? error.message : "Could not load saved data.";
@@ -1066,6 +1371,7 @@
         showError(
           `${message} You can still import a CSV locally; Save will retry the API.`
         );
+        startRemotePoll();
       }
     }
 
@@ -1079,6 +1385,8 @@
         { id: "switch", patterns: ["nintendo switch", "switch", "nsw"] },
         { id: "steam", patterns: ["steam", "pc"] },
         { id: "xbox", patterns: ["xbox", "series x", "series s"] },
+        { id: "ps5", patterns: ["ps5", "ps 5", "playstation 5", "playstation5"] },
+        { id: "ps4", patterns: ["ps4", "ps 4", "playstation 4", "playstation4"] },
       ];
 
       ordered.forEach((option) => {
@@ -1108,8 +1416,11 @@
       return ids.join(",");
     }
 
-    function closePlatformMenu() {
-      if (!openPlatformMenu) return;
+    function closePlatformMenu({ flush = true } = {}) {
+      if (!openPlatformMenu) {
+        if (flush) flushPendingRemoteRender();
+        return;
+      }
       openPlatformMenu.hidden = true;
       openPlatformMenu.classList.remove("is-fixed");
       openPlatformMenu.style.top = "";
@@ -1119,6 +1430,8 @@
         openPlatformMenu._host.appendChild(openPlatformMenu);
       }
       openPlatformMenu = null;
+      platformMenuRowId = "";
+      if (flush) flushPendingRemoteRender();
     }
 
     function positionPlatformMenu(menu, anchor) {
@@ -1160,8 +1473,9 @@
       const addBtn = document.createElement("button");
       addBtn.type = "button";
       addBtn.className = "platform-add-btn";
-      addBtn.textContent = "+ Add";
+      addBtn.textContent = "+";
       addBtn.setAttribute("aria-label", "Add platform");
+      addBtn.title = "Add platform";
 
       const menu = document.createElement("div");
       menu.className = "platform-menu";
@@ -1179,7 +1493,7 @@
         renderChips();
         renderMenu();
         scheduleFitTableColumns();
-        scheduleSave();
+        scheduleSave(row);
         onChange?.();
       }
 
@@ -1193,14 +1507,19 @@
 
           const chip = document.createElement("button");
           chip.type = "button";
-          chip.className = "platform-chip";
+          chip.className = "platform-chip has-label";
           chip.title = `Remove ${option.label}`;
           chip.setAttribute("aria-label", `Remove ${option.label}`);
 
           const img = document.createElement("img");
           img.src = option.icon;
-          img.alt = option.label;
+          img.alt = "";
           chip.appendChild(img);
+
+          const label = document.createElement("span");
+          label.className = "platform-chip-label";
+          label.textContent = option.label;
+          chip.appendChild(label);
 
           chip.addEventListener("click", () => {
             setSelected(selected.filter((item) => item !== id));
@@ -1250,13 +1569,17 @@
       addBtn.addEventListener("click", (event) => {
         event.stopPropagation();
         const willOpen = menu.hidden || openPlatformMenu !== menu;
-        closePlatformMenu();
+        // Don't flush remote re-render here — it would destroy this cell mid-click.
+        closePlatformMenu({ flush: false });
         if (willOpen) {
           renderMenu();
           menu._host = addWrap;
           document.body.appendChild(menu);
           positionPlatformMenu(menu, addBtn);
           openPlatformMenu = menu;
+          platformMenuRowId = ensureRowId(row);
+        } else {
+          flushPendingRemoteRender();
         }
       });
 
@@ -1633,6 +1956,7 @@
       coverageEdit = null;
       setCoverageDialogHint("");
       coverageCsvInput.value = "";
+      flushPendingRemoteRender();
     }
 
     function coverageCoverNeedsUpload(row, baselineByUrl) {
@@ -1731,7 +2055,7 @@
 
         currentTable.rows[coverageEdit.rowIndex].coverageLinks = nextValue;
         coverageEdit.refresh();
-        scheduleSave();
+        scheduleSave(currentTable.rows[coverageEdit.rowIndex]);
         closeCoverageLinksDialog();
       } catch (error) {
         setCoverageDialogHint(
@@ -1995,7 +2319,8 @@
 
       if (persist) {
         currentTable = tableFromRows([], "Saved data");
-        persistTable({ quiet: false }).then(() => {
+        dirtyRowIds.clear();
+        persistTable({ quiet: false, mode: "bulk" }).then(() => {
           currentTable = null;
           setSaveStatus("Cleared in cloud", "ok");
         });
@@ -2276,6 +2601,26 @@
               );
             });
           }
+        } else if (key === "platforms") {
+          gameSections
+            .querySelectorAll(`td${selector} .platform-cell`)
+            .forEach((cell) => {
+              const probeCell = cell.cloneNode(true);
+              probeCell.style.cssText =
+                "position:absolute;left:-9999px;top:0;visibility:hidden;display:flex;flex-wrap:nowrap;align-items:center;gap:0.4rem;width:max-content;height:auto;";
+              const chips = probeCell.querySelector(".platform-chips");
+              if (chips) {
+                chips.style.flexWrap = "nowrap";
+                chips.style.width = "max-content";
+                chips.style.overflow = "visible";
+              }
+              document.body.appendChild(probeCell);
+              maxPx = Math.max(
+                maxPx,
+                Math.ceil(probeCell.getBoundingClientRect().width) + 28
+              );
+              probeCell.remove();
+            });
         } else if (!HEADER_ONLY_COLUMNS.has(key)) {
           gameSections.querySelectorAll(`td${selector}`).forEach((td) => {
             const input = td.querySelector(".cell-input");
@@ -2417,7 +2762,7 @@
       rowContextMenu.style.top = `${top}px`;
     }
 
-    function deleteAnnouncementRow(rowIndex) {
+    async function deleteAnnouncementRow(rowIndex) {
       if (!currentTable || rowIndex == null || rowIndex < 0) return;
       if (rowIndex >= currentTable.rows.length) return;
 
@@ -2426,8 +2771,10 @@
         (removed?.announcementTitle || "").trim() ||
         (removed?.gameTitle || "").trim() ||
         "row";
+      const removedId = ensureRowId(removed);
 
       currentTable.rows.splice(rowIndex, 1);
+      dirtyRowIds.delete(removedId);
       closeRowContextMenu();
 
       if (currentTable.rows.length === 0) {
@@ -2438,8 +2785,19 @@
 
       populateMonthFilter(currentTable);
       renderTable(currentTable, currentFileName);
-      scheduleSave();
-      showSuccess(`Deleted “${label}”.`);
+      setSaveStatus("Saving…");
+      try {
+        const token = await getIdToken();
+        const data = await deleteAnnouncementRowApi(token, removedId);
+        datasetRevision = String(data?.revision ?? datasetRevision);
+        setSaveStatus("Saved", "ok");
+        showSuccess(`Deleted “${label}”.`);
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Could not delete row.";
+        setSaveStatus("Save failed", "error");
+        showError(message);
+      }
     }
 
     function pressReleaseFileLabel(url) {
@@ -2510,7 +2868,7 @@
         currentTable.rows[index].pressReleasePdf = "";
         refresh("");
         onChanged?.();
-        commitFieldSave();
+        commitFieldSave(row);
       });
 
       fileInput.addEventListener("change", async () => {
@@ -2532,7 +2890,7 @@
           currentTable.rows[index].pressReleasePdf = url;
           refresh(url);
           onChanged?.();
-          commitFieldSave();
+          commitFieldSave(row);
         } catch (err) {
           showError(
             err instanceof Error ? err.message : "Could not upload PDF."
@@ -2578,6 +2936,7 @@
       const tr = document.createElement("tr");
       tr.classList.add("data-row");
       tr.dataset.rowIndex = String(rowIndex);
+      tr.dataset.rowId = ensureRowId(row);
       const statusColumns = dataColumnsForStatus(columns);
       const getRowIndex = () => rowIndex;
 
@@ -2665,9 +3024,12 @@
             input.type = "text";
           }
 
+          input.dataset.column = column.key;
+
           input.addEventListener("input", () => {
             row[column.key] = input.value;
             currentTable.rows[rowIndex][column.key] = input.value;
+            markRowDirty(row);
 
             if (column.key === "date") {
               const monthValue = monthFromDate(input.value);
@@ -2689,11 +3051,11 @@
               populateMonthFilter(currentTable);
             }
             if (column.key === "gameTitle" || column.key === "date") {
-              commitFieldSave();
+              commitFieldSave(row);
               renderTable(currentTable, currentFileName);
               return;
             }
-            commitFieldSave();
+            commitFieldSave(row);
           });
 
           if (input.tagName !== "TEXTAREA") {
@@ -2702,10 +3064,6 @@
               event.preventDefault();
               input.blur();
             });
-          }
-
-          if (column.key === "month") {
-            input.dataset.column = "month";
           }
 
           td.appendChild(input);
@@ -2946,7 +3304,9 @@
     function renderTable(table, name) {
       currentTable = table;
       currentFileName = name || currentFileName;
-      closePlatformMenu();
+      pendingRenderAfterUi = false;
+      const restorePlatformMenuRowId = platformMenuRowId;
+      closePlatformMenu({ flush: false });
       gameSections.innerHTML = "";
 
       const visible = getVisibleRows();
@@ -2959,6 +3319,10 @@
       else renderFormattedView(visible, columns);
 
       fitTableColumns();
+
+      if (restorePlatformMenuRowId) {
+        openPlatformMenuForRow(restorePlatformMenuRowId);
+      }
 
       const allTitles = new Set(listGameTitles(currentTable));
       [...shareSelectedGames].forEach((title) => {
@@ -2995,7 +3359,12 @@
           populateMonthFilter(table);
           renderTable(table, file.name);
           showSuccess("CSV imported. Saving to the cloud…");
-          await persistTable({ quiet: false });
+          dirtyRowIds.clear();
+          await persistTable({ quiet: false, mode: "bulk" });
+          if (currentTable) {
+            populateMonthFilter(currentTable);
+            renderTable(currentTable, file.name);
+          }
         } catch (err) {
           clearTable();
           showError(err instanceof Error ? err.message : "Could not read that CSV.");
