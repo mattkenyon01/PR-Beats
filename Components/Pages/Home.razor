@@ -253,41 +253,6 @@
                                         }
                                     </div>
                                     <p class="coverage-link-title">@link.DisplayTitle</p>
-                                    <div class="coverage-link-body">
-                                        @{
-                                            var detailFields = new (string Label, string Value)[]
-                                            {
-                                                ("Result type", link.ResultType),
-                                                ("Outlet type", link.OutletType),
-                                                ("Outlet stats", FormatCoverageStat(link.OutletStats)),
-                                                ("Global domain", link.GlobalDomain),
-                                                ("Country domain", link.CountryDomain),
-                                                ("Sentiment", link.Sentiment),
-                                            }.Where(field => !string.IsNullOrWhiteSpace(field.Value)).ToArray();
-                                        }
-                                        <div class="coverage-link-stats @(detailFields.Length > 0 ? null : "is-empty")">
-                                            <h4 class="coverage-link-stats-label">Coverage details</h4>
-                                            <dl class="coverage-link-details @(detailFields.Length > 0 ? null : "is-empty")">
-                                                @if (detailFields.Length > 0)
-                                                {
-                                                    @foreach (var field in detailFields)
-                                                    {
-                                                        <div class="coverage-link-detail">
-                                                            <dt>@field.Label</dt>
-                                                            <dd>@field.Value</dd>
-                                                        </div>
-                                                    }
-                                                }
-                                                else
-                                                {
-                                                    <div class="coverage-link-detail">
-                                                        <dt>&nbsp;</dt>
-                                                        <dd>&nbsp;</dd>
-                                                    </div>
-                                                }
-                                            </dl>
-                                        </div>
-                                    </div>
                                 </a>
                             }
                         }

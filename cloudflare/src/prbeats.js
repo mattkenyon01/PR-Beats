@@ -384,7 +384,8 @@ async function handleApi(request, env, url) {
       if (auth.error) return withCors(request, auth.error);
 
       if (request.method === "GET") {
-        const rows = await listAnnouncements(env.DB, auth.user.uid);
+        // Shared dataset: every signed-in admin sees the same announcements.
+        const rows = await listAllAnnouncements(env.DB);
         return withCors(request, json(datasetResponse(rows)));
       }
 
@@ -1282,9 +1283,9 @@ async function replaceAnnouncements(db, ownerUid, rows) {
     throw new Error("Body must include a rows array.");
   }
 
-  const statements = [
-    db.prepare(`DELETE FROM announcements WHERE owner_uid = ?`).bind(ownerUid),
-  ];
+  // Shared dataset: any admin save replaces the full announcement table.
+  // owner_uid is retained as the last editor for audit, not as a visibility filter.
+  const statements = [db.prepare(`DELETE FROM announcements`)];
 
   rows.forEach((row, index) => {
     const id =
@@ -1323,7 +1324,7 @@ async function replaceAnnouncements(db, ownerUid, rows) {
   });
 
   await db.batch(statements);
-  return listAnnouncements(db, ownerUid);
+  return listAllAnnouncements(db);
 }
 
 function datasetResponse(rows) {

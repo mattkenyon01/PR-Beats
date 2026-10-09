@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Admin — PR beats</title>
   <script src="js/theme-boot.js"></script>
-  <link rel="stylesheet" href="styles.css?v=sticky-header-1" />
+  <link rel="stylesheet" href="styles.css?v=coverage-sticky-2" />
 </head>
 <body class="admin-page">
   <p class="note" id="loading">Checking sign-in…</p>
@@ -1301,6 +1301,20 @@
         message || "Add rows manually or import a coverage CSV.";
     }
 
+    function coverageSectionTitleFromName(value) {
+      let title = String(value || "")
+        .replace(/\.[^.]+$/, "")
+        .trim();
+      if (!title) return "";
+      const coverageMatch = title.match(/^(.*?coverage)\b/i);
+      if (coverageMatch) {
+        title = coverageMatch[1].trim();
+      }
+      return title
+        .replace(/[\s-_]+$/g, "")
+        .slice(0, coverageDialogTitleInput.maxLength || 80);
+    }
+
     function ensureCoverageDialogHead() {
       if (coverageDialogHead.childElementCount) return;
       const coverTh = document.createElement("th");
@@ -1473,13 +1487,17 @@
       actionTd.className = "coverage-link-remove-cell";
       const removeBtn = document.createElement("button");
       removeBtn.type = "button";
-      removeBtn.className = "btn-ghost coverage-link-remove";
-      removeBtn.textContent = "Remove";
+      removeBtn.className = "btn-icon coverage-link-remove";
+      removeBtn.setAttribute("aria-label", "Remove");
+      removeBtn.title = "Remove";
+      removeBtn.innerHTML =
+        `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>`;
       removeBtn.addEventListener("click", () => {
         tr.remove();
         if (!coverageDialogBody.children.length) {
           coverageDialogBody.appendChild(createCoverageDialogRow());
         }
+        fitCoverageDialogColumns();
       });
       actionTd.appendChild(removeBtn);
       tr.appendChild(actionTd);
@@ -1507,6 +1525,93 @@
       return tr;
     }
 
+    let fitCoverageColumnsTimer = 0;
+
+    function scheduleFitCoverageDialogColumns() {
+      clearTimeout(fitCoverageColumnsTimer);
+      fitCoverageColumnsTimer = setTimeout(fitCoverageDialogColumns, 40);
+    }
+
+    function fitCoverageDialogColumns() {
+      ensureCoverageDialogHead();
+      const headers = [...coverageDialogHead.querySelectorAll("th")];
+      if (!headers.length) return;
+
+      const probe = document.createElement("span");
+      probe.setAttribute("aria-hidden", "true");
+      probe.style.cssText =
+        "position:absolute;left:-9999px;top:0;white-space:nowrap;visibility:hidden;";
+      document.body.appendChild(probe);
+
+      const measureText = (node, text) => {
+        const style = getComputedStyle(node);
+        probe.style.font = style.font;
+        probe.style.letterSpacing = style.letterSpacing;
+        probe.style.fontWeight = style.fontWeight;
+        probe.style.fontSize = style.fontSize;
+        probe.textContent = text || "";
+        return Math.ceil(probe.getBoundingClientRect().width);
+      };
+
+      // Size Outlet name, Title, URL, Result type, and every other data column
+      // to the longest string currently in that column.
+      COVERAGE_LINK_COLUMNS.forEach((column, index) => {
+        const thIndex = index + 1; // cover column is first
+        const th = headers[thIndex];
+        if (!th) return;
+
+        const inputs = [
+          ...coverageDialogBody.querySelectorAll(
+            `[data-coverage-key="${CSS.escape(column.key)}"]`
+          ),
+        ];
+        const sample = inputs[0] || th;
+        const pad =
+          inputs[0]
+            ? (() => {
+                const style = getComputedStyle(inputs[0]);
+                return (
+                  (parseFloat(style.paddingLeft) || 0) +
+                  (parseFloat(style.paddingRight) || 0) +
+                  4
+                );
+              })()
+            : 28;
+
+        let maxPx = measureText(th, column.label || " ") + 28;
+        inputs.forEach((input) => {
+          maxPx = Math.max(
+            maxPx,
+            measureText(sample, String(input.value || "")) + pad
+          );
+        });
+        maxPx = Math.max(maxPx, Math.ceil(4.5 * 16));
+
+        const width = `${maxPx}px`;
+        th.style.width = width;
+        th.style.minWidth = width;
+        th.style.maxWidth = "none";
+        coverageDialogBody.querySelectorAll("tr").forEach((tr) => {
+          const td = tr.children[thIndex];
+          if (td) {
+            td.style.width = width;
+            td.style.minWidth = width;
+            td.style.maxWidth = "none";
+          }
+          const input = tr.querySelector(
+            `[data-coverage-key="${CSS.escape(column.key)}"]`
+          );
+          if (input) {
+            input.style.width = width;
+            input.style.minWidth = width;
+            input.style.maxWidth = "none";
+          }
+        });
+      });
+
+      probe.remove();
+    }
+
     function renderCoverageDialogRows(rows, { focusLast = false } = {}) {
       ensureCoverageDialogHead();
       coverageDialogBody.innerHTML = "";
@@ -1514,6 +1619,7 @@
       list.forEach((row) => {
         coverageDialogBody.appendChild(createCoverageDialogRow(row));
       });
+      fitCoverageDialogColumns();
       if (focusLast) {
         const last = coverageDialogBody.querySelector(
           "tr:last-child .coverage-link-url"
@@ -1655,9 +1761,10 @@
         ),
       };
       setCoverageDialogHint("");
-      coverageDialogTitleInput.value = parseCoverageSectionTitle(
-        currentTable.rows[rowIndex].coverageLinks
-      );
+      coverageDialogTitleInput.value =
+        coverageSectionTitleFromName(
+          parseCoverageSectionTitle(currentTable.rows[rowIndex].coverageLinks)
+        ) || DEFAULT_COVERAGE_SECTION_TITLE;
       renderCoverageDialogRows(rows, {
         focusLast: addBlank || !existing.length,
       });
@@ -1666,9 +1773,12 @@
       } else {
         coverageDialog.setAttribute("open", "");
       }
-      if (!(addBlank || !existing.length)) {
-        requestAnimationFrame(() => coverageDialogTitleInput.focus());
-      }
+      requestAnimationFrame(() => {
+        fitCoverageDialogColumns();
+        if (!(addBlank || !existing.length)) {
+          coverageDialogTitleInput.focus();
+        }
+      });
     }
 
     function createCoverageLinksCell(row, getRowIndex, onChange) {
@@ -1716,10 +1826,16 @@
 
     coverageDialogAdd.addEventListener("click", () => {
       coverageDialogBody.appendChild(createCoverageDialogRow());
+      fitCoverageDialogColumns();
       const last = coverageDialogBody.querySelector(
         "tr:last-child .coverage-link-url"
       );
       last?.focus();
+    });
+    coverageDialogBody.addEventListener("input", (event) => {
+      if (!(event.target instanceof HTMLInputElement)) return;
+      if (!event.target.classList.contains("coverage-link-field")) return;
+      scheduleFitCoverageDialogColumns();
     });
     coverageDialogClear.addEventListener("click", () => {
       const count = coverageDialogBody.querySelectorAll("tr").length;
@@ -1751,6 +1867,10 @@
       reader.onload = () => {
         try {
           const rows = coverageLinksFromCsv(String(reader.result ?? ""));
+          const titleFromFile = coverageSectionTitleFromName(file.name);
+          if (titleFromFile) {
+            coverageDialogTitleInput.value = titleFromFile;
+          }
           renderCoverageDialogRows(rows);
           setCoverageDialogHint(
             `Imported ${rows.length} coverage row${rows.length === 1 ? "" : "s"} from ${file.name}.`

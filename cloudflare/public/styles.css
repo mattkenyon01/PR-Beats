@@ -1142,57 +1142,55 @@ body.admin-page:has(.admin-app.is-grid-layout) {
 .coverage-links-panel {
   width: 100%;
   min-width: 0;
-  padding: 0.55rem;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 0.9rem;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
   box-sizing: border-box;
 }
 
 .coverage-links-grid {
-  display: flex;
-  flex-direction: row;
-  align-items: stretch;
-  gap: 0.75rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  align-items: start;
+  gap: 0.85rem;
   width: 100%;
-  overflow-x: auto;
-  overflow-y: hidden;
-  border-radius: 0.65rem;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  padding: 0.55rem;
+  padding: 0;
   box-sizing: border-box;
-  scroll-snap-type: x mandatory;
-  -webkit-overflow-scrolling: touch;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
 }
 
 .coverage-links-grid .coverage-link {
-  --cover-w: 28rem;
-  flex: 0 0 28rem;
-  width: 28rem;
+  width: 100%;
+  min-width: 0;
   min-height: 0;
   display: grid;
-  grid-template-rows: auto auto auto;
+  grid-template-rows: auto auto;
   align-items: start;
   justify-items: center;
   gap: 0.45rem;
-  padding: 0.55rem;
-  border-radius: 0.65rem;
-  border: 1px solid var(--border);
-  background: var(--panel-elevated);
+  padding: 0;
+  border-radius: 0;
+  border: 0;
+  background: transparent;
   color: var(--text);
   text-decoration: none;
   text-align: center;
   overflow: hidden;
-  scroll-snap-align: start;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  transition: opacity 0.15s ease;
 }
 
 .coverage-link:hover,
 .coverage-link:focus-visible {
-  background: var(--panel-hover);
-  border-color: var(--border-strong);
+  opacity: 0.88;
   outline: none;
+}
+
+.coverage-link:focus-visible .coverage-link-cover {
+  outline: 2px solid var(--border-strong);
+  outline-offset: 2px;
 }
 
 .coverage-links-grid .coverage-link-cover {
@@ -1580,10 +1578,9 @@ body.admin-page:has(.admin-app.is-grid-layout) {
     grid-template-columns: 1fr;
   }
 
-  .coverage-links-grid .coverage-link {
-    --cover-w: 24rem;
-    flex-basis: 24rem;
-    width: 24rem;
+  .coverage-links-grid {
+    grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+    gap: 0.7rem;
   }
 }
 
@@ -3211,19 +3208,24 @@ body.admin-page:has(.admin-app.is-grid-layout) {
 
 .coverage-links-dialog-table-wrap {
   overflow: auto;
-  padding: 0.75rem 1.1rem;
+  padding: 0 1.1rem;
 }
 
 .coverage-links-dialog-table {
   width: max-content;
   min-width: 100%;
-  border-collapse: collapse;
+  table-layout: auto;
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: #10141b;
 }
 
 .coverage-links-dialog-table th,
 .coverage-links-dialog-table td {
-  padding: 0.45rem 0.35rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 0;
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   text-align: left;
   vertical-align: middle;
 }
@@ -3231,14 +3233,20 @@ body.admin-page:has(.admin-app.is-grid-layout) {
 .coverage-links-dialog-table th {
   position: sticky;
   top: 0;
-  z-index: 1;
-  background: #141922;
+  z-index: 2;
+  padding: 0.55rem 0.55rem;
+  background: #1a2030;
+  background-clip: padding-box;
   font-size: 0.72rem;
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: #9aa3b2;
   white-space: nowrap;
+  /* Seal the 1px sticky gap so scrolled rows can't show through above */
+  box-shadow:
+    0 -12px 0 0 #1a2030,
+    inset 0 -1px 0 rgba(255, 255, 255, 0.1);
 }
 
 .coverage-links-dialog-table th:first-child,
@@ -3249,24 +3257,57 @@ body.admin-page:has(.admin-app.is-grid-layout) {
 
 .coverage-links-dialog-table th:last-child,
 .coverage-links-dialog-table td:last-child {
-  width: 5.25rem;
-  min-width: 5.25rem;
+  width: 2.75rem;
+  min-width: 2.75rem;
+  border-right: 0;
 }
 
-.coverage-links-dialog-table .coverage-link-field {
-  min-width: 7.5rem;
-  width: 100%;
+.coverage-links-dialog-table .coverage-link-field,
+.coverage-links-dialog-table .cell-input {
+  display: block;
+  width: auto;
+  min-width: 0;
+  max-width: none;
+  min-height: 2.35rem;
+  margin: 0;
+  padding: 0.4rem 0.55rem;
+  border: 0;
+  border-radius: 0;
+  font: inherit;
+  line-height: 1.35;
+  color: #e8eaed;
+  background: transparent;
+  box-shadow: none;
+  appearance: none;
+  -webkit-appearance: none;
+  box-sizing: border-box;
+  white-space: nowrap;
+  overflow: visible;
+  text-overflow: clip;
 }
 
-.coverage-links-dialog-table .coverage-link-url {
-  min-width: 14rem;
+.coverage-links-dialog-table .coverage-link-field:hover,
+.coverage-links-dialog-table .cell-input:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.coverage-links-dialog-table .coverage-link-field:focus,
+.coverage-links-dialog-table .cell-input:focus {
+  outline: none;
+  background: rgba(122, 141, 163, 0.12);
+  box-shadow: inset 0 0 0 1px #7a8da3;
+}
+
+.coverage-links-dialog-table .coverage-link-cover-cell {
+  padding: 0.3rem;
+  background: #0d1118;
 }
 
 .coverage-link-cover {
   width: 6.5rem;
   aspect-ratio: 920 / 430;
-  border-radius: 0.45rem;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 0.2rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
   background: #0b0d11;
   overflow: hidden;
   display: grid;
@@ -3301,13 +3342,13 @@ body.admin-page:has(.admin-app.is-grid-layout) {
   min-width: 0;
 }
 
-.coverage-link-remove {
-  font-size: 0.8rem;
-  padding: 0.35rem 0.55rem;
+.coverage-link-remove-cell {
+  text-align: center;
+  padding: 0.15rem;
 }
 
-.coverage-link-remove-cell {
-  text-align: right;
+.coverage-links-dialog-table .coverage-link-remove {
+  margin: 0 auto;
 }
 
 @media (max-width: 720px) {

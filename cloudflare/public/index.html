@@ -108,7 +108,6 @@
       coverageLinkUrls,
       coverageStatSortValue,
       DEFAULT_COVERAGE_SECTION_TITLE,
-      formatCoverageStat,
       parseCoverageLinksValue,
       parseCoverageSectionTitle,
     } from "./js/csv.js";
@@ -615,84 +614,10 @@
         // Always prefer the coverage "Title" column on the main page.
         title.textContent = titleText || coverageLinkDisplayLabel(item);
 
-        const body = document.createElement("div");
-        body.className = "coverage-link-body";
-
-        const detailFields = [
-          ["Result type", item.resultType],
-          ["Outlet type", item.outletType],
-          ["Outlet stats", formatCoverageStat(item.outletStats)],
-          ["Global domain", item.globalDomain],
-          ["Country domain", item.countryDomain],
-          ["Sentiment", item.sentiment],
-        ].filter(([, value]) => String(value || "").trim());
-
-        const stats = document.createElement("div");
-        stats.className = "coverage-link-stats";
-        const statsLabel = document.createElement("h4");
-        statsLabel.className = "coverage-link-stats-label";
-        statsLabel.textContent = "Coverage details";
-        stats.appendChild(statsLabel);
-
-        const details = document.createElement("dl");
-        details.className = "coverage-link-details";
-        if (detailFields.length) {
-          detailFields.forEach(([label, value]) => {
-            const row = document.createElement("div");
-            row.className = "coverage-link-detail";
-            const dt = document.createElement("dt");
-            dt.textContent = label;
-            const dd = document.createElement("dd");
-            dd.textContent = String(value).trim();
-            row.appendChild(dt);
-            row.appendChild(dd);
-            details.appendChild(row);
-          });
-        } else {
-          stats.classList.add("is-empty");
-          details.classList.add("is-empty");
-          const row = document.createElement("div");
-          row.className = "coverage-link-detail";
-          const dt = document.createElement("dt");
-          dt.textContent = "\u00a0";
-          const dd = document.createElement("dd");
-          dd.textContent = "\u00a0";
-          row.appendChild(dt);
-          row.appendChild(dd);
-          details.appendChild(row);
-        }
-        stats.appendChild(details);
-        body.appendChild(stats);
-
         anchor.appendChild(cover);
         anchor.appendChild(title);
-        anchor.appendChild(body);
         coverageLinksGridEl.appendChild(anchor);
         fillCoverageLinkMedia(cover, title, item);
-      });
-
-      syncCoverageCardRows();
-    }
-
-    function syncCoverageCardRows() {
-      const titles = [
-        ...coverageLinksGridEl.querySelectorAll(".coverage-link-title"),
-      ];
-      titles.forEach((el) => {
-        el.style.minHeight = "";
-      });
-
-      // Lock title rows to the tallest so detail sections line up under the separator.
-      requestAnimationFrame(() => {
-        const titleMax = Math.max(
-          0,
-          ...titles.map((el) => el.getBoundingClientRect().height)
-        );
-        if (titleMax > 0) {
-          titles.forEach((el) => {
-            el.style.minHeight = `${Math.ceil(titleMax)}px`;
-          });
-        }
       });
     }
 
@@ -957,13 +882,6 @@
       },
       { passive: true }
     );
-
-    window.addEventListener("resize", () => {
-      syncCoverageCardRows();
-    });
-    if (document.fonts?.ready) {
-      document.fonts.ready.then(() => syncCoverageCardRows()).catch(() => {});
-    }
 
     try {
       statusEl.textContent = "Loading announcements…";
