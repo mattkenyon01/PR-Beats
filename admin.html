@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Admin — PR beats</title>
   <script src="js/theme-boot.js"></script>
-  <link rel="stylesheet" href="styles.css?v=platforms-fit-width-1" />
+  <link rel="stylesheet" href="styles.css?v=active-editors-1" />
 </head>
 <body class="admin-page">
   <p class="note" id="loading">Checking sign-in…</p>
@@ -77,16 +77,24 @@
       <p class="admin-success" id="success" hidden></p>
 
       <section class="report" id="report" hidden>
-        <div class="game-search" id="game-search">
-          <label class="visually-hidden" for="game-search-input">Search games</label>
-          <input
-            id="game-search-input"
-            class="game-search-input"
-            type="search"
-            placeholder="Search games…"
-            autocomplete="off"
-            spellcheck="false"
-          />
+        <div class="game-search-bar" id="game-search-bar">
+          <div class="game-search" id="game-search">
+            <label class="visually-hidden" for="game-search-input">Search games</label>
+            <input
+              id="game-search-input"
+              class="game-search-input"
+              type="search"
+              placeholder="Search games…"
+              autocomplete="off"
+              spellcheck="false"
+            />
+          </div>
+          <div
+            class="active-editors"
+            id="active-editors"
+            hidden
+            aria-label="People currently working"
+          ></div>
         </div>
         <div class="game-sections" id="game-sections"></div>
       </section>
@@ -364,6 +372,7 @@
       csvToTable,
       dateSortValue,
       DEFAULT_COVERAGE_SECTION_TITLE,
+      displayNameFromEmail,
       emptyCoverageLink,
       monthFromDate,
       parseCoverageLinksValue,
@@ -375,6 +384,7 @@
       saveAnnouncements,
       saveAnnouncementRow,
       deleteAnnouncementRow as deleteAnnouncementRowApi,
+      pingPresence,
       createShare,
       uploadGameImage,
       uploadPressReleasePdf,
@@ -425,6 +435,7 @@
     const report = document.getElementById("report");
     const gameSections = document.getElementById("game-sections");
     const gameSearchInput = document.getElementById("game-search-input");
+    const activeEditorsEl = document.getElementById("active-editors");
     const monthFilterControl = document.getElementById("month-filter-control");
     const monthFilter = document.getElementById("month-filter");
     const viewModeControl = document.getElementById("view-mode-control");
@@ -479,6 +490,8 @@
     let authRef = null;
     let saveTimer = null;
     let pollTimer = null;
+    let presenceTimer = null;
+    let lastPresencePing = 0;
     let persistInFlight = false;
     let persistQueued = false;
     let persistQueuedMode = "dirty";
@@ -589,10 +602,32 @@
     function markRowDirty(row) {
       if (!row) return;
       dirtyRowIds.add(ensureRowId(row));
+      schedulePresencePing();
     }
 
     function markRowsDirty(rows) {
       (rows || []).forEach((row) => markRowDirty(row));
+    }
+
+    function schedulePresencePing() {
+      // First edit pings quickly; further typing is throttled.
+      const elapsed = Date.now() - lastPresencePing;
+      const delay = elapsed >= 15000 ? 0 : 15000 - elapsed;
+      clearTimeout(presenceTimer);
+      presenceTimer = setTimeout(() => {
+        pingActivePresence();
+      }, delay);
+    }
+
+    async function pingActivePresence() {
+      try {
+        const token = await getIdToken();
+        const data = await pingPresence(token);
+        lastPresencePing = Date.now();
+        if (data?.activeEditors) renderActiveEditors(data.activeEditors);
+      } catch {
+        // Presence is best-effort; saves still update it server-side.
+      }
     }
 
     function normalizeAnnouncementRow(row = {}) {
@@ -1065,9 +1100,61 @@
       return wrap;
     }
 
+    function editorInitials(editor) {
+      const provided = String(editor?.initials || "").trim();
+      if (provided) return provided.slice(0, 2).toUpperCase();
+      const name = String(editor?.displayName || "").trim();
+      const parts = name.split(/\s+/).filter(Boolean);
+      if (parts.length >= 2) {
+        return `${parts[0].charAt(0)}${parts[1].charAt(0)}`.toUpperCase();
+      }
+      if (parts[0]?.length >= 2) return parts[0].slice(0, 2).toUpperCase();
+      if (parts[0]) return `${parts[0].charAt(0)}${parts[0].charAt(0)}`.toUpperCase();
+      const local = String(editor?.email || "").split("@")[0] || "?";
+      return local.slice(0, 2).toUpperCase();
+    }
+
+    function editorHue(uid) {
+      const text = String(uid || "");
+      let hash = 0;
+      for (let i = 0; i < text.length; i += 1) {
+        hash = (hash * 31 + text.charCodeAt(i)) >>> 0;
+      }
+      return hash % 360;
+    }
+
+    function renderActiveEditors(editors) {
+      if (!activeEditorsEl) return;
+      const list = Array.isArray(editors) ? editors : [];
+      const selfUid = authRef?.currentUser?.uid || "";
+      activeEditorsEl.innerHTML = "";
+      if (!list.length) {
+        activeEditorsEl.hidden = true;
+        return;
+      }
+
+      list.forEach((editor) => {
+        const uid = String(editor?.uid || "");
+        const name =
+          String(editor?.displayName || "").trim() ||
+          displayNameFromEmail(editor?.email) ||
+          "Admin";
+        const chip = document.createElement("span");
+        chip.className = "active-editor";
+        if (uid && uid === selfUid) chip.classList.add("is-self");
+        chip.style.setProperty("--editor-hue", String(editorHue(uid || name)));
+        chip.textContent = editorInitials({ ...editor, displayName: name });
+        chip.title = uid && uid === selfUid ? `${name} (you)` : name;
+        chip.setAttribute("aria-label", chip.title);
+        activeEditorsEl.appendChild(chip);
+      });
+      activeEditorsEl.hidden = false;
+    }
+
     function applyLoadedDataset(data, name = "Saved data") {
       datasetRevision = String(data?.revision ?? "");
       dirtyRowIds.clear();
+      renderActiveEditors(data?.activeEditors);
       const rows = data?.rows ?? [];
       if (rows.length) {
         const table = tableFromRows(rows, name);
@@ -1237,6 +1324,7 @@
             Object.assign(row, normalizeAnnouncementRow(data.row));
           }
           datasetRevision = String(data?.revision ?? datasetRevision);
+          if (data?.activeEditors) renderActiveEditors(data.activeEditors);
           dirtyRowIds.delete(id);
         }
         setSaveStatus("Saved", "ok");
@@ -1268,6 +1356,7 @@
         );
         datasetRevision = String(data?.revision ?? datasetRevision);
         dirtyRowIds.clear();
+        if (data?.activeEditors) renderActiveEditors(data.activeEditors);
         if (Array.isArray(data?.rows)) {
           currentTable.rows = data.rows.map((row) =>
             normalizeAnnouncementRow(row)
@@ -1344,6 +1433,7 @@
       try {
         const token = await getIdToken();
         const data = await loadAnnouncements(token);
+        renderActiveEditors(data?.activeEditors);
         const revision = String(data?.revision ?? "");
         if (!revision || revision === datasetRevision) return;
         mergeRemoteDataset(data);
@@ -2790,6 +2880,7 @@
         const token = await getIdToken();
         const data = await deleteAnnouncementRowApi(token, removedId);
         datasetRevision = String(data?.revision ?? datasetRevision);
+        if (data?.activeEditors) renderActiveEditors(data.activeEditors);
         setSaveStatus("Saved", "ok");
         showSuccess(`Deleted “${label}”.`);
       } catch (error) {

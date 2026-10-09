@@ -820,16 +820,68 @@ body.admin-page:has(.admin-app.is-grid-layout) {
   text-align: center;
 }
 
-.report .game-search {
-  width: min(28rem, 100%);
+.report .game-search-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  width: 100%;
   margin: 0 0 1rem;
-  justify-self: start;
   text-align: left;
 }
 
-.admin-app.is-grid-layout .report .game-search {
+.report .game-search {
+  width: min(28rem, 100%);
+  margin: 0;
+  justify-self: start;
+  text-align: left;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.admin-app.is-grid-layout .report .game-search-bar {
   flex: 0 0 auto;
   margin-bottom: 0.75rem;
+}
+
+.admin-app.is-grid-layout .report .game-search {
+  flex: 1 1 auto;
+  margin-bottom: 0;
+}
+
+.active-editors {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.35rem;
+  flex: 0 0 auto;
+}
+
+.active-editors[hidden] {
+  display: none !important;
+}
+
+.active-editor {
+  --editor-hue: 200;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #fff;
+  background: hsl(var(--editor-hue) 55% 42%);
+  border: 2px solid color-mix(in srgb, #fff 18%, transparent);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 18%);
+  user-select: none;
+}
+
+.active-editor.is-self {
+  box-shadow: 0 0 0 2px color-mix(in srgb, hsl(var(--editor-hue) 55% 42%) 55%, transparent);
 }
 
 .toolbar {

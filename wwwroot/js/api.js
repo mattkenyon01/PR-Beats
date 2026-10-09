@@ -72,6 +72,15 @@ export function deleteAnnouncementRow(token, id) {
   });
 }
 
+/** Mark the signed-in admin as actively editing (last 5 minutes). */
+export function pingPresence(token) {
+  return api("/api/presence", {
+    token,
+    method: "POST",
+    body: {},
+  });
+}
+
 export function createShare(token, { games = [], months = [], month = "" } = {}) {
   const monthList = Array.isArray(months) && months.length
     ? months

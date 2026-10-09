@@ -138,6 +138,7 @@ async function handleApi(request, env, url) {
             save: "POST /api/announcements",
             saveRow: "PATCH /api/announcements/:id",
             deleteRow: "DELETE /api/announcements/:id",
+            presence: "POST /api/presence",
             uploadImage: "POST /api/game-images",
             getImage: "GET /api/game-images/:ownerUid/:fileName",
             storeCoverageCover: "POST /api/coverage-covers",
@@ -387,24 +388,31 @@ async function handleApi(request, env, url) {
 
       if (request.method === "GET") {
         // Shared dataset: every signed-in admin sees the same announcements.
+        // Presence is only updated on edits/saves, not on poll/load.
         const rows = await listAllAnnouncements(env.DB);
         const revision = await getDatasetRevision(env.DB);
-        return withCors(request, json(datasetResponse(rows, revision)));
+        const activeEditors = await listActiveEditors(env.DB);
+        return withCors(
+          request,
+          json(datasetResponse(rows, revision, activeEditors))
+        );
       }
 
       // POST and PUT both replace the dataset (POST avoids asset-server 405s)
       if (request.method === "PUT" || request.method === "POST") {
         const body = await request.json();
         try {
+          await touchAdminPresence(env.DB, auth.user);
           const result = await replaceAnnouncements(
             env.DB,
             auth.user.uid,
             body.rows ?? [],
             body.revision
           );
+          const activeEditors = await listActiveEditors(env.DB);
           return withCors(
             request,
-            json(datasetResponse(result.rows, result.revision))
+            json(datasetResponse(result.rows, result.revision, activeEditors))
           );
         } catch (error) {
           if (error?.code === "REVISION_CONFLICT") {
@@ -440,6 +448,38 @@ async function handleApi(request, env, url) {
       );
     }
 
+    if (url.pathname === "/api/presence") {
+      const auth = await requireFirebaseUser(
+        request,
+        env.FIREBASE_PROJECT_ID || DEFAULT_FIREBASE_PROJECT_ID
+      );
+      if (auth.error) return withCors(request, auth.error);
+
+      if (request.method === "POST") {
+        await touchAdminPresence(env.DB, auth.user);
+        const activeEditors = await listActiveEditors(env.DB);
+        return withCors(request, json({ ok: true, activeEditors }));
+      }
+
+      if (request.method === "GET") {
+        const activeEditors = await listActiveEditors(env.DB);
+        return withCors(request, json({ activeEditors }));
+      }
+
+      return withCors(
+        request,
+        json(
+          {
+            error: "Method not allowed.",
+            allowed: ["GET", "POST", "OPTIONS"],
+            method: request.method,
+            path: url.pathname,
+          },
+          405
+        )
+      );
+    }
+
     const announcementRowMatch = url.pathname.match(
       /^\/api\/announcements\/([^/]+)$/
     );
@@ -458,23 +498,31 @@ async function handleApi(request, env, url) {
       if (request.method === "PATCH" || request.method === "PUT") {
         const body = await request.json();
         const row = body?.row && typeof body.row === "object" ? body.row : body;
+        await touchAdminPresence(env.DB, auth.user);
         const result = await upsertAnnouncement(
           env.DB,
           auth.user.uid,
           rowId,
           row || {}
         );
+        const activeEditors = await listActiveEditors(env.DB);
         return withCors(
           request,
-          json({ row: result.row, revision: result.revision })
+          json({
+            row: result.row,
+            revision: result.revision,
+            activeEditors,
+          })
         );
       }
 
       if (request.method === "DELETE") {
+        await touchAdminPresence(env.DB, auth.user);
         const result = await deleteAnnouncementById(env.DB, rowId);
+        const activeEditors = await listActiveEditors(env.DB);
         return withCors(
           request,
-          json({ id: rowId, revision: result.revision })
+          json({ id: rowId, revision: result.revision, activeEditors })
         );
       }
 
@@ -569,6 +617,7 @@ async function requireFirebaseUser(request, projectId) {
       user: {
         uid,
         email: typeof payload.email === "string" ? payload.email : "",
+        name: typeof payload.name === "string" ? payload.name : "",
       },
     };
   } catch {
@@ -1519,11 +1568,114 @@ async function replaceAnnouncements(db, ownerUid, rows, expectedRevision) {
   return { rows: nextRows, revision };
 }
 
-function datasetResponse(rows, revision) {
+function datasetResponse(rows, revision, activeEditors) {
   const payload = {
     columns: DISPLAY_COLUMNS,
     rows,
   };
   if (revision !== undefined) payload.revision = revision;
+  if (activeEditors !== undefined) payload.activeEditors = activeEditors;
   return payload;
+}
+
+function displayNameFromUser(user) {
+  const named = String(user?.name || "").trim();
+  if (named) return named;
+  const local = String(user?.email || "")
+    .split("@")[0]
+    .trim();
+  if (!local) return "Admin";
+  return local
+    .split(/[._\s-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(" ");
+}
+
+function initialsFromDisplayName(name, email = "") {
+  const parts = String(name || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (parts.length >= 2) {
+    return `${parts[0].charAt(0)}${parts[1].charAt(0)}`.toUpperCase();
+  }
+  if (parts.length === 1 && parts[0].length >= 2) {
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+  if (parts.length === 1) {
+    return `${parts[0].charAt(0)}${parts[0].charAt(0)}`.toUpperCase();
+  }
+  const local = String(email || "").split("@")[0] || "A";
+  return local.slice(0, 2).toUpperCase();
+}
+
+async function ensureAdminPresenceTable(db) {
+  await db
+    .prepare(
+      `CREATE TABLE IF NOT EXISTS admin_presence (
+        uid TEXT PRIMARY KEY,
+        email TEXT NOT NULL DEFAULT '',
+        display_name TEXT NOT NULL DEFAULT '',
+        last_seen TEXT NOT NULL DEFAULT (datetime('now'))
+      )`
+    )
+    .run();
+}
+
+async function touchAdminPresence(db, user) {
+  if (!user?.uid) return;
+  try {
+    await ensureAdminPresenceTable(db);
+    const email = String(user.email || "");
+    const displayName = displayNameFromUser(user);
+    await db
+      .prepare(
+        `INSERT INTO admin_presence (uid, email, display_name, last_seen)
+         VALUES (?, ?, ?, datetime('now'))
+         ON CONFLICT(uid) DO UPDATE SET
+           email = excluded.email,
+           display_name = excluded.display_name,
+           last_seen = datetime('now')`
+      )
+      .bind(user.uid, email, displayName)
+      .run();
+  } catch (error) {
+    console.error(
+      JSON.stringify({
+        level: "warn",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Could not update admin presence.",
+      })
+    );
+  }
+}
+
+async function listActiveEditors(db) {
+  try {
+    await ensureAdminPresenceTable(db);
+    const result = await db
+      .prepare(
+        `SELECT uid, email, display_name, last_seen
+         FROM admin_presence
+         WHERE last_seen >= datetime('now', '-5 minutes')
+         ORDER BY last_seen DESC`
+      )
+      .all();
+    return (result.results || []).map((row) => {
+      const displayName = String(row.display_name || "").trim() || "Admin";
+      const email = String(row.email || "");
+      return {
+        uid: String(row.uid || ""),
+        email,
+        displayName,
+        initials: initialsFromDisplayName(displayName, email),
+        lastSeen: String(row.last_seen || ""),
+      };
+    });
+  } catch {
+    return [];
+  }
 }
