@@ -8,12 +8,15 @@
 @{
     string? activeImageUrl = null;
     var coverAlt = "";
-    if (_groups.Count > 0)
+    if (_slides.Count > 0)
     {
-        coverAlt = _groups[_activeIndex].Key;
-        activeImageUrl = _groups[_activeIndex].Value
-            .Select(row => row.GameImage?.Trim())
-            .FirstOrDefault(url => !string.IsNullOrWhiteSpace(url));
+        var activeRow = _slides[_activeIndex];
+        coverAlt = string.IsNullOrWhiteSpace(activeRow.GameTitle)
+            ? "Untitled"
+            : activeRow.GameTitle.Trim();
+        activeImageUrl = string.IsNullOrWhiteSpace(activeRow.GameImage)
+            ? null
+            : activeRow.GameImage.Trim();
     }
     var hasCover = !string.IsNullOrWhiteSpace(activeImageUrl);
 }
@@ -24,24 +27,47 @@
         <p class="note @(_isError ? "is-error" : null)">@_status</p>
     }
 
-    @if (_groups.Count > 0)
+    @if (_slides.Count > 0)
     {
-        var active = _groups[_activeIndex];
+        var active = _slides[_activeIndex];
+        var gameTitle = string.IsNullOrWhiteSpace(active.GameTitle)
+            ? "Untitled"
+            : active.GameTitle.Trim();
+        var announcementTitle = active.AnnouncementTitle?.Trim() ?? "";
+        var entries = new[] { active };
         <div class="announcement-carousel is-ready"
              tabindex="0"
              @onkeydown="OnKeyDown"
              @ontouchstart="OnTouchStart"
              @ontouchend="OnTouchEnd">
-            <div class="carousel-dots" role="tablist" aria-label="Games">
-                @for (var i = 0; i < _groups.Count; i++)
+            <div class="carousel-dots" role="tablist" aria-label="Announcements">
+                @for (var i = 0; i < _slides.Count; i++)
                 {
                     var index = i;
                     var isActive = index == _activeIndex;
+                    var slide = _slides[index];
+                    var slideGame = string.IsNullOrWhiteSpace(slide.GameTitle)
+                        ? "Untitled"
+                        : slide.GameTitle.Trim();
+                    var slideAnnouncement = slide.AnnouncementTitle?.Trim() ?? "";
+                    var slideLabel = string.IsNullOrWhiteSpace(slideAnnouncement)
+                        ? slideGame
+                        : $"{slideGame}: {slideAnnouncement}";
+                    if (index > 0)
+                    {
+                        var prevGame = string.IsNullOrWhiteSpace(_slides[index - 1].GameTitle)
+                            ? "Untitled"
+                            : _slides[index - 1].GameTitle.Trim();
+                        if (!string.Equals(prevGame, slideGame, StringComparison.OrdinalIgnoreCase))
+                        {
+                            <span class="carousel-dot-separator" aria-hidden="true"></span>
+                        }
+                    }
                     <button type="button"
                             class="carousel-dot @(isActive ? "is-active" : null)"
                             role="tab"
                             aria-selected="@isActive"
-                            aria-label="@_groups[index].Key"
+                            aria-label="@slideLabel"
                             tabindex="@(isActive ? 0 : -1)"
                             @onclick="() => ShowSlide(index)">
                     </button>
@@ -60,23 +86,16 @@
             </div>
 
             <div class="carousel-slide" @key="_activeIndex" aria-live="polite">
-                <h2 class="carousel-game">@active.Key</h2>
-                @{
-                    var announcementTitles = active.Value
-                        .Select(row => row.AnnouncementTitle?.Trim())
-                        .Where(title => !string.IsNullOrWhiteSpace(title))
-                        .Distinct(StringComparer.OrdinalIgnoreCase)
-                        .ToList();
-                }
-                @if (announcementTitles.Count > 0)
+                <h2 class="carousel-game">@gameTitle</h2>
+                @if (!string.IsNullOrWhiteSpace(announcementTitle))
                 {
-                    <p class="carousel-subtitle">@string.Join(" · ", announcementTitles)</p>
+                    <p class="carousel-subtitle">@announcementTitle</p>
                 }
                 <div class="detail-cards detail-cards-row">
                     <section class="detail-card">
                         <h3 class="detail-card-label">Platforms</h3>
                         @{
-                            var platforms = PlatformsForEntries(active.Value);
+                            var platforms = PlatformsForEntries(entries);
                         }
                         <div class="platform-chips readonly @(platforms.Count == 0 ? "muted" : null)">
                             @if (platforms.Count == 0)
@@ -98,54 +117,47 @@
                     <section class="detail-card">
                         <h3 class="detail-card-label">Date</h3>
                         <ul class="detail-card-list">
-                            @foreach (var row in active.Value)
-                            {
-                                var date = string.IsNullOrWhiteSpace(row.Date)
+                            @{
+                                var date = string.IsNullOrWhiteSpace(active.Date)
                                     ? "No date"
-                                    : row.Date.Trim();
-                                <li class="@(string.IsNullOrWhiteSpace(row.Date) ? "is-empty" : null)">
-                                    @date
-                                </li>
+                                    : active.Date.Trim();
                             }
+                            <li class="@(string.IsNullOrWhiteSpace(active.Date) ? "is-empty" : null)">
+                                @date
+                            </li>
                         </ul>
                     </section>
                     <section class="detail-card">
                         <h3 class="detail-card-label">Estimated reach</h3>
                         <ul class="detail-card-list">
-                            @foreach (var row in active.Value)
-                            {
-                                var reach = string.IsNullOrWhiteSpace(row.EstimatedReach)
+                            @{
+                                var reach = string.IsNullOrWhiteSpace(active.EstimatedReach)
                                     ? "No data"
-                                    : row.EstimatedReach.Trim();
-                                <li class="@(string.IsNullOrWhiteSpace(row.EstimatedReach) ? "is-empty" : null)">
-                                    @reach
-                                </li>
+                                    : active.EstimatedReach.Trim();
                             }
+                            <li class="@(string.IsNullOrWhiteSpace(active.EstimatedReach) ? "is-empty" : null)">
+                                @reach
+                            </li>
                         </ul>
                     </section>
                     <section class="detail-card">
                         <h3 class="detail-card-label">Total wishlists</h3>
                         <ul class="detail-card-list">
-                            @foreach (var row in active.Value)
-                            {
-                                var wishlists = string.IsNullOrWhiteSpace(row.TotalWishlists)
+                            @{
+                                var wishlists = string.IsNullOrWhiteSpace(active.TotalWishlists)
                                     ? "No data"
-                                    : row.TotalWishlists.Trim();
-                                <li class="@(string.IsNullOrWhiteSpace(row.TotalWishlists) ? "is-empty" : null)">
-                                    @wishlists
-                                </li>
+                                    : active.TotalWishlists.Trim();
                             }
+                            <li class="@(string.IsNullOrWhiteSpace(active.TotalWishlists) ? "is-empty" : null)">
+                                @wishlists
+                            </li>
                         </ul>
                     </section>
                 </div>
 
                 @{
-                    var trailerEmbed = active.Value
-                        .Select(row => YoutubeEmbedUrl(row.Trailer))
-                        .FirstOrDefault(url => !string.IsNullOrWhiteSpace(url));
-                    var pdfEmbed = active.Value
-                        .Select(row => PdfEmbedUrl(row.PressReleasePdf))
-                        .FirstOrDefault(url => !string.IsNullOrWhiteSpace(url));
+                    var trailerEmbed = YoutubeEmbedUrl(active.Trailer);
+                    var pdfEmbed = PdfEmbedUrl(active.PressReleasePdf);
                 }
                 <div class="media-cards">
                     <section class="trailer-card @(string.IsNullOrWhiteSpace(trailerEmbed) ? "is-empty" : null)" aria-label="Trailer">
@@ -195,8 +207,8 @@
                 </div>
 
                 @{
-                    var coverageLinks = CoverageLinksForEntries(active.Value);
-                    var coverageSectionTitle = CoverageSectionTitleForEntries(active.Value);
+                    var coverageLinks = CoverageLinksForEntries(entries);
+                    var coverageSectionTitle = CoverageSectionTitleForEntries(entries);
                 }
                 <section class="coverage-links-section" aria-labelledby="coverage-links-heading">
                     <h3 class="detail-card-label coverage-links-heading" id="coverage-links-heading">@coverageSectionTitle (@coverageLinks.Count)</h3>
@@ -322,7 +334,7 @@
     private double _touchStartX;
     private bool _pdfViewerOpen;
     private string? _pdfViewerUrl;
-    private List<KeyValuePair<string, List<AnnouncementRow>>> _groups = [];
+    private List<AnnouncementRow> _slides = [];
 
     protected override async Task OnInitializedAsync()
     {
@@ -347,10 +359,10 @@
                 return;
             }
 
-            _groups = rows
-                .GroupBy(row => string.IsNullOrWhiteSpace(row.GameTitle) ? "Untitled" : row.GameTitle.Trim())
-                .OrderBy(group => group.Key, StringComparer.CurrentCultureIgnoreCase)
-                .Select(group => new KeyValuePair<string, List<AnnouncementRow>>(group.Key, group.ToList()))
+            _slides = rows
+                .OrderBy(row => string.IsNullOrWhiteSpace(row.GameTitle) ? "Untitled" : row.GameTitle.Trim(),
+                    StringComparer.OrdinalIgnoreCase)
+                .ThenBy(row => row.AnnouncementTitle?.Trim() ?? "", StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
             _status = "";
@@ -364,9 +376,9 @@
 
     private void ShowSlide(int index)
     {
-        if (_groups.Count == 0) return;
+        if (_slides.Count == 0) return;
         ClosePdfViewer();
-        _activeIndex = ((index % _groups.Count) + _groups.Count) % _groups.Count;
+        _activeIndex = ((index % _slides.Count) + _slides.Count) % _slides.Count;
     }
 
     private void OpenPdfViewer(string? url)

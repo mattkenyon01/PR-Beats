@@ -21,7 +21,7 @@
         class="carousel-dots"
         id="carousel-dots"
         role="tablist"
-        aria-label="Games"
+        aria-label="Announcements"
       ></div>
 
       <div class="cover-banner is-empty" id="cover-banner" aria-hidden="true">
@@ -151,7 +151,7 @@
       { id: "xbox", label: "Xbox", icon: "images/Xbox.png" },
     ];
 
-    let groups = [];
+    let slides = [];
     let activeIndex = 0;
     let touchStartX = 0;
 
@@ -745,45 +745,50 @@
       }
     }
 
-    function groupByGame(rows) {
-      const map = new Map();
-      rows.forEach((row) => {
-        const key = (row.gameTitle || "").trim() || "Untitled";
-        if (!map.has(key)) map.set(key, []);
-        map.get(key).push(row);
-      });
-      return [...map.entries()].sort((a, b) =>
-        a[0].localeCompare(b[0], undefined, {
+    function slidesFromRows(rows) {
+      return [...rows].sort((a, b) => {
+        const gameA = (a.gameTitle || "").trim() || "Untitled";
+        const gameB = (b.gameTitle || "").trim() || "Untitled";
+        const gameCmp = gameA.localeCompare(gameB, undefined, {
           sensitivity: "base",
           numeric: true,
-        })
-      );
+        });
+        if (gameCmp !== 0) return gameCmp;
+        const titleA = (a.announcementTitle || "").trim();
+        const titleB = (b.announcementTitle || "").trim();
+        return titleA.localeCompare(titleB, undefined, {
+          sensitivity: "base",
+          numeric: true,
+        });
+      });
+    }
+
+    function slideLabel(row) {
+      const gameTitle = (row.gameTitle || "").trim() || "Untitled";
+      const announcementTitle = (row.announcementTitle || "").trim();
+      return announcementTitle
+        ? `${gameTitle}: ${announcementTitle}`
+        : gameTitle;
     }
 
     function showSlide(index) {
-      if (!groups.length) return;
+      if (!slides.length) return;
 
-      activeIndex = ((index % groups.length) + groups.length) % groups.length;
-      const [gameTitle, entries] = groups[activeIndex];
+      activeIndex = ((index % slides.length) + slides.length) % slides.length;
+      const row = slides[activeIndex];
+      const entries = [row];
+      const gameTitle = (row.gameTitle || "").trim() || "Untitled";
+      const announcementTitle = (row.announcementTitle || "").trim();
 
       gameEl.textContent = gameTitle;
-      const announcementTitles = [
-        ...new Set(
-          entries
-            .map((row) => (row.announcementTitle || "").trim())
-            .filter(Boolean)
-        ),
-      ];
-      if (announcementTitles.length) {
-        subtitleEl.textContent = announcementTitles.join(" · ");
+      if (announcementTitle) {
+        subtitleEl.textContent = announcementTitle;
         subtitleEl.hidden = false;
       } else {
         subtitleEl.textContent = "";
         subtitleEl.hidden = true;
       }
-      const imageUrl = entries
-        .map((row) => (row.gameImage || "").trim())
-        .find(Boolean);
+      const imageUrl = (row.gameImage || "").trim();
       if (imageUrl) {
         gameImageEl.src = imageUrl;
         gameImageEl.alt = gameTitle;
@@ -802,31 +807,31 @@
       announcementDatesEl.innerHTML = "";
       estimatedReachEl.innerHTML = "";
       totalWishlistsEl.innerHTML = "";
-      entries.forEach((row) => {
-        const date = (row.date || "").trim();
-        const dateLi = document.createElement("li");
-        dateLi.textContent = date || "No date";
-        if (!date) dateLi.classList.add("is-empty");
-        announcementDatesEl.appendChild(dateLi);
 
-        const reach = (row.estimatedReach || "").trim();
-        const reachLi = document.createElement("li");
-        reachLi.textContent = reach || "No data";
-        if (!reach) reachLi.classList.add("is-empty");
-        estimatedReachEl.appendChild(reachLi);
+      const date = (row.date || "").trim();
+      const dateLi = document.createElement("li");
+      dateLi.textContent = date || "No date";
+      if (!date) dateLi.classList.add("is-empty");
+      announcementDatesEl.appendChild(dateLi);
 
-        const wishlists = (row.totalWishlists || "").trim();
-        const wishlistsLi = document.createElement("li");
-        wishlistsLi.textContent = wishlists || "No data";
-        if (!wishlists) wishlistsLi.classList.add("is-empty");
-        totalWishlistsEl.appendChild(wishlistsLi);
-      });
+      const reach = (row.estimatedReach || "").trim();
+      const reachLi = document.createElement("li");
+      reachLi.textContent = reach || "No data";
+      if (!reach) reachLi.classList.add("is-empty");
+      estimatedReachEl.appendChild(reachLi);
+
+      const wishlists = (row.totalWishlists || "").trim();
+      const wishlistsLi = document.createElement("li");
+      wishlistsLi.textContent = wishlists || "No data";
+      if (!wishlists) wishlistsLi.classList.add("is-empty");
+      totalWishlistsEl.appendChild(wishlistsLi);
+
       setPlatforms(entries);
       setTrailer(entries);
       setPdf(entries);
       setCoverageLinks(entries);
 
-      [...dotsEl.children].forEach((dot, i) => {
+      [...dotsEl.querySelectorAll(".carousel-dot")].forEach((dot, i) => {
         const isActive = i === activeIndex;
         dot.classList.toggle("is-active", isActive);
         dot.setAttribute("aria-selected", isActive ? "true" : "false");
@@ -835,9 +840,9 @@
     }
 
     function render(rows) {
-      groups = groupByGame(rows);
+      slides = slidesFromRows(rows);
 
-      if (!groups.length) {
+      if (!slides.length) {
         carouselEl.hidden = true;
         carouselEl.classList.remove("is-ready");
         gameImageEl.removeAttribute("src");
@@ -863,12 +868,28 @@
       statusEl.hidden = true;
       dotsEl.innerHTML = "";
 
-      groups.forEach(([gameTitle], index) => {
+      slides.forEach((row, index) => {
+        if (index > 0) {
+          const prevGame =
+            (slides[index - 1].gameTitle || "").trim() || "Untitled";
+          const gameTitle = (row.gameTitle || "").trim() || "Untitled";
+          if (
+            prevGame.localeCompare(gameTitle, undefined, {
+              sensitivity: "base",
+            }) !== 0
+          ) {
+            const separator = document.createElement("span");
+            separator.className = "carousel-dot-separator";
+            separator.setAttribute("aria-hidden", "true");
+            dotsEl.appendChild(separator);
+          }
+        }
+
         const dot = document.createElement("button");
         dot.type = "button";
         dot.className = "carousel-dot";
         dot.setAttribute("role", "tab");
-        dot.setAttribute("aria-label", gameTitle);
+        dot.setAttribute("aria-label", slideLabel(row));
         dot.addEventListener("click", () => showSlide(index));
         dotsEl.appendChild(dot);
       });

@@ -1,10 +1,10 @@
 {
   "version": 2,
-  "dgSpecHash": "AA5LK2/BQEs=",
+  "dgSpecHash": "6Tpj5AW51Gs=",
   "success": true,
-  "projectFilePath": "C:\\Users\\paddy\\PR beats web app\\PRBeats.csproj",
+  "projectFilePath": "D:\\PR-Beats\\PRBeats.csproj",
   "expectedPackageFiles": [
-    "C:\\Users\\paddy\\.nuget\\packages\\microsoft.aspnetcore.app.internal.assets\\10.0.9\\microsoft.aspnetcore.app.internal.assets.10.0.9.nupkg.sha512"
+    "C:\\Users\\theke\\.nuget\\packages\\microsoft.aspnetcore.app.internal.assets\\10.0.8\\microsoft.aspnetcore.app.internal.assets.10.0.8.nupkg.sha512"
   ],
   "logs": []
 }

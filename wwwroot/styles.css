@@ -1664,6 +1664,20 @@ body.admin-page:has(.admin-app.is-grid-layout) {
   margin-top: 0.25rem;
 }
 
+.carousel-dot-separator {
+  width: 1px;
+  height: 0.85rem;
+  margin: 0 0.15rem;
+  flex-shrink: 0;
+  background: #b8c0cb;
+  opacity: 0.7;
+}
+
+.public-page .carousel-dot-separator {
+  background: var(--text-muted);
+  opacity: 0.45;
+}
+
 .carousel-dot {
   width: 0.7rem;
   height: 0.7rem;

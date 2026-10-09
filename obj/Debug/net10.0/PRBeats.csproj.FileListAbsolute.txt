@@ -172,14 +172,9 @@ D:\PR-Beats\obj\Debug\net10.0\refint\PRBeats.dll
 D:\PR-Beats\obj\Debug\net10.0\PRBeats.pdb
 D:\PR-Beats\obj\Debug\net10.0\PRBeats.genruntimeconfig.cache
 D:\PR-Beats\obj\Debug\net10.0\ref\PRBeats.dll
-D:\PR-Beats\obj\Debug\net10.0\compressed\qg4r8wbprc-{0}-3efhdkyz32-3efhdkyz32.gz
-D:\PR-Beats\obj\Debug\net10.0\compressed\l1ywb95gko-{0}-q1qo0lo20s-q1qo0lo20s.gz
 D:\PR-Beats\obj\Debug\net10.0\compressed\ww4361fo5b-{0}-t74nxsae4l-t74nxsae4l.gz
 D:\PR-Beats\obj\Debug\net10.0\compressed\8o7o6isvox-{0}-cl48fp1os1-cl48fp1os1.gz
 D:\PR-Beats\obj\Debug\net10.0\compressed\kn1lcocurv-{0}-7pp4c0ce0l-7pp4c0ce0l.gz
-D:\PR-Beats\obj\Debug\net10.0\compressed\1nvhdsc94v-{0}-srmz0hp56x-srmz0hp56x.gz
-D:\PR-Beats\obj\Debug\net10.0\compressed\f1cdiygatl-{0}-5aot4ovgut-5aot4ovgut.gz
-D:\PR-Beats\obj\Debug\net10.0\compressed\c489owsfxf-{0}-42hfz080it-42hfz080it.gz
 D:\PR-Beats\obj\Debug\net10.0\compressed\cfu05jdytn-{0}-5l4bwckdli-5l4bwckdli.gz
 D:\PR-Beats\obj\Debug\net10.0\compressed\b5pcj62ish-{0}-5l4bwckdli-5l4bwckdli.gz
 C:\Users\paddy\PR beats web app\obj\Debug\net10.0\compressed\ww4361fo5b-{0}-t74nxsae4l-t74nxsae4l.gz
@@ -193,3 +188,9 @@ C:\Users\paddy\PR beats web app\obj\Debug\net10.0\compressed\1nvhdsc94v-{0}-wi79
 C:\Users\paddy\PR beats web app\obj\Debug\net10.0\compressed\f1cdiygatl-{0}-ifap3e9awf-ifap3e9awf.gz
 C:\Users\paddy\PR beats web app\obj\Debug\net10.0\compressed\l1ywb95gko-{0}-1os7d7d2xo-1os7d7d2xo.gz
 C:\Users\paddy\PR beats web app\obj\Debug\net10.0\compressed\c489owsfxf-{0}-3rmbcl7qi6-3rmbcl7qi6.gz
+D:\PR-Beats\bin\Debug\net10.0\cloudflare\package-lock.json
+D:\PR-Beats\obj\Debug\net10.0\compressed\l1ywb95gko-{0}-xyqbop8btu-xyqbop8btu.gz
+D:\PR-Beats\obj\Debug\net10.0\compressed\qg4r8wbprc-{0}-fsdl4hlgfq-fsdl4hlgfq.gz
+D:\PR-Beats\obj\Debug\net10.0\compressed\f1cdiygatl-{0}-ifap3e9awf-ifap3e9awf.gz
+D:\PR-Beats\obj\Debug\net10.0\compressed\1nvhdsc94v-{0}-ksco3pzjx0-ksco3pzjx0.gz
+D:\PR-Beats\obj\Debug\net10.0\compressed\c489owsfxf-{0}-oayo0s03e9-oayo0s03e9.gz
