@@ -4,66 +4,89 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Admin — PR beats</title>
+  <link rel="icon" type="image/png" href="images/SilverLiningIcon.png" />
+  <link rel="apple-touch-icon" href="images/SilverLiningIcon.png" />
   <script src="js/theme-boot.js"></script>
-  <link rel="stylesheet" href="styles.css?v=active-editors-1" />
+  <link rel="stylesheet" href="styles.css?v=sticky-search-editors-1" />
 </head>
 <body class="admin-page">
   <p class="note" id="loading">Checking sign-in…</p>
 
   <div class="admin-app" id="panel" hidden>
-    <header class="admin-header">
-      <div>
-        <h1>PR beats</h1>
-        <p class="lede" id="page-lede" hidden></p>
+    <div class="admin-sticky-chrome">
+      <header class="admin-header">
+        <div>
+          <h1>PR beats</h1>
+          <p class="lede" id="page-lede" hidden></p>
+        </div>
+        <div class="admin-header-actions">
+          <span class="save-status" id="save-status" hidden></span>
+          <label class="header-month-filter" id="month-filter-control" hidden>
+            <span class="visually-hidden">Month</span>
+            <select id="month-filter" aria-label="Month" title="Month">
+              <option value="">All months</option>
+            </select>
+          </label>
+          <label class="header-view-filter" id="view-mode-control" hidden>
+            <span class="visually-hidden">View</span>
+            <select id="view-mode" aria-label="View" title="View">
+              <option value="formatted">Formatted view</option>
+              <option value="grid">Grid view</option>
+            </select>
+          </label>
+          <button type="button" class="theme-toggle" data-theme-toggle>
+            <span data-theme-label>Dark</span>
+          </button>
+          <button id="import-btn" type="button" class="btn-icon" aria-label="Import CSV" title="Import CSV">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" x2="12" y1="3" y2="15"/>
+            </svg>
+          </button>
+          <button id="add-row-btn" type="button" class="btn-icon" aria-label="Add announcement" title="Add announcement">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 5v14"/>
+              <path d="M5 12h14"/>
+            </svg>
+          </button>
+          <button id="share-btn" type="button" class="btn-icon" aria-label="Share link" title="Share link" hidden>
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="18" cy="5" r="3"/>
+              <circle cx="6" cy="12" r="3"/>
+              <circle cx="18" cy="19" r="3"/>
+              <line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/>
+              <line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/>
+            </svg>
+          </button>
+          <button id="settings-btn" type="button" class="btn-icon" aria-label="Settings" title="Settings">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+          </button>
+        </div>
+      </header>
+      <div class="game-search-bar" id="game-search-bar" hidden>
+        <div class="game-search" id="game-search">
+          <label class="visually-hidden" for="game-search-input">Search games</label>
+          <input
+            id="game-search-input"
+            class="game-search-input"
+            type="search"
+            placeholder="Search games…"
+            autocomplete="off"
+            spellcheck="false"
+          />
+        </div>
+        <div
+          class="active-editors"
+          id="active-editors"
+          hidden
+          aria-label="People currently working"
+        ></div>
       </div>
-      <div class="admin-header-actions">
-        <span class="save-status" id="save-status" hidden></span>
-        <label class="header-month-filter" id="month-filter-control" hidden>
-          <span class="visually-hidden">Month</span>
-          <select id="month-filter" aria-label="Month" title="Month">
-            <option value="">All months</option>
-          </select>
-        </label>
-        <label class="header-view-filter" id="view-mode-control" hidden>
-          <span class="visually-hidden">View</span>
-          <select id="view-mode" aria-label="View" title="View">
-            <option value="formatted">Formatted view</option>
-            <option value="grid">Grid view</option>
-          </select>
-        </label>
-        <button type="button" class="theme-toggle" data-theme-toggle>
-          <span data-theme-label>Dark</span>
-        </button>
-        <button id="import-btn" type="button" class="btn-icon" aria-label="Import CSV" title="Import CSV">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-            <polyline points="17 8 12 3 7 8"/>
-            <line x1="12" x2="12" y1="3" y2="15"/>
-          </svg>
-        </button>
-        <button id="add-row-btn" type="button" class="btn-icon" aria-label="Add announcement" title="Add announcement">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M12 5v14"/>
-            <path d="M5 12h14"/>
-          </svg>
-        </button>
-        <button id="share-btn" type="button" class="btn-icon" aria-label="Share link" title="Share link" hidden>
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <circle cx="18" cy="5" r="3"/>
-            <circle cx="6" cy="12" r="3"/>
-            <circle cx="18" cy="19" r="3"/>
-            <line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/>
-            <line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/>
-          </svg>
-        </button>
-        <button id="settings-btn" type="button" class="btn-icon" aria-label="Settings" title="Settings">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
-            <circle cx="12" cy="12" r="3"/>
-          </svg>
-        </button>
-      </div>
-    </header>
+    </div>
 
     <div id="workspace-view">
       <input id="csv-input" type="file" accept=".csv,text/csv" hidden />
@@ -77,25 +100,6 @@
       <p class="admin-success" id="success" hidden></p>
 
       <section class="report" id="report" hidden>
-        <div class="game-search-bar" id="game-search-bar">
-          <div class="game-search" id="game-search">
-            <label class="visually-hidden" for="game-search-input">Search games</label>
-            <input
-              id="game-search-input"
-              class="game-search-input"
-              type="search"
-              placeholder="Search games…"
-              autocomplete="off"
-              spellcheck="false"
-            />
-          </div>
-          <div
-            class="active-editors"
-            id="active-editors"
-            hidden
-            aria-label="People currently working"
-          ></div>
-        </div>
         <div class="game-sections" id="game-sections"></div>
       </section>
     </div>
@@ -434,8 +438,14 @@
     const saveStatus = document.getElementById("save-status");
     const report = document.getElementById("report");
     const gameSections = document.getElementById("game-sections");
+    const gameSearchBar = document.getElementById("game-search-bar");
     const gameSearchInput = document.getElementById("game-search-input");
     const activeEditorsEl = document.getElementById("active-editors");
+
+    function syncGameSearchBarVisibility() {
+      if (!gameSearchBar) return;
+      gameSearchBar.hidden = report.hidden || !settingsView.hidden;
+    }
     const monthFilterControl = document.getElementById("month-filter-control");
     const monthFilter = document.getElementById("month-filter");
     const viewModeControl = document.getElementById("view-mode-control");
@@ -485,6 +495,7 @@
     let datasetRevision = "";
     let openPlatformMenu = null;
     let platformMenuRowId = "";
+    let openGameSettingsMenu = null;
     let pendingRenderAfterUi = false;
     let currentFileName = "";
     let authRef = null;
@@ -810,12 +821,19 @@
       return selected.trim();
     }
 
-    function openAddRowDialog() {
+    function openAddRowDialog(preferredGameTitle = "") {
       showAddRowError("");
       addRowForm.reset();
       clearAddRowCover();
       clearAddRowPressRelease();
       populateAddRowGameTitleSelect();
+      const preferred = String(preferredGameTitle || "").trim();
+      if (
+        preferred &&
+        [...addRowGameTitleSelect.options].some((option) => option.value === preferred)
+      ) {
+        addRowGameTitleSelect.value = preferred;
+      }
       syncAddRowGameTitleMode();
       renderAddRowPlatformOptions();
       if (typeof addRowDialog.showModal === "function") {
@@ -825,7 +843,11 @@
       }
       requestAnimationFrame(() => {
         if (addRowGameTitleSelect.value === "__new__") addRowGameTitle.focus();
-        else addRowGameTitleSelect.focus();
+        else if (preferred && addRowGameTitleSelect.value === preferred) {
+          addRowAnnouncementTitle.focus();
+        } else {
+          addRowGameTitleSelect.focus();
+        }
       });
     }
 
@@ -1001,6 +1023,39 @@
       return button;
     }
 
+    function closeGameSettingsMenu() {
+      if (!openGameSettingsMenu) return;
+      openGameSettingsMenu.hidden = true;
+      const trigger = openGameSettingsMenu._trigger;
+      if (trigger) trigger.setAttribute("aria-expanded", "false");
+      openGameSettingsMenu = null;
+    }
+
+    const GAME_SETTINGS_ICONS = {
+      add: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg>`,
+      upload: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>`,
+      remove: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>`,
+      delete: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>`,
+    };
+
+    function createGameSettingsMenuItem(label, iconHtml, { danger = false } = {}) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = danger
+        ? "game-settings-menu-item is-danger"
+        : "game-settings-menu-item";
+      button.setAttribute("role", "menuitem");
+      button.innerHTML = `<span class="game-settings-menu-icon" aria-hidden="true">${iconHtml}</span><span class="game-settings-menu-label"></span>`;
+      button.querySelector(".game-settings-menu-label").textContent = label;
+      return button;
+    }
+
+    function setGameSettingsMenuLabel(button, label) {
+      const labelEl = button.querySelector(".game-settings-menu-label");
+      if (labelEl) labelEl.textContent = label;
+      else button.textContent = label;
+    }
+
     function createGameImageControl(gameTitle, identity) {
       const wrap = document.createElement("div");
       wrap.className = "game-image-control";
@@ -1019,34 +1074,46 @@
       preview.appendChild(img);
       preview.appendChild(placeholder);
 
-      const details = document.createElement("div");
-      details.className = "game-image-details";
-
-      const heading = document.createElement("h3");
-      heading.className = "game-image-details-title";
-      heading.textContent = "Cover details";
-
-      const actions = document.createElement("div");
-      actions.className = "game-image-actions";
+      const settingsWrap = document.createElement("div");
+      settingsWrap.className = "game-settings-wrap";
 
       const fileInput = document.createElement("input");
       fileInput.type = "file";
       fileInput.accept = "image/*";
       fileInput.hidden = true;
 
-      const uploadBtn = createIconButton(
-        "game-image-upload",
-        "Upload cover",
-        `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>`
+      const settingsBtn = createIconButton(
+        "game-settings-btn",
+        "Game settings",
+        `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>`
       );
-      uploadBtn.addEventListener("click", () => fileInput.click());
+      settingsBtn.setAttribute("aria-haspopup", "menu");
+      settingsBtn.setAttribute("aria-expanded", "false");
 
-      const clearBtn = createIconButton(
-        "game-image-clear",
-        "Remove cover",
-        `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>`
+      const menu = document.createElement("div");
+      menu.className = "game-settings-menu";
+      menu.hidden = true;
+      menu.setAttribute("role", "menu");
+      menu._trigger = settingsBtn;
+
+      const addItem = createGameSettingsMenuItem(
+        "Add announcement",
+        GAME_SETTINGS_ICONS.add
       );
-      clearBtn.hidden = true;
+      const uploadItem = createGameSettingsMenuItem(
+        "Upload cover",
+        GAME_SETTINGS_ICONS.upload
+      );
+      const clearItem = createGameSettingsMenuItem(
+        "Remove cover",
+        GAME_SETTINGS_ICONS.remove
+      );
+      clearItem.hidden = true;
+      const deleteItem = createGameSettingsMenuItem(
+        "Delete game",
+        GAME_SETTINGS_ICONS.delete,
+        { danger: true }
+      );
 
       function refreshPreview(url) {
         const src = (url || "").trim();
@@ -1054,18 +1121,52 @@
           img.src = src;
           img.hidden = false;
           placeholder.hidden = true;
-          clearBtn.hidden = false;
+          clearItem.hidden = false;
+          setGameSettingsMenuLabel(uploadItem, "Replace cover");
         } else {
           img.removeAttribute("src");
           img.hidden = true;
           placeholder.hidden = false;
-          clearBtn.hidden = true;
+          clearItem.hidden = true;
+          setGameSettingsMenuLabel(uploadItem, "Upload cover");
         }
       }
 
-      clearBtn.addEventListener("click", () => {
+      settingsBtn.addEventListener("click", (event) => {
+        event.stopPropagation();
+        const willOpen = menu.hidden || openGameSettingsMenu !== menu;
+        closePlatformMenu({ flush: false });
+        closeRowContextMenu();
+        closeGameSettingsMenu();
+        if (!willOpen) return;
+        menu.hidden = false;
+        settingsBtn.setAttribute("aria-expanded", "true");
+        openGameSettingsMenu = menu;
+      });
+
+      addItem.addEventListener("click", (event) => {
+        event.stopPropagation();
+        closeGameSettingsMenu();
+        openAddRowDialog(gameTitle);
+      });
+
+      uploadItem.addEventListener("click", (event) => {
+        event.stopPropagation();
+        closeGameSettingsMenu();
+        fileInput.click();
+      });
+
+      clearItem.addEventListener("click", (event) => {
+        event.stopPropagation();
+        closeGameSettingsMenu();
         setGameImageForTitle(gameTitle, "");
         refreshPreview("");
+      });
+
+      deleteItem.addEventListener("click", (event) => {
+        event.stopPropagation();
+        closeGameSettingsMenu();
+        deleteGame(gameTitle);
       });
 
       fileInput.addEventListener("change", async () => {
@@ -1073,7 +1174,8 @@
         fileInput.value = "";
         if (!file) return;
 
-        uploadBtn.disabled = true;
+        uploadItem.disabled = true;
+        settingsBtn.disabled = true;
         try {
           const token = await getIdToken();
           const url = await uploadGameImage(token, file, gameTitle);
@@ -1084,18 +1186,21 @@
             err instanceof Error ? err.message : "Could not upload image."
           );
         } finally {
-          uploadBtn.disabled = false;
+          uploadItem.disabled = false;
+          settingsBtn.disabled = false;
         }
       });
 
-      actions.appendChild(uploadBtn);
-      actions.appendChild(clearBtn);
-      actions.appendChild(fileInput);
-      details.appendChild(heading);
-      details.appendChild(actions);
+      menu.appendChild(addItem);
+      menu.appendChild(uploadItem);
+      menu.appendChild(clearItem);
+      menu.appendChild(deleteItem);
+      settingsWrap.appendChild(settingsBtn);
+      settingsWrap.appendChild(menu);
+      settingsWrap.appendChild(fileInput);
       wrap.appendChild(preview);
       if (identity) wrap.appendChild(identity);
-      wrap.appendChild(details);
+      wrap.appendChild(settingsWrap);
       refreshPreview(gameImageForTitle(gameTitle));
       return wrap;
     }
@@ -2378,6 +2483,7 @@
       pageLede.textContent = settings ? "Manage your account." : "";
       pageLede.hidden = !settings;
       syncAddRowButtonVisibility();
+      syncGameSearchBarVisibility();
       if (settings) {
         showPasswordMessage("", "");
         passwordForm.reset();
@@ -2390,6 +2496,7 @@
       shareSelectedMonths.clear();
       gameSections.innerHTML = "";
       report.hidden = true;
+      syncGameSearchBarVisibility();
       dropzone.hidden = false;
       hasTable = false;
       currentTable = null;
@@ -2419,7 +2526,9 @@
 
     function publicHomeBase() {
       const url = new URL(window.location.href);
-      url.pathname = url.pathname.replace(/\/admin\.html$/i, "/") || "/";
+      url.pathname = url.pathname
+        .replace(/\/admin\.html$/i, "/")
+        .replace(/\/admin\/?$/i, "/") || "/";
       if (!url.pathname.endsWith("/")) url.pathname += "/";
       url.search = "";
       url.hash = "";
@@ -2891,6 +3000,48 @@
       }
     }
 
+    async function deleteGame(gameTitle) {
+      if (!currentTable) return;
+      const key = (gameTitle || "").trim() || "Untitled";
+      const matching = currentTable.rows.filter(
+        (row) => ((row.gameTitle || "").trim() || "Untitled") === key
+      );
+      if (!matching.length) return;
+
+      const count = matching.length;
+      const confirmed = window.confirm(
+        count === 1
+          ? `Delete “${key}” and its announcement? This cannot be undone.`
+          : `Delete “${key}” and all ${count} announcements? This cannot be undone.`
+      );
+      if (!confirmed) return;
+
+      closeGameSettingsMenu();
+      closePlatformMenu({ flush: false });
+      closeRowContextMenu();
+
+      const removedIds = new Set(
+        matching.map((row) => ensureRowId(row)).filter(Boolean)
+      );
+      currentTable.rows = currentTable.rows.filter(
+        (row) => ((row.gameTitle || "").trim() || "Untitled") !== key
+      );
+      removedIds.forEach((id) => dirtyRowIds.delete(id));
+      shareSelectedGames.delete(key);
+
+      if (currentTable.rows.length === 0) {
+        clearTable({ persist: true });
+        showSuccess(`Deleted “${key}”.`);
+        return;
+      }
+
+      populateMonthFilter(currentTable);
+      renderTable(currentTable, currentFileName);
+      setSaveStatus("Saving…");
+      const saved = await persistTable({ quiet: true, mode: "bulk" });
+      if (saved) showSuccess(`Deleted “${key}”.`);
+    }
+
     function pressReleaseFileLabel(url) {
       const src = String(url || "").trim();
       if (!src) return "";
@@ -3010,6 +3161,7 @@
       hasTable = true;
       dropzone.hidden = true;
       report.hidden = false;
+      syncGameSearchBarVisibility();
       populateMonthFilter(currentTable);
       renderTable(currentTable, currentFileName || "Manual entry");
       syncAddRowButtonVisibility();
@@ -3398,6 +3550,7 @@
       pendingRenderAfterUi = false;
       const restorePlatformMenuRowId = platformMenuRowId;
       closePlatformMenu({ flush: false });
+      closeGameSettingsMenu();
       gameSections.innerHTML = "";
 
       const visible = getVisibleRows();
@@ -3426,6 +3579,7 @@
 
       dropzone.hidden = true;
       report.hidden = false;
+      syncGameSearchBarVisibility();
       hasTable = true;
       if (settingsView.hidden) {
         shareBtn.hidden = false;
@@ -3468,21 +3622,32 @@
     document.addEventListener("click", (event) => {
       closePlatformMenu();
       if (!rowContextMenu.contains(event.target)) closeRowContextMenu();
+      if (
+        openGameSettingsMenu &&
+        !event.target.closest?.(".game-settings-wrap")
+      ) {
+        closeGameSettingsMenu();
+      }
     });
     document.addEventListener(
       "scroll",
       () => {
         if (openPlatformMenu) closePlatformMenu();
         closeRowContextMenu();
+        closeGameSettingsMenu();
       },
       true
     );
     window.addEventListener("resize", () => {
       if (openPlatformMenu) closePlatformMenu();
       closeRowContextMenu();
+      closeGameSettingsMenu();
     });
     document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") closeRowContextMenu();
+      if (event.key === "Escape") {
+        closeRowContextMenu();
+        closeGameSettingsMenu();
+      }
     });
     rowContextDelete.addEventListener("click", () => {
       const index = contextRowIndex;
@@ -3644,7 +3809,7 @@
     dropzone.addEventListener("click", () => csvInput.click());
 
     if (!isFirebaseConfigured()) {
-      window.location.replace("login.html");
+      window.location.replace("/login");
     } else {
       const auth = getFirebaseAuth();
       authRef = auth;
@@ -3652,14 +3817,14 @@
       const authWait = setTimeout(() => {
         if (!loading.hidden) {
           loading.textContent =
-            "Still checking sign-in… If this hangs, hard-refresh or open login.html.";
+            "Still checking sign-in… If this hangs, hard-refresh or open /login.";
         }
       }, 8000);
 
       onAuthStateChanged(auth, async (user) => {
         clearTimeout(authWait);
         if (!user) {
-          window.location.replace("login.html");
+          window.location.replace("/login");
           return;
         }
 
@@ -3714,7 +3879,7 @@
       signOutBtn.addEventListener("click", async () => {
         signOutBtn.disabled = true;
         await signOut(auth);
-        window.location.replace("login.html");
+        window.location.replace("/login");
       });
     }
   </script>

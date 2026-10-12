@@ -98,6 +98,14 @@ export default {
       return handleApi(request, env, url);
     }
 
+    // Pretty URLs: /admin and /login serve the .html assets without the extension.
+    if (env.ASSETS && (url.pathname === "/admin" || url.pathname === "/login")) {
+      const assetUrl = new URL(request.url);
+      assetUrl.pathname =
+        url.pathname === "/admin" ? "/admin.html" : "/login.html";
+      return env.ASSETS.fetch(new Request(assetUrl, request));
+    }
+
     if (env.ASSETS) {
       return env.ASSETS.fetch(request);
     }

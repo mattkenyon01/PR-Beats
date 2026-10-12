@@ -21,13 +21,26 @@
     var hasCover = !string.IsNullOrWhiteSpace(activeImageUrl);
 }
 
-<div class="public-app">
-    @if (!string.IsNullOrEmpty(_status))
+<div class="public-app @(_showGate ? "is-gate" : null)">
+    @if (_showGate)
+    {
+        <div class="public-gate">
+            <img
+                class="public-gate-icon"
+                src="images/SilverLiningIcon.png"
+                alt="Silver Lining"
+                width="176"
+                height="176" />
+            <h1 class="public-gate-brand">Silver Lining PR Beats</h1>
+            <p class="public-gate-lede">Get in contact to request a key for the tool.</p>
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(_status))
     {
         <p class="note @(_isError ? "is-error" : null)">@_status</p>
     }
 
-    @if (_slides.Count > 0)
+    @if (!_showGate && _slides.Count > 0)
     {
         var active = _slides[_activeIndex];
         var gameTitle = string.IsNullOrWhiteSpace(active.GameTitle)
@@ -253,6 +266,43 @@
                                         }
                                     </div>
                                     <p class="coverage-link-title">@link.DisplayTitle</p>
+                                    @{
+                                        var detailFields = new (string Label, string Value)[]
+                                        {
+                                            ("Result type", link.ResultType),
+                                            ("Outlet type", link.OutletType),
+                                            ("Outlet stats", FormatCoverageStat(link.OutletStats)),
+                                            ("Global domain", link.GlobalDomain),
+                                            ("Country domain", link.CountryDomain),
+                                            ("Sentiment", link.Sentiment),
+                                        }
+                                        .Where(field => !string.IsNullOrWhiteSpace(field.Value))
+                                        .ToList();
+                                    }
+                                    <div class="coverage-link-body">
+                                        <div class="coverage-link-stats @(detailFields.Count == 0 ? "is-empty" : null)">
+                                            <h4 class="coverage-link-stats-label">Coverage details</h4>
+                                            <dl class="coverage-link-details @(detailFields.Count == 0 ? "is-empty" : null)">
+                                                @if (detailFields.Count > 0)
+                                                {
+                                                    @foreach (var field in detailFields)
+                                                    {
+                                                        <div class="coverage-link-detail">
+                                                            <dt>@field.Label</dt>
+                                                            <dd>@field.Value</dd>
+                                                        </div>
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    <div class="coverage-link-detail">
+                                                        <dt>&nbsp;</dt>
+                                                        <dd>&nbsp;</dd>
+                                                    </div>
+                                                }
+                                            </dl>
+                                        </div>
+                                    </div>
                                 </a>
                             }
                         }
@@ -288,13 +338,14 @@
     </div>
 }
 
-<a class="admin-link" href="/login.html">Admin</a>
+<a class="admin-link" href="/admin">Admin</a>
 
 @code {
     private const string ApiBase = "https://prbeats.matthew-d60.workers.dev";
 
     private string _status = "Loading…";
     private bool _isError;
+    private bool _showGate;
     private int _activeIndex;
     private double _touchStartX;
     private bool _pdfViewerOpen;
@@ -307,9 +358,14 @@
         {
             var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
             var query = uri.Query;
-            var apiUrl = string.IsNullOrEmpty(query)
-                ? $"{ApiBase}/api/public/announcements"
-                : $"{ApiBase}/api/public/announcements{query}";
+            if (string.IsNullOrWhiteSpace(query) || query == "?")
+            {
+                _showGate = true;
+                _status = "";
+                return;
+            }
+
+            var apiUrl = $"{ApiBase}/api/public/announcements{query}";
 
             var data = await Http.GetFromJsonAsync<PublicDataset>(
                 apiUrl,
@@ -318,9 +374,7 @@
 
             if (rows.Count == 0)
             {
-                _status = string.IsNullOrEmpty(query)
-                    ? "No announcements published yet."
-                    : "No announcements match this filter.";
+                _status = "No announcements match this filter.";
                 return;
             }
 

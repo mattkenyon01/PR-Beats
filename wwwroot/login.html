@@ -4,6 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Admin login — PR beats</title>
+  <link rel="icon" type="image/png" href="images/SilverLiningIcon.png" />
+  <link rel="apple-touch-icon" href="images/SilverLiningIcon.png" />
   <script src="js/theme-boot.js"></script>
   <link rel="stylesheet" href="styles.css" />
 </head>
@@ -42,7 +44,7 @@
       Add your Firebase web config in <code>firebase-config.js</code>, enable Email/Password auth,
       and create a user in the Firebase Console.
     </p>
-    <a class="back" href="index.html">Back to site</a>
+    <a class="back" href="/">Back to site</a>
   </div>
 
   <script type="module">
@@ -85,7 +87,7 @@
 
       onAuthStateChanged(auth, (user) => {
         if (user) {
-          window.location.replace("admin.html");
+          window.location.replace("/admin");
         }
       });
 
@@ -100,7 +102,7 @@
 
         try {
           await signInWithEmailAndPassword(auth, email, password);
-          window.location.replace("admin.html");
+          window.location.replace("/admin");
         } catch (error) {
           showError(friendlyAuthError(error));
           submitBtn.disabled = false;
