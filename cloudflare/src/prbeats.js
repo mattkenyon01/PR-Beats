@@ -34,7 +34,8 @@ const DISPLAY_COLUMNS = [
   { key: "highlights", label: "Highlights" },
   { key: "totalWishlists", label: "Total Wishlists" },
   { key: "coverageLinks", label: "Coverage Links" },
-  { key: "gameImage", label: "Game Image" },
+  { key: "mediaCoverage", label: "Media Coverage", perGame: true },
+  { key: "gameImage", label: "Game Image", perGame: true },
 ];
 
 const FIREBASE_JWKS_URL =
@@ -730,8 +731,21 @@ function rowFromDb(record) {
     highlights: record.highlights ?? "",
     totalWishlists: record.total_wishlists ?? "",
     coverageLinks: record.coverage_links ?? "",
+    mediaCoverage: record.media_coverage ?? "",
     gameImage: record.game_image ?? "",
   };
+}
+
+async function ensureMediaCoverageColumn(db) {
+  try {
+    await db
+      .prepare(
+        `ALTER TABLE announcements ADD COLUMN media_coverage TEXT NOT NULL DEFAULT ''`
+      )
+      .run();
+  } catch {
+    // Column already exists.
+  }
 }
 
 function isPrivateHostname(hostname) {
@@ -1218,6 +1232,7 @@ async function serveStoredImage(env, folder, ownerUid, fileName, request) {
 }
 
 async function listAnnouncements(db, ownerUid) {
+  await ensureMediaCoverageColumn(db);
   const result = await db
     .prepare(
       `SELECT *
@@ -1232,6 +1247,7 @@ async function listAnnouncements(db, ownerUid) {
 }
 
 async function listAllAnnouncements(db) {
+  await ensureMediaCoverageColumn(db);
   const result = await db
     .prepare(
       `SELECT *
@@ -1448,14 +1464,15 @@ async function upsertAnnouncement(db, ownerUid, id, row) {
       ? Number(existing.sort_order)
       : await nextSortOrder(db);
 
+  await ensureMediaCoverageColumn(db);
   await db
     .prepare(
       `INSERT INTO announcements (
         id, owner_uid, game_title, announcement_title, date, month,
         platforms, trailer, press_release_pdf, estimated_reach,
-        highlights, total_wishlists, coverage_links, game_image,
-        sort_order, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        highlights, total_wishlists, coverage_links, media_coverage,
+        game_image, sort_order, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
       ON CONFLICT(id) DO UPDATE SET
         owner_uid = excluded.owner_uid,
         game_title = excluded.game_title,
@@ -1469,6 +1486,7 @@ async function upsertAnnouncement(db, ownerUid, id, row) {
         highlights = excluded.highlights,
         total_wishlists = excluded.total_wishlists,
         coverage_links = excluded.coverage_links,
+        media_coverage = excluded.media_coverage,
         game_image = excluded.game_image,
         sort_order = excluded.sort_order,
         updated_at = datetime('now')`
@@ -1487,6 +1505,7 @@ async function upsertAnnouncement(db, ownerUid, id, row) {
       String(row.highlights ?? ""),
       String(row.totalWishlists ?? ""),
       String(row.coverageLinks ?? ""),
+      String(row.mediaCoverage ?? ""),
       String(row.gameImage ?? ""),
       sortOrder
     )
@@ -1533,6 +1552,7 @@ async function replaceAnnouncements(db, ownerUid, rows, expectedRevision) {
 
   // Shared dataset: any admin save replaces the full announcement table.
   // owner_uid is retained as the last editor for audit, not as a visibility filter.
+  await ensureMediaCoverageColumn(db);
   const statements = [db.prepare(`DELETE FROM announcements`)];
 
   rows.forEach((row, index) => {
@@ -1546,9 +1566,9 @@ async function replaceAnnouncements(db, ownerUid, rows, expectedRevision) {
           `INSERT INTO announcements (
             id, owner_uid, game_title, announcement_title, date, month,
             platforms, trailer, press_release_pdf, estimated_reach,
-            highlights, total_wishlists, coverage_links, game_image,
-            sort_order, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`
+            highlights, total_wishlists, coverage_links, media_coverage,
+            game_image, sort_order, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`
         )
         .bind(
           id,
@@ -1564,6 +1584,7 @@ async function replaceAnnouncements(db, ownerUid, rows, expectedRevision) {
           String(row.highlights ?? ""),
           String(row.totalWishlists ?? ""),
           String(row.coverageLinks ?? ""),
+          String(row.mediaCoverage ?? ""),
           String(row.gameImage ?? ""),
           index
         )

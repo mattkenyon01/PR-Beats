@@ -80,6 +80,7 @@ export const DISPLAY_COLUMNS = [
   {
     key: "coverageLinks",
     label: "Coverage Links",
+    linkSection: true,
     aliases: [
       "coverage links",
       "coverage link",
@@ -89,6 +90,20 @@ export const DISPLAY_COLUMNS = [
       "url",
       "press links",
       "coverage urls",
+    ],
+  },
+  {
+    key: "mediaCoverage",
+    label: "Media Coverage",
+    perGame: true,
+    hiddenInTable: true,
+    optionalInStatus: true,
+    aliases: [
+      "media coverage",
+      "media",
+      "influencer coverage",
+      "creators",
+      "creator coverage",
     ],
   },
   {
@@ -105,6 +120,500 @@ export const DISPLAY_COLUMNS = [
     ],
   },
 ];
+
+export const DEFAULT_MEDIA_COVERAGE_TITLE = "Media Coverage";
+
+/** Single per-game media coverage table columns. */
+export const MEDIA_COVERAGE_COLUMNS = [
+  {
+    key: "publishedTime",
+    label: "Published Time",
+    aliases: ["published time", "published", "publish time", "date", "time"],
+  },
+  {
+    key: "game",
+    label: "Game",
+    aliases: ["game", "game title", "title"],
+  },
+  {
+    key: "type",
+    label: "Type",
+    aliases: ["type", "media type", "content type"],
+  },
+  {
+    key: "customName",
+    label: 'Custom First/Last Name-Field (e.g. "Ben")',
+    aliases: [
+      "custom first/last name-field (e.g. \"ben\")",
+      "custom first/last name-field",
+      "custom first last name",
+      "custom name",
+      "name",
+      "first last name",
+      "creator name",
+      "influencer name",
+    ],
+  },
+  {
+    key: "handleId",
+    label: "Handle Id",
+    aliases: ["handle id", "handle", "id", "creator id"],
+  },
+  {
+    key: "handleUrl",
+    label: "Handle Url",
+    aliases: ["handle url", "handle link", "profile url", "url", "link"],
+  },
+  {
+    key: "handleLanguage",
+    label: "Handle Language",
+    aliases: ["handle language", "language", "lang"],
+  },
+  {
+    key: "handleCountry",
+    label: "Handle Country",
+    aliases: ["handle country", "country", "nation"],
+  },
+  {
+    key: "handleEmail",
+    label: "Handle Email",
+    aliases: ["handle email", "email", "e-mail", "mail"],
+  },
+  {
+    key: "youtubeViews",
+    label: "YouTube Views",
+    aliases: ["youtube views", "yt views", "youtube view"],
+  },
+  {
+    key: "youtubeLikes",
+    label: "YouTube Likes",
+    aliases: ["youtube likes", "yt likes", "youtube like"],
+  },
+  {
+    key: "youtubeComments",
+    label: "YouTube Comments",
+    aliases: ["youtube comments", "yt comments", "youtube comment"],
+  },
+  {
+    key: "youtubeTitle",
+    label: "YouTube Title",
+    aliases: ["youtube title", "yt title", "video title"],
+  },
+  {
+    key: "youtubeChannelTitle",
+    label: "YouTube Channel Title",
+    aliases: [
+      "youtube channel title",
+      "yt channel title",
+      "youtube channel",
+      "channel title",
+    ],
+  },
+  {
+    key: "bilibiliTitle",
+    label: "BiliBili Title",
+    aliases: ["bilibili title", "bili bili title", "bili title"],
+  },
+  {
+    key: "bilibiliViews",
+    label: "BiliBili Views",
+    aliases: ["bilibili views", "bili bili views", "bili views"],
+  },
+  {
+    key: "bilibiliLikes",
+    label: "BiliBili Likes",
+    aliases: ["bilibili likes", "bili bili likes", "bili likes"],
+  },
+  {
+    key: "bilibiliComments",
+    label: "BiliBili Comments",
+    aliases: ["bilibili comments", "bili bili comments", "bili comments"],
+  },
+  {
+    key: "twitchAccount",
+    label: "Twitch Account",
+    aliases: ["twitch account", "twitch", "twitch name", "twitch handle"],
+  },
+  {
+    key: "twitchFollower",
+    label: "Twitch Follower",
+    aliases: [
+      "twitch follower",
+      "twitch followers",
+      "twitch follows",
+    ],
+  },
+  {
+    key: "youtubeSubs",
+    label: "YouTube Subs",
+    aliases: [
+      "youtube subs",
+      "youtube subscribers",
+      "yt subs",
+      "yt subscribers",
+    ],
+  },
+  {
+    key: "tiktokViews",
+    label: "TikTok Views",
+    aliases: ["tiktok views", "tik tok views", "tt views"],
+  },
+  {
+    key: "tiktokFollower",
+    label: "TikTok Follower",
+    aliases: [
+      "tiktok follower",
+      "tiktok followers",
+      "tik tok follower",
+      "tik tok followers",
+    ],
+  },
+  {
+    key: "instagramViews",
+    label: "Instagram Views",
+    aliases: ["instagram views", "ig views", "insta views"],
+  },
+  {
+    key: "instagramLikes",
+    label: "Instagram Likes",
+    aliases: ["instagram likes", "ig likes", "insta likes"],
+  },
+  {
+    key: "instagramComments",
+    label: "Instagram Comments",
+    aliases: ["instagram comments", "ig comments", "insta comments"],
+  },
+  {
+    key: "twitchAverageViewers",
+    label: "Twitch Average Viewers",
+    aliases: [
+      "twitch average viewers",
+      "twitch avg viewers",
+      "twitch average viewer",
+      "average viewers",
+    ],
+  },
+  {
+    key: "twitchStreamDuration",
+    label: "Twitch Stream Duration",
+    aliases: ["twitch stream duration", "stream duration"],
+  },
+  {
+    key: "twitchStreamDurationMinutes",
+    label: "Twitch Stream Duration (in Minutes)",
+    aliases: [
+      "twitch stream duration (in minutes)",
+      "twitch stream duration in minutes",
+      "twitch duration minutes",
+      "stream duration minutes",
+    ],
+  },
+  {
+    key: "details",
+    label: "Details, e.g. an url",
+    aliases: [
+      "details, e.g. an url",
+      "details e.g. an url",
+      "details",
+      "detail",
+      "detail url",
+      "details url",
+    ],
+  },
+];
+
+export function emptyMediaCoverageRow() {
+  return Object.fromEntries(
+    MEDIA_COVERAGE_COLUMNS.map((column) => [column.key, ""])
+  );
+}
+
+function mediaCoverageRowHasContent(row) {
+  return MEDIA_COVERAGE_COLUMNS.some(
+    (column) => String(row?.[column.key] || "").trim() !== ""
+  );
+}
+
+export function parseMediaCoverageValue(value) {
+  const text = String(value || "").trim();
+  if (!text) return [];
+
+  if (text.startsWith("{") || text.startsWith("[")) {
+    try {
+      const parsed = JSON.parse(text);
+      const rows = Array.isArray(parsed)
+        ? parsed
+        : parsed?.rows ?? parsed?.links ?? [];
+      if (!Array.isArray(rows)) return [];
+      return rows
+        .map((item) => {
+          const row = emptyMediaCoverageRow();
+          if (typeof item === "string") {
+            row.details = item.trim();
+            return row;
+          }
+          MEDIA_COVERAGE_COLUMNS.forEach((column) => {
+            row[column.key] = String(item?.[column.key] ?? "").trim();
+          });
+          return row;
+        })
+        .filter(mediaCoverageRowHasContent);
+    } catch {
+      /* fall through */
+    }
+  }
+
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const row = emptyMediaCoverageRow();
+      row.details = line;
+      return row;
+    });
+}
+
+export function serializeMediaCoverageValue(rows) {
+  const cleaned = (Array.isArray(rows) ? rows : [])
+    .map((item) => {
+      const row = emptyMediaCoverageRow();
+      MEDIA_COVERAGE_COLUMNS.forEach((column) => {
+        row[column.key] = String(item?.[column.key] ?? "").trim();
+      });
+      return row;
+    })
+    .filter(mediaCoverageRowHasContent);
+
+  if (!cleaned.length) return "";
+  return JSON.stringify({
+    sectionTitle: DEFAULT_MEDIA_COVERAGE_TITLE,
+    rows: cleaned,
+  });
+}
+
+function mapMediaCoverageCsvRows(rawRows, mapping) {
+  return rawRows
+    .map((row) => {
+      const record = emptyMediaCoverageRow();
+      mapping.forEach((column) => {
+        if (column.sourceIndex >= 0) {
+          record[column.key] = (row[column.sourceIndex] ?? "").trim();
+        }
+      });
+      return record;
+    })
+    .filter(mediaCoverageRowHasContent);
+}
+
+export function mediaCoverageFromCsv(text) {
+  const rows = parseCsv(text);
+  if (rows.length === 0) {
+    throw new Error("This CSV is empty.");
+  }
+
+  const headers = rows[0];
+  const mapping = MEDIA_COVERAGE_COLUMNS.map((def) => ({
+    key: def.key,
+    sourceIndex: findSourceIndex(headers, def.aliases),
+  }));
+
+  if (!mapping.some((column) => column.sourceIndex >= 0)) {
+    throw new Error(
+      "Could not find media coverage columns. Need headers like Published Time, Game, Type, Handle Url, or Details."
+    );
+  }
+
+  const data = mapMediaCoverageCsvRows(rows.slice(1), mapping);
+
+  if (data.length === 0) {
+    throw new Error("This CSV has headers but no media coverage rows.");
+  }
+
+  return data;
+}
+
+/**
+ * Parse media coverage CSV in batches so the UI can show progress.
+ * onProgress({ phase, current, total, label })
+ */
+export async function mediaCoverageFromCsvProgressive(
+  text,
+  { onProgress, batchSize = 120 } = {}
+) {
+  const report = (payload) => {
+    try {
+      onProgress?.(payload);
+    } catch {
+      /* ignore progress handler errors */
+    }
+  };
+
+  report({
+    phase: "read",
+    current: 0,
+    total: 0,
+    label: "Reading CSV…",
+  });
+
+  await new Promise((resolve) => requestAnimationFrame(resolve));
+
+  const rows = parseCsv(text);
+  if (rows.length === 0) {
+    throw new Error("This CSV is empty.");
+  }
+
+  const headers = rows[0];
+  const mapping = MEDIA_COVERAGE_COLUMNS.map((def) => ({
+    key: def.key,
+    sourceIndex: findSourceIndex(headers, def.aliases),
+  }));
+
+  if (!mapping.some((column) => column.sourceIndex >= 0)) {
+    throw new Error(
+      "Could not find media coverage columns. Need headers like Published Time, Game, Type, Handle Url, or Details."
+    );
+  }
+
+  const sourceRows = rows.slice(1);
+  const total = sourceRows.length;
+  const data = [];
+  const size = Math.max(20, Number(batchSize) || 120);
+
+  report({
+    phase: "parse",
+    current: 0,
+    total,
+    label: `Parsing rows… 0 / ${total.toLocaleString()}`,
+  });
+
+  for (let i = 0; i < sourceRows.length; i += size) {
+    const chunk = sourceRows.slice(i, i + size);
+    data.push(...mapMediaCoverageCsvRows(chunk, mapping));
+    const current = Math.min(i + size, total);
+    report({
+      phase: "parse",
+      current,
+      total,
+      label: `Parsing rows… ${current.toLocaleString()} / ${total.toLocaleString()}`,
+    });
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+  }
+
+  if (data.length === 0) {
+    throw new Error("This CSV has headers but no media coverage rows.");
+  }
+
+  report({
+    phase: "parse",
+    current: total,
+    total,
+    label: `Parsed ${data.length.toLocaleString()} row${data.length === 1 ? "" : "s"}`,
+  });
+
+  return data;
+}
+
+export function mediaCoverageDisplayLabel(row) {
+  const name = String(row?.customName || "").trim();
+  if (name) return name;
+  const handle = String(row?.handleId || "").trim();
+  if (handle) return handle;
+  const yt = String(row?.youtubeChannelTitle || row?.youtubeTitle || "").trim();
+  if (yt) return yt;
+  const twitch = String(row?.twitchAccount || "").trim();
+  if (twitch) return twitch;
+  const url = String(row?.handleUrl || row?.details || "").trim();
+  try {
+    return new URL(url).hostname.replace(/^www\./, "") || url;
+  } catch {
+    return url || "Media coverage";
+  }
+}
+
+const MEDIA_COVERAGE_TYPE_ORDER = [
+  "youtube",
+  "yt",
+  "twitch",
+  "tiktok",
+  "tik tok",
+  "instagram",
+  "ig",
+  "bilibili",
+  "bili bili",
+  "bili",
+];
+
+export function mediaCoverageTypeKey(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ");
+}
+
+export function mediaCoverageTypeLabel(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "Other";
+  const key = mediaCoverageTypeKey(raw);
+  if (key === "yt" || key === "youtube") return "YouTube";
+  if (key === "twitch") return "Twitch";
+  if (key === "tiktok" || key === "tik tok") return "TikTok";
+  if (key === "instagram" || key === "ig") return "Instagram";
+  if (key === "bilibili" || key === "bili bili" || key === "bili") {
+    return "BiliBili";
+  }
+  return raw;
+}
+
+function mediaCoverageTypeSortRank(value) {
+  const key = mediaCoverageTypeKey(value);
+  if (!key) return MEDIA_COVERAGE_TYPE_ORDER.length + 1;
+  const index = MEDIA_COVERAGE_TYPE_ORDER.indexOf(key);
+  return index >= 0 ? index : MEDIA_COVERAGE_TYPE_ORDER.length;
+}
+
+/** Group media coverage rows by Type (YouTube, Twitch, TikTok, …). */
+export function groupMediaCoverageRowsByType(rows) {
+  const groups = new Map();
+
+  (Array.isArray(rows) ? rows : []).forEach((row) => {
+    const label = mediaCoverageTypeLabel(row?.type);
+    const key = mediaCoverageTypeKey(label);
+    if (!groups.has(key)) {
+      groups.set(key, {
+        key,
+        label,
+        rows: [],
+      });
+    }
+    groups.get(key).rows.push(row);
+  });
+
+  return [...groups.values()].sort((a, b) => {
+    const rank =
+      mediaCoverageTypeSortRank(a.label) - mediaCoverageTypeSortRank(b.label);
+    if (rank !== 0) return rank;
+    return a.label.localeCompare(b.label, undefined, { sensitivity: "base" });
+  });
+}
+
+export function isLinkSectionKey(key) {
+  return key === "coverageLinks";
+}
+
+export function linkSectionDef(key) {
+  if (key === "coverageLinks") {
+    return {
+      key: "coverageLinks",
+      label: "Coverage Links",
+      defaultTitle: "Coverage links",
+      prefixes: ["coverage", "coverage links", "coverage link"],
+      optionalInStatus: false,
+    };
+  }
+  return null;
+}
 
 function normalizeHeader(value) {
   return String(value ?? "")
@@ -370,6 +879,8 @@ export function csvToTable(text) {
     label: def.label,
     derived: Boolean(def.derived),
     perGame: Boolean(def.perGame),
+    linkSection: Boolean(def.linkSection),
+    optionalInStatus: Boolean(def.optionalInStatus),
     hiddenInTable: Boolean(def.hiddenInTable),
     sourceIndex: def.derived ? -1 : findSourceIndex(headers, def.aliases),
   }));
@@ -404,6 +915,23 @@ export function csvToTable(text) {
 
   if (data.length === 0) {
     throw new Error("This CSV has headers but no data rows.");
+  }
+
+  // Keep per-game media coverage aligned across announcements for the same game.
+  const byGame = new Map();
+  for (const row of data) {
+    const gameTitle = String(row.gameTitle || "").trim() || "Untitled";
+    if (!byGame.has(gameTitle)) byGame.set(gameTitle, []);
+    byGame.get(gameTitle).push(row);
+  }
+  for (const gameRows of byGame.values()) {
+    const shared =
+      gameRows
+        .map((row) => String(row.mediaCoverage || "").trim())
+        .find(Boolean) || "";
+    for (const row of gameRows) {
+      row.mediaCoverage = shared;
+    }
   }
 
   data.sort((a, b) =>
@@ -445,6 +973,19 @@ export const COVERAGE_LINK_COLUMNS = [
     key: "url",
     label: "URL",
     aliases: ["url", "link", "article url", "coverage url", "web address"],
+  },
+  {
+    key: "date",
+    label: "Date",
+    aliases: [
+      "date",
+      "published",
+      "published date",
+      "publish date",
+      "coverage date",
+      "air date",
+      "run date",
+    ],
   },
   {
     key: "resultType",
@@ -764,22 +1305,39 @@ export function serializeCoverageLinksValue(
   });
 }
 
-export function coverageLinksFromCsv(text) {
-  const rows = parseCsv(text);
-  if (rows.length === 0) {
-    throw new Error("This CSV is empty.");
+function coverageColumnAliasesForSection(column, sectionDef) {
+  const base = [...(column.aliases || [])];
+  if (!sectionDef) return base;
+  const prefixed = [];
+  for (const prefix of sectionDef.prefixes || []) {
+    for (const alias of column.aliases || []) {
+      prefixed.push(`${prefix} ${alias}`);
+    }
+    if (column.key === "url") {
+      prefixed.push(`${prefix} link`, `${prefix} url`);
+    }
+    if (column.key === "outletName") {
+      prefixed.push(`${prefix} outlet`, `${prefix} outlet name`);
+    }
+    if (column.key === "date") {
+      prefixed.push(`${prefix} date`);
+    }
   }
+  // Prefer section-prefixed headers when a section is specified.
+  return [...prefixed, ...base];
+}
 
-  const headers = rows[0];
+function mapCoverageRowsFromCsv(rows, headers, sectionDef) {
   const mapping = COVERAGE_LINK_COLUMNS.map((def) => ({
     key: def.key,
-    sourceIndex: findSourceIndex(headers, def.aliases),
+    sourceIndex: findSourceIndex(
+      headers,
+      coverageColumnAliasesForSection(def, sectionDef)
+    ),
   }));
 
   if (!mapping.some((column) => column.sourceIndex >= 0)) {
-    throw new Error(
-      "Could not find coverage columns. Need Outlet name, Title, or URL."
-    );
+    return { mapping, data: [] };
   }
 
   const data = rows
@@ -794,6 +1352,35 @@ export function coverageLinksFromCsv(text) {
       return record;
     })
     .filter(coverageRowHasContent);
+
+  return { mapping, data };
+}
+
+export function coverageLinksFromCsv(text, options = {}) {
+  const rows = parseCsv(text);
+  if (rows.length === 0) {
+    throw new Error("This CSV is empty.");
+  }
+
+  const headers = rows[0];
+  const sectionKey = String(options.sectionKey || "").trim();
+  const sectionDef =
+    linkSectionDef(sectionKey) ||
+    (options.sectionPrefix
+      ? {
+          prefixes: [String(options.sectionPrefix).trim().toLowerCase()].filter(
+            Boolean
+          ),
+        }
+      : null);
+
+  const { mapping, data } = mapCoverageRowsFromCsv(rows, headers, sectionDef);
+
+  if (!mapping.some((column) => column.sourceIndex >= 0)) {
+    throw new Error(
+      "Could not find coverage columns. Need Outlet name, Title, Link/URL, or Date."
+    );
+  }
 
   if (data.length === 0) {
     throw new Error("This CSV has headers but no coverage rows.");

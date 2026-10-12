@@ -88,6 +88,11 @@
             <div class="coverage-links-grid" id="coverage-links-grid"></div>
           </div>
         </section>
+
+        <section class="coverage-links-section media-coverage-section-public" id="media-coverage-card" aria-labelledby="media-coverage-heading" hidden>
+          <h3 class="detail-card-label coverage-links-heading" id="media-coverage-heading">Media Coverage</h3>
+          <div class="media-coverage-public-tables" id="media-coverage-public-tables"></div>
+        </section>
       </div>
     </div>
   </div>
@@ -120,9 +125,14 @@
       coverageLinkUrls,
       coverageStatSortValue,
       DEFAULT_COVERAGE_SECTION_TITLE,
+      DEFAULT_MEDIA_COVERAGE_TITLE,
       formatCoverageStat,
+      MEDIA_COVERAGE_COLUMNS,
+      groupMediaCoverageRowsByType,
+      mediaCoverageDisplayLabel,
       parseCoverageLinksValue,
       parseCoverageSectionTitle,
+      parseMediaCoverageValue,
     } from "./js/csv.js";
 
     initThemeToggle();
@@ -153,8 +163,14 @@
     const totalWishlistsEl = document.getElementById("total-wishlists");
     const coverageLinksGridEl = document.getElementById("coverage-links-grid");
     const coverageLinksHeadingEl = document.getElementById("coverage-links-heading");
+    const mediaCoverageCardEl = document.getElementById("media-coverage-card");
+    const mediaCoverageHeadingEl = document.getElementById("media-coverage-heading");
+    const mediaCoveragePublicTablesEl = document.getElementById(
+      "media-coverage-public-tables"
+    );
     const dotsEl = document.getElementById("carousel-dots");
     const linkPreviewCache = new Map();
+    let allPublicRows = [];
 
     const PLATFORM_OPTIONS = [
       { id: "steam", label: "Steam", icon: "images/Steam Icon.webp" },
@@ -519,41 +535,35 @@
       }
     }
 
-    function setCoverageLinks(entries) {
-      coverageLinksGridEl.innerHTML = "";
+    function collectLinksFromValues(values, { includeHighlights = false, rows = [] } = {}) {
       const links = [];
       const seen = new Set();
-      let sectionTitle = DEFAULT_COVERAGE_SECTION_TITLE;
+      let sectionTitle = "";
       let foundCustomTitle = false;
 
-      entries.forEach((row) => {
-        const title = parseCoverageSectionTitle(row.coverageLinks);
+      values.forEach((raw) => {
+        const title = parseCoverageSectionTitle(raw);
         if (!foundCustomTitle && title) {
-          if (
-            title.localeCompare(DEFAULT_COVERAGE_SECTION_TITLE, undefined, {
-              sensitivity: "base",
-            }) !== 0
-          ) {
-            sectionTitle = title;
-            foundCustomTitle = true;
-          } else if (sectionTitle === DEFAULT_COVERAGE_SECTION_TITLE) {
-            sectionTitle = title;
-          }
+          sectionTitle = title;
+          foundCustomTitle = true;
         }
-
-        parseCoverageLinksValue(row.coverageLinks).forEach((item) => {
+        parseCoverageLinksValue(raw).forEach((item) => {
           const url = String(item.url || "").trim();
           if (!/^https?:\/\//i.test(url) || seen.has(url.toLowerCase())) return;
           seen.add(url.toLowerCase());
           links.push(item);
         });
-
-        coverageLinkUrls(row.highlights).forEach((url) => {
-          if (seen.has(url.toLowerCase())) return;
-          seen.add(url.toLowerCase());
-          links.push({ url, outletName: "", title: "" });
-        });
       });
+
+      if (includeHighlights) {
+        rows.forEach((row) => {
+          coverageLinkUrls(row.highlights).forEach((url) => {
+            if (seen.has(url.toLowerCase())) return;
+            seen.add(url.toLowerCase());
+            links.push({ url, outletName: "", title: "" });
+          });
+        });
+      }
 
       links.sort(
         (a, b) =>
@@ -561,15 +571,32 @@
           coverageStatSortValue(a.outletStats)
       );
 
-      if (coverageLinksHeadingEl) {
-        coverageLinksHeadingEl.textContent = `${sectionTitle} (${links.length})`;
+      return { links, sectionTitle };
+    }
+
+    function renderCoverageLinkCards(gridEl, headingEl, links, {
+      sectionTitle,
+      emptyLabel = "No links",
+      hideWhenEmpty = false,
+      sectionEl = null,
+    } = {}) {
+      if (!gridEl) return;
+      gridEl.innerHTML = "";
+
+      const title = sectionTitle || "Links";
+      if (headingEl) {
+        headingEl.textContent = `${title} (${links.length})`;
+      }
+
+      if (sectionEl) {
+        sectionEl.hidden = hideWhenEmpty && links.length === 0;
       }
 
       if (!links.length) {
         const empty = document.createElement("p");
         empty.className = "coverage-links-empty";
-        empty.textContent = "No coverage links";
-        coverageLinksGridEl.appendChild(empty);
+        empty.textContent = emptyLabel;
+        gridEl.appendChild(empty);
         return;
       }
 
@@ -585,6 +612,7 @@
         const titleText = String(item.title || "").trim();
         const coverImage = String(item.coverImage || "").trim();
         const statsText = formatCoverageStat(item.outletStats);
+        const dateText = String(item.date || "").trim();
         const country = String(item.outletCountry || "").trim();
         const flagSrc = countryFlagUrl(country);
         if (titleText) anchor.dataset.previewTitle = titleText;
@@ -607,16 +635,30 @@
         outlet.className = "coverage-link-outlet";
         outlet.textContent = outletText || "Outlet";
 
-        const title = document.createElement("p");
-        title.className = "coverage-link-title";
-        title.textContent = titleText || outletText || "Coverage link";
+        const titleEl = document.createElement("p");
+        titleEl.className = "coverage-link-title";
+        titleEl.textContent = titleText || outletText || "Coverage link";
 
         anchor.appendChild(outlet);
         anchor.appendChild(cover);
-        anchor.appendChild(title);
+        anchor.appendChild(titleEl);
 
         const footer = document.createElement("div");
         footer.className = "coverage-link-footer";
+
+        if (dateText) {
+          const dateBlock = document.createElement("div");
+          dateBlock.className = "coverage-link-stat";
+          const dateLabel = document.createElement("span");
+          dateLabel.className = "coverage-link-stat-label";
+          dateLabel.textContent = "Date";
+          const dateValue = document.createElement("span");
+          dateValue.className = "coverage-link-stat-value";
+          dateValue.textContent = dateText;
+          dateBlock.appendChild(dateLabel);
+          dateBlock.appendChild(dateValue);
+          footer.appendChild(dateBlock);
+        }
 
         if (country) {
           const countryBlock = document.createElement("div");
@@ -663,8 +705,132 @@
 
         if (footer.childElementCount) anchor.appendChild(footer);
 
-        coverageLinksGridEl.appendChild(anchor);
-        fillCoverageLinkMedia(cover, title, item);
+        gridEl.appendChild(anchor);
+        fillCoverageLinkMedia(cover, titleEl, item);
+      });
+    }
+
+    function setCoverageLinks(entries) {
+      const { links, sectionTitle } = collectLinksFromValues(
+        entries.map((row) => row.coverageLinks),
+        { includeHighlights: true, rows: entries }
+      );
+      renderCoverageLinkCards(
+        coverageLinksGridEl,
+        coverageLinksHeadingEl,
+        links,
+        {
+          sectionTitle: sectionTitle || DEFAULT_COVERAGE_SECTION_TITLE,
+          emptyLabel: "No coverage links",
+        }
+      );
+    }
+
+    function rowsForGameTitle(gameTitle) {
+      const key = String(gameTitle || "").trim() || "Untitled";
+      return allPublicRows.filter(
+        (row) => ((row.gameTitle || "").trim() || "Untitled") === key
+      );
+    }
+
+    function setGameLinkSections(entries) {
+      const gameTitle =
+        (entries[0]?.gameTitle || "").trim() || "Untitled";
+      const gameRows = rowsForGameTitle(gameTitle);
+      const sourceRows = gameRows.length ? gameRows : entries;
+      const raw =
+        sourceRows
+          .map((row) => String(row.mediaCoverage || "").trim())
+          .find(Boolean) || "";
+      const rows = parseMediaCoverageValue(raw);
+
+      if (mediaCoverageHeadingEl) {
+        mediaCoverageHeadingEl.textContent =
+          rows.length === 0
+            ? DEFAULT_MEDIA_COVERAGE_TITLE
+            : `${DEFAULT_MEDIA_COVERAGE_TITLE} (${rows.length})`;
+      }
+      if (mediaCoverageCardEl) {
+        mediaCoverageCardEl.hidden = rows.length === 0;
+      }
+      if (!mediaCoveragePublicTablesEl) return;
+      mediaCoveragePublicTablesEl.innerHTML = "";
+      if (!rows.length) return;
+
+      // Show the most useful columns publicly; full set stays in admin/CSV.
+      const publicColumns = MEDIA_COVERAGE_COLUMNS.filter((column) =>
+        [
+          "publishedTime",
+          "customName",
+          "handleId",
+          "handleUrl",
+          "handleCountry",
+          "youtubeViews",
+          "youtubeTitle",
+          "twitchAccount",
+          "tiktokViews",
+          "instagramViews",
+          "details",
+        ].includes(column.key)
+      );
+
+      groupMediaCoverageRowsByType(rows).forEach((group) => {
+        const block = document.createElement("section");
+        block.className = "media-coverage-public-type";
+
+        const heading = document.createElement("h4");
+        heading.className = "media-coverage-public-type-title";
+        heading.innerHTML = `<span class="media-coverage-type-header-label">${group.label}</span><span class="media-coverage-type-header-count">(${group.rows.length})</span>`;
+
+        const wrap = document.createElement("div");
+        wrap.className = "media-coverage-public-table-wrap";
+
+        const table = document.createElement("table");
+        table.className = "media-coverage-public-table";
+
+        const thead = document.createElement("thead");
+        const headRow = document.createElement("tr");
+        publicColumns.forEach((column) => {
+          const th = document.createElement("th");
+          th.scope = "col";
+          th.textContent = column.label;
+          headRow.appendChild(th);
+        });
+        thead.appendChild(headRow);
+
+        const tbody = document.createElement("tbody");
+        group.rows.forEach((row) => {
+          const tr = document.createElement("tr");
+          publicColumns.forEach((column) => {
+            const td = document.createElement("td");
+            const value = String(row[column.key] || "").trim();
+            if (
+              (column.key === "handleUrl" || column.key === "details") &&
+              /^https?:\/\//i.test(value)
+            ) {
+              const anchor = document.createElement("a");
+              anchor.href = value;
+              anchor.target = "_blank";
+              anchor.rel = "noopener noreferrer";
+              anchor.textContent =
+                column.key === "handleUrl"
+                  ? mediaCoverageDisplayLabel(row)
+                  : value;
+              td.appendChild(anchor);
+            } else {
+              td.textContent = value || "—";
+            }
+            tr.appendChild(td);
+          });
+          tbody.appendChild(tr);
+        });
+
+        table.appendChild(thead);
+        table.appendChild(tbody);
+        wrap.appendChild(table);
+        block.appendChild(heading);
+        block.appendChild(wrap);
+        mediaCoveragePublicTablesEl.appendChild(block);
       });
     }
 
@@ -802,6 +968,7 @@
       setTrailer(entries);
       setPdf(entries);
       setCoverageLinks(entries);
+      setGameLinkSections(entries);
 
       [...dotsEl.querySelectorAll(".carousel-dot")].forEach((dot, i) => {
         const isActive = i === activeIndex;
@@ -812,6 +979,7 @@
     }
 
     function render(rows) {
+      allPublicRows = Array.isArray(rows) ? rows : [];
       slides = slidesFromRows(rows);
 
       if (!slides.length) {
