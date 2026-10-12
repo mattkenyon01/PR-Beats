@@ -579,8 +579,14 @@
         anchor.href = item.url;
         anchor.target = "_blank";
         anchor.rel = "noopener noreferrer";
+
+        const outletText =
+          String(item.outletName || "").trim() || coverageLinkDisplayLabel(item);
         const titleText = String(item.title || "").trim();
         const coverImage = String(item.coverImage || "").trim();
+        const statsText = formatCoverageStat(item.outletStats);
+        const country = String(item.outletCountry || "").trim();
+        const flagSrc = countryFlagUrl(country);
         if (titleText) anchor.dataset.previewTitle = titleText;
         if (coverImage) anchor.dataset.coverImage = coverImage;
 
@@ -597,92 +603,66 @@
         cover.appendChild(coverImg);
         cover.appendChild(coverEmpty);
 
-        const siteIconSrc = faviconUrl(item.url);
-        if (siteIconSrc) {
-          const siteIcon = document.createElement("div");
-          siteIcon.className = "coverage-link-site-icon";
-          siteIcon.title = "Website";
-          const siteIconImg = document.createElement("img");
-          siteIconImg.src = siteIconSrc;
-          siteIconImg.alt = "";
-          siteIconImg.loading = "lazy";
-          siteIconImg.referrerPolicy = "no-referrer";
-          siteIcon.appendChild(siteIconImg);
-          cover.appendChild(siteIcon);
-        }
-
-        const country = String(item.outletCountry || "").trim();
-        const flagSrc = countryFlagUrl(country);
-        if (flagSrc) {
-          const flag = document.createElement("div");
-          flag.className = "coverage-link-flag";
-          flag.title = country;
-          const flagImg = document.createElement("img");
-          flagImg.src = flagSrc;
-          flagImg.alt = country;
-          flagImg.loading = "lazy";
-          flagImg.referrerPolicy = "no-referrer";
-          flag.appendChild(flagImg);
-          cover.appendChild(flag);
-        }
+        const outlet = document.createElement("p");
+        outlet.className = "coverage-link-outlet";
+        outlet.textContent = outletText || "Outlet";
 
         const title = document.createElement("p");
         title.className = "coverage-link-title";
-        // Always prefer the coverage "Title" column on the main page.
-        title.textContent = titleText || coverageLinkDisplayLabel(item);
+        title.textContent = titleText || outletText || "Coverage link";
 
-        const body = document.createElement("div");
-        body.className = "coverage-link-body";
-
-        const detailFields = [
-          ["Result type", item.resultType],
-          ["Outlet type", item.outletType],
-          ["Outlet stats", formatCoverageStat(item.outletStats)],
-          ["Global domain", item.globalDomain],
-          ["Country domain", item.countryDomain],
-          ["Sentiment", item.sentiment],
-        ].filter(([, value]) => String(value || "").trim());
-
-        const stats = document.createElement("div");
-        stats.className = "coverage-link-stats";
-        const statsLabel = document.createElement("h4");
-        statsLabel.className = "coverage-link-stats-label";
-        statsLabel.textContent = "Coverage details";
-        stats.appendChild(statsLabel);
-
-        const details = document.createElement("dl");
-        details.className = "coverage-link-details";
-        if (detailFields.length) {
-          detailFields.forEach(([label, value]) => {
-            const row = document.createElement("div");
-            row.className = "coverage-link-detail";
-            const dt = document.createElement("dt");
-            dt.textContent = label;
-            const dd = document.createElement("dd");
-            dd.textContent = String(value).trim();
-            row.appendChild(dt);
-            row.appendChild(dd);
-            details.appendChild(row);
-          });
-        } else {
-          stats.classList.add("is-empty");
-          details.classList.add("is-empty");
-          const row = document.createElement("div");
-          row.className = "coverage-link-detail";
-          const dt = document.createElement("dt");
-          dt.textContent = "\u00a0";
-          const dd = document.createElement("dd");
-          dd.textContent = "\u00a0";
-          row.appendChild(dt);
-          row.appendChild(dd);
-          details.appendChild(row);
-        }
-        stats.appendChild(details);
-        body.appendChild(stats);
-
+        anchor.appendChild(outlet);
         anchor.appendChild(cover);
         anchor.appendChild(title);
-        anchor.appendChild(body);
+
+        const footer = document.createElement("div");
+        footer.className = "coverage-link-footer";
+
+        if (country) {
+          const countryBlock = document.createElement("div");
+          countryBlock.className = "coverage-link-stat";
+          const countryLabel = document.createElement("span");
+          countryLabel.className = "coverage-link-stat-label";
+          countryLabel.textContent = "Country";
+          const countryValue = document.createElement("div");
+          countryValue.className = "coverage-link-country-value";
+          if (flagSrc) {
+            const flag = document.createElement("div");
+            flag.className = "coverage-link-flag";
+            flag.title = country;
+            const flagImg = document.createElement("img");
+            flagImg.src = flagSrc;
+            flagImg.alt = country;
+            flagImg.loading = "lazy";
+            flagImg.referrerPolicy = "no-referrer";
+            flag.appendChild(flagImg);
+            countryValue.appendChild(flag);
+          }
+          const countryName = document.createElement("span");
+          countryName.className = "coverage-link-stat-value";
+          countryName.textContent = country;
+          countryValue.appendChild(countryName);
+          countryBlock.appendChild(countryLabel);
+          countryBlock.appendChild(countryValue);
+          footer.appendChild(countryBlock);
+        }
+
+        if (statsText) {
+          const stats = document.createElement("div");
+          stats.className = "coverage-link-stat";
+          const statsLabel = document.createElement("span");
+          statsLabel.className = "coverage-link-stat-label";
+          statsLabel.textContent = "Outlet stats";
+          const statsValue = document.createElement("span");
+          statsValue.className = "coverage-link-stat-value";
+          statsValue.textContent = statsText;
+          stats.appendChild(statsLabel);
+          stats.appendChild(statsValue);
+          footer.appendChild(stats);
+        }
+
+        if (footer.childElementCount) anchor.appendChild(footer);
+
         coverageLinksGridEl.appendChild(anchor);
         fillCoverageLinkMedia(cover, title, item);
       });

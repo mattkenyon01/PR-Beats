@@ -263,6 +263,14 @@
           <div class="share-dialog-section-heading">
             <h3 class="share-dialog-section-title">Games</h3>
             <span class="share-dialog-section-count" id="share-games-count">0</span>
+            <div class="share-dialog-section-actions">
+              <button type="button" class="share-select-all-btn" id="share-games-select-all">
+                Select all
+              </button>
+              <button type="button" class="share-select-all-btn" id="share-games-deselect-all">
+                Deselect all
+              </button>
+            </div>
           </div>
           <div class="share-check-list" id="share-games-list"></div>
         </section>
@@ -271,6 +279,14 @@
           <div class="share-dialog-section-heading">
             <h3 class="share-dialog-section-title">Months</h3>
             <span class="share-dialog-section-count" id="share-months-count">0</span>
+            <div class="share-dialog-section-actions">
+              <button type="button" class="share-select-all-btn" id="share-months-select-all">
+                Select all
+              </button>
+              <button type="button" class="share-select-all-btn" id="share-months-deselect-all">
+                Deselect all
+              </button>
+            </div>
           </div>
           <div class="share-check-list" id="share-months-list"></div>
         </section>
@@ -457,6 +473,10 @@
     const shareMonthsList = document.getElementById("share-months-list");
     const shareGamesCount = document.getElementById("share-games-count");
     const shareMonthsCount = document.getElementById("share-months-count");
+    const shareGamesSelectAll = document.getElementById("share-games-select-all");
+    const shareGamesDeselectAll = document.getElementById("share-games-deselect-all");
+    const shareMonthsSelectAll = document.getElementById("share-months-select-all");
+    const shareMonthsDeselectAll = document.getElementById("share-months-deselect-all");
     const shareGenerateBtn = document.getElementById("share-generate-btn");
     const shareDialogError = document.getElementById("share-dialog-error");
     const shareUrlInput = document.getElementById("share-url");
@@ -2576,9 +2596,33 @@
     function updateShareSelectionCounts() {
       shareGamesCount.textContent = String(shareSelectedGames.size);
       shareMonthsCount.textContent = String(shareSelectedMonths.size);
+      syncShareBulkActionButtons();
     }
 
-    function renderShareCheckList(container, values, selectedSet, name) {
+    function monthsForSelectedGames(table) {
+      const months = new Set();
+      if (shareSelectedGames.size === 0) return months;
+      (table?.rows || []).forEach((row) => {
+        const title = (row.gameTitle || "").trim() || "Untitled";
+        if (!shareSelectedGames.has(title)) return;
+        if (row.month) months.add(row.month);
+      });
+      return months;
+    }
+
+    function clearShareGeneratedUrl() {
+      shareUrlInput.value = "";
+      shareCopyBtn.disabled = true;
+      shareDialogError.hidden = true;
+    }
+
+    function renderShareCheckList(
+      container,
+      values,
+      selectedSet,
+      name,
+      { availableSet = null, onChange = null } = {}
+    ) {
       container.innerHTML = "";
       if (values.length === 0) {
         const empty = document.createElement("p");
@@ -2589,19 +2633,30 @@
       }
 
       values.forEach((value) => {
+        const available = !availableSet || availableSet.has(value);
+        if (!available && selectedSet.has(value)) selectedSet.delete(value);
+
         const label = document.createElement("label");
-        label.className = "share-check-item";
+        label.className = available
+          ? "share-check-item"
+          : "share-check-item is-unavailable";
+        if (!available) {
+          label.title =
+            shareSelectedGames.size === 0
+              ? "Select a game first"
+              : "No entries for the selected game(s) in this month";
+        }
 
         const checkbox = document.createElement("input");
         checkbox.type = "checkbox";
-        checkbox.checked = selectedSet.has(value);
+        checkbox.checked = available && selectedSet.has(value);
+        checkbox.disabled = !available;
         checkbox.addEventListener("change", () => {
           if (checkbox.checked) selectedSet.add(value);
           else selectedSet.delete(value);
           updateShareSelectionCounts();
-          shareUrlInput.value = "";
-          shareCopyBtn.disabled = true;
-          shareDialogError.hidden = true;
+          clearShareGeneratedUrl();
+          onChange?.();
         });
 
         const text = document.createElement("span");
@@ -2613,24 +2668,88 @@
       });
     }
 
-    function openShareDialog() {
+    function syncShareBulkActionButtons() {
+      const gameTitles = currentTable ? listGameTitles(currentTable) : [];
+      const availableMonths = currentTable
+        ? monthsForSelectedGames(currentTable)
+        : new Set();
+      const hasGames = gameTitles.length > 0;
+      const hasAvailableMonths = availableMonths.size > 0;
+
+      shareGamesSelectAll.disabled = !hasGames;
+      shareGamesDeselectAll.disabled = shareSelectedGames.size === 0;
+      shareMonthsSelectAll.disabled = !hasAvailableMonths;
+      shareMonthsDeselectAll.disabled = shareSelectedMonths.size === 0;
+    }
+
+    function selectAllShareGames() {
       if (!currentTable) return;
-      shareDialogError.hidden = true;
-      shareUrlInput.value = "";
-      shareCopyBtn.disabled = true;
-      renderShareCheckList(
-        shareGamesList,
-        listGameTitles(currentTable),
-        shareSelectedGames,
-        "games"
+      listGameTitles(currentTable).forEach((title) => shareSelectedGames.add(title));
+      clearShareGeneratedUrl();
+      renderShareDialogLists();
+    }
+
+    function deselectAllShareGames() {
+      shareSelectedGames.clear();
+      shareSelectedMonths.clear();
+      clearShareGeneratedUrl();
+      renderShareDialogLists();
+    }
+
+    function selectAllShareMonths() {
+      if (!currentTable) return;
+      monthsForSelectedGames(currentTable).forEach((month) =>
+        shareSelectedMonths.add(month)
       );
+      clearShareGeneratedUrl();
+      renderShareMonthsList();
+    }
+
+    function deselectAllShareMonths() {
+      shareSelectedMonths.clear();
+      clearShareGeneratedUrl();
+      renderShareMonthsList();
+    }
+
+    function renderShareMonthsList() {
+      if (!currentTable) return;
+      const availableMonths = monthsForSelectedGames(currentTable);
+      [...shareSelectedMonths].forEach((month) => {
+        if (!availableMonths.has(month)) shareSelectedMonths.delete(month);
+      });
       renderShareCheckList(
         shareMonthsList,
         listMonths(currentTable),
         shareSelectedMonths,
-        "months"
+        "months",
+        { availableSet: availableMonths }
       );
       updateShareSelectionCounts();
+      syncShareBulkActionButtons();
+    }
+
+    function renderShareDialogLists() {
+      if (!currentTable) return;
+      renderShareCheckList(
+        shareGamesList,
+        listGameTitles(currentTable),
+        shareSelectedGames,
+        "games",
+        { onChange: renderShareMonthsList }
+      );
+      renderShareMonthsList();
+    }
+
+    function setShareDialogScrollLock(locked) {
+      document.documentElement.classList.toggle("is-share-dialog-open", locked);
+      document.body.classList.toggle("is-share-dialog-open", locked);
+    }
+
+    function openShareDialog() {
+      if (!currentTable) return;
+      clearShareGeneratedUrl();
+      renderShareDialogLists();
+      setShareDialogScrollLock(true);
       if (typeof shareDialog.showModal === "function") {
         shareDialog.showModal();
       } else {
@@ -2641,6 +2760,7 @@
     function closeShareDialog() {
       if (typeof shareDialog.close === "function") shareDialog.close();
       else shareDialog.removeAttribute("open");
+      setShareDialogScrollLock(false);
     }
 
     function showShareDialogError(message) {
@@ -3679,6 +3799,12 @@
     shareDialog.addEventListener("click", (event) => {
       if (event.target === shareDialog) closeShareDialog();
     });
+    shareDialog.addEventListener("close", () => setShareDialogScrollLock(false));
+    shareDialog.addEventListener("cancel", () => setShareDialogScrollLock(false));
+    shareGamesSelectAll.addEventListener("click", () => selectAllShareGames());
+    shareGamesDeselectAll.addEventListener("click", () => deselectAllShareGames());
+    shareMonthsSelectAll.addEventListener("click", () => selectAllShareMonths());
+    shareMonthsDeselectAll.addEventListener("click", () => deselectAllShareMonths());
 
     shareGenerateBtn.addEventListener("click", async () => {
       const titles = [...shareSelectedGames].sort((a, b) =>

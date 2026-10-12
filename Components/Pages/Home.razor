@@ -235,10 +235,19 @@
                         {
                             @foreach (var link in coverageLinks)
                             {
+                                var outletName = !string.IsNullOrWhiteSpace(link.OutletName)
+                                    ? link.OutletName
+                                    : LinkLabel(link.Url);
+                                var articleTitle = !string.IsNullOrWhiteSpace(link.Title)
+                                    ? link.Title
+                                    : outletName;
+                                var flagUrl = CountryFlagUrl(link.OutletCountry);
+                                var statsText = FormatCoverageStat(link.OutletStats);
                                 <a class="coverage-link"
                                    href="@link.Url"
                                    target="_blank"
                                    rel="noopener noreferrer">
+                                    <p class="coverage-link-outlet">@outletName</p>
                                     <div class="coverage-link-cover @(!string.IsNullOrWhiteSpace(link.CoverImage) ? null : "is-favicon")">
                                         @if (!string.IsNullOrWhiteSpace(link.CoverImage))
                                         {
@@ -247,62 +256,37 @@
                                         else
                                         {
                                             <img class="coverage-link-cover-image" src="@FaviconUrl(link.Url)" alt="" referrerpolicy="no-referrer" />
-                                        }
-                                        @{
-                                            var siteIcon = FaviconUrl(link.Url);
-                                            var flagUrl = CountryFlagUrl(link.OutletCountry);
-                                        }
-                                        @if (!string.IsNullOrWhiteSpace(siteIcon))
-                                        {
-                                            <div class="coverage-link-site-icon" title="Website">
-                                                <img src="@siteIcon" alt="" loading="lazy" referrerpolicy="no-referrer" />
-                                            </div>
-                                        }
-                                        @if (!string.IsNullOrWhiteSpace(flagUrl))
-                                        {
-                                            <div class="coverage-link-flag" title="@link.OutletCountry">
-                                                <img src="@flagUrl" alt="@link.OutletCountry" loading="lazy" referrerpolicy="no-referrer" />
-                                            </div>
+                                            <span class="coverage-link-cover-empty" hidden>No cover</span>
                                         }
                                     </div>
-                                    <p class="coverage-link-title">@link.DisplayTitle</p>
-                                    @{
-                                        var detailFields = new (string Label, string Value)[]
-                                        {
-                                            ("Result type", link.ResultType),
-                                            ("Outlet type", link.OutletType),
-                                            ("Outlet stats", FormatCoverageStat(link.OutletStats)),
-                                            ("Global domain", link.GlobalDomain),
-                                            ("Country domain", link.CountryDomain),
-                                            ("Sentiment", link.Sentiment),
-                                        }
-                                        .Where(field => !string.IsNullOrWhiteSpace(field.Value))
-                                        .ToList();
-                                    }
-                                    <div class="coverage-link-body">
-                                        <div class="coverage-link-stats @(detailFields.Count == 0 ? "is-empty" : null)">
-                                            <h4 class="coverage-link-stats-label">Coverage details</h4>
-                                            <dl class="coverage-link-details @(detailFields.Count == 0 ? "is-empty" : null)">
-                                                @if (detailFields.Count > 0)
-                                                {
-                                                    @foreach (var field in detailFields)
-                                                    {
-                                                        <div class="coverage-link-detail">
-                                                            <dt>@field.Label</dt>
-                                                            <dd>@field.Value</dd>
-                                                        </div>
-                                                    }
-                                                }
-                                                else
-                                                {
-                                                    <div class="coverage-link-detail">
-                                                        <dt>&nbsp;</dt>
-                                                        <dd>&nbsp;</dd>
+                                    <p class="coverage-link-title">@articleTitle</p>
+                                    @if (!string.IsNullOrWhiteSpace(link.OutletCountry) || !string.IsNullOrWhiteSpace(statsText))
+                                    {
+                                        <div class="coverage-link-footer">
+                                            @if (!string.IsNullOrWhiteSpace(link.OutletCountry))
+                                            {
+                                                <div class="coverage-link-stat">
+                                                    <span class="coverage-link-stat-label">Country</span>
+                                                    <div class="coverage-link-country-value">
+                                                        @if (!string.IsNullOrWhiteSpace(flagUrl))
+                                                        {
+                                                            <div class="coverage-link-flag" title="@link.OutletCountry">
+                                                                <img src="@flagUrl" alt="@link.OutletCountry" loading="lazy" referrerpolicy="no-referrer" />
+                                                            </div>
+                                                        }
+                                                        <span class="coverage-link-stat-value">@link.OutletCountry</span>
                                                     </div>
-                                                }
-                                            </dl>
+                                                </div>
+                                            }
+                                            @if (!string.IsNullOrWhiteSpace(statsText))
+                                            {
+                                                <div class="coverage-link-stat">
+                                                    <span class="coverage-link-stat-label">Outlet stats</span>
+                                                    <span class="coverage-link-stat-value">@statsText</span>
+                                                </div>
+                                            }
                                         </div>
-                                    </div>
+                                    }
                                 </a>
                             }
                         }
