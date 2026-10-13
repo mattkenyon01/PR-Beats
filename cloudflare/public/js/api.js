@@ -4,9 +4,10 @@
  */
 const API_BASE = "https://prbeats.matthew-d60.workers.dev";
 
-async function api(path, { token, method = "GET", body } = {}) {
+async function api(path, { token, method = "GET", body, headers: extraHeaders } = {}) {
   const headers = {
     ...(body ? { "Content-Type": "application/json" } : {}),
+    ...(extraHeaders || {}),
   };
   if (token) headers.Authorization = `Bearer ${token}`;
 
@@ -16,6 +17,14 @@ async function api(path, { token, method = "GET", body } = {}) {
     body: body ? JSON.stringify(body) : undefined,
   });
 
+  if (response.status === 304) {
+    return {
+      unchanged: true,
+      status: 304,
+      etag: response.headers.get("ETag") || extraHeaders?.["If-None-Match"] || "",
+    };
+  }
+
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
     const error = new Error(data.error || `Request failed (${response.status})`);
@@ -23,11 +32,41 @@ async function api(path, { token, method = "GET", body } = {}) {
     error.data = data;
     throw error;
   }
+  const etag = response.headers.get("ETag");
+  if (etag && data && typeof data === "object" && !Array.isArray(data)) {
+    return { ...data, etag, unchanged: false };
+  }
   return data;
+}
+
+function normalizeEtag(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  return raw.startsWith('"') ? raw : `"${raw.replace(/"/g, "")}"`;
 }
 
 export function loadAnnouncements(token) {
   return api("/api/announcements", { token });
+}
+
+/**
+ * Lightweight poll: one-row revision (+ editors when changed).
+ * Pass the last ETag / revision to get 304 when unchanged.
+ */
+export function loadAnnouncementsRevision(token, etagOrRevision = "") {
+  const etag = normalizeEtag(etagOrRevision);
+  return api("/api/announcements/revision", {
+    token,
+    headers: etag ? { "If-None-Match": etag } : undefined,
+  });
+}
+
+/** Load media coverage JSON for one game title. */
+export function loadMediaCoverage(token, gameTitle) {
+  const query = new URLSearchParams({
+    game: String(gameTitle || "").trim() || "Untitled",
+  });
+  return api(`/api/media-coverage?${query.toString()}`, { token });
 }
 
 export function loadPublicAnnouncements(search = "") {
@@ -120,6 +159,72 @@ export async function uploadGameImage(token, file, gameTitle = "") {
   if (token) headers.Authorization = `Bearer ${token}`;
 
   const response = await fetch(`${API_BASE}/api/game-images`, {
+    method: "POST",
+    headers,
+    body: form,
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.error || `Upload failed (${response.status})`);
+  }
+  return data.url;
+}
+
+export function loadGames(token) {
+  return api("/api/games", { token });
+}
+
+export function createGame(token, game) {
+  return api("/api/games", {
+    token,
+    method: "POST",
+    body: game,
+  });
+}
+
+export function updateGame(token, id, patch) {
+  const gameId = encodeURIComponent(String(id || "").trim());
+  if (!gameId) throw new Error("Game id is required.");
+  return api(`/api/games/${gameId}`, {
+    token,
+    method: "PATCH",
+    body: patch,
+  });
+}
+
+export function deleteGame(token, id) {
+  const gameId = encodeURIComponent(String(id || "").trim());
+  if (!gameId) throw new Error("Game id is required.");
+  return api(`/api/games/${gameId}`, {
+    token,
+    method: "DELETE",
+  });
+}
+
+export async function uploadPressKit(token, file, gameTitle = "") {
+  if (!file) throw new Error("Choose a press kit file.");
+  const type = String(file.type || "").toLowerCase();
+  const name = String(file.name || "");
+  const looksLikeKit =
+    type === "application/pdf" ||
+    type === "application/x-pdf" ||
+    type === "application/zip" ||
+    type === "application/x-zip-compressed" ||
+    type === "application/octet-stream" ||
+    /\.(pdf|zip)$/i.test(name);
+  if (!looksLikeKit) {
+    throw new Error("Please choose a PDF or ZIP press kit.");
+  }
+
+  const form = new FormData();
+  form.append("file", file);
+  if (gameTitle) form.append("gameTitle", gameTitle);
+
+  const headers = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const response = await fetch(`${API_BASE}/api/press-kits`, {
     method: "POST",
     headers,
     body: form,

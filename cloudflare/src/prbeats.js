@@ -7,6 +7,7 @@
 const MAX_GAME_IMAGE_BYTES = 100 * 1024 * 1024;
 const MAX_COVERAGE_COVER_BYTES = 8 * 1024 * 1024;
 const MAX_PRESS_RELEASE_PDF_BYTES = 50 * 1024 * 1024;
+const MAX_PRESS_KIT_BYTES = 200 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = new Set([
   "image/jpeg",
   "image/jpg",
@@ -18,6 +19,7 @@ const ALLOWED_STORAGE_FOLDERS = new Set([
   "game-images",
   "coverage-covers",
   "press-release-pdfs",
+  "press-kits",
 ]);
 
 const DEFAULT_FIREBASE_PROJECT_ID = "prbeats-996dd";
@@ -144,9 +146,11 @@ async function handleApi(request, env, url) {
               "GET /api/public/announcements?s=token | ?game=&games=&month=",
             createShare: "POST /api/shares",
             load: "GET /api/announcements",
+            revision: "GET /api/announcements/revision",
             save: "POST /api/announcements",
             saveRow: "PATCH /api/announcements/:id",
             deleteRow: "DELETE /api/announcements/:id",
+            mediaCoverage: "GET /api/media-coverage?game=",
             presence: "POST /api/presence",
             uploadImage: "POST /api/game-images",
             getImage: "GET /api/game-images/:ownerUid/:fileName",
@@ -154,6 +158,10 @@ async function handleApi(request, env, url) {
             getCoverageCover: "GET /api/coverage-covers/:ownerUid/:fileName",
             uploadPressReleasePdf: "POST /api/press-release-pdfs",
             getPressReleasePdf: "GET /api/press-release-pdfs/:ownerUid/:fileName",
+            games: "GET|POST /api/games",
+            game: "PATCH|DELETE /api/games/:id",
+            uploadPressKit: "POST /api/press-kits",
+            getPressKit: "GET /api/press-kits/:ownerUid/:fileName",
             linkPreview: "GET /api/link-preview?url=",
             linkPreviewImage: "GET /api/link-preview/image?url=",
           },
@@ -352,7 +360,10 @@ async function handleApi(request, env, url) {
       if (request.method !== "GET") {
         return withCors(request, json({ error: "Method not allowed." }, 405));
       }
-      const rows = await listAllAnnouncements(env.DB);
+      // Skip media-coverage chunks until after filter — only load for visible games.
+      const rows = await listAllAnnouncements(env.DB, {
+        includeMediaCoverage: false,
+      });
       const filtered = await filterPublicAnnouncements(
         env.DB,
         rows,
@@ -361,7 +372,8 @@ async function handleApi(request, env, url) {
       if (filtered.error) {
         return withCors(request, filtered.error);
       }
-      return withCors(request, json(datasetResponse(filtered.rows)));
+      const withMedia = await attachMediaCoverageToRows(env.DB, filtered.rows);
+      return withCors(request, json(datasetResponse(withMedia)));
     }
 
     if (url.pathname === "/api/shares") {
@@ -376,15 +388,21 @@ async function handleApi(request, env, url) {
       }
 
       const body = await request.json().catch(() => ({}));
-      const share = await createShare(env.DB, auth.user.uid, body);
+      const db = instrumentDb(env.DB, "Create share", url.pathname);
+      const share = await createShare(db, auth.user.uid, body);
       return withCors(
         request,
-        json({
-          id: share.id,
-          games: share.games,
-          months: share.months,
-          month: share.month,
-        })
+        json(
+          withD1(
+            {
+              id: share.id,
+              games: share.games,
+              months: share.months,
+              month: share.month,
+            },
+            db
+          )
+        )
       );
     }
 
@@ -397,44 +415,69 @@ async function handleApi(request, env, url) {
 
       if (request.method === "GET") {
         // Shared dataset: every signed-in admin sees the same announcements.
-        // Presence is only updated on edits/saves, not on poll/load.
-        const rows = await listAllAnnouncements(env.DB);
-        const revision = await getDatasetRevision(env.DB);
-        const activeEditors = await listActiveEditors(env.DB);
+        // Media coverage is loaded on demand via /api/media-coverage?game=.
+        const db = instrumentDb(env.DB, "Load announcements", url.pathname);
+        const rows = await listAllAnnouncements(db, {
+          includeMediaCoverage: false,
+        });
+        const games = await listGames(db);
+        const revision = await getDatasetRevision(db);
+        const activeEditors = await listActiveEditors(db);
         return withCors(
           request,
-          json(datasetResponse(rows, revision, activeEditors))
+          json(
+            withD1(
+              datasetResponse(rows, revision, activeEditors, games),
+              db
+            )
+          )
         );
       }
 
       // POST and PUT both replace the dataset (POST avoids asset-server 405s)
       if (request.method === "PUT" || request.method === "POST") {
         const body = await request.json();
+        const db = instrumentDb(env.DB, "Save announcements", url.pathname);
         try {
-          await touchAdminPresence(env.DB, auth.user);
+          await touchAdminPresence(db, auth.user);
           const result = await replaceAnnouncements(
-            env.DB,
+            db,
             auth.user.uid,
             body.rows ?? [],
             body.revision
           );
-          const activeEditors = await listActiveEditors(env.DB);
+          const games = await listGames(db);
+          const activeEditors = await listActiveEditors(db);
           return withCors(
             request,
-            json(datasetResponse(result.rows, result.revision, activeEditors))
+            json(
+              withD1(
+                datasetResponse(
+                  result.rows,
+                  result.revision,
+                  activeEditors,
+                  games
+                ),
+                db
+              )
+            )
           );
         } catch (error) {
           if (error?.code === "REVISION_CONFLICT") {
             return withCors(
               request,
               json(
-                {
-                  error:
-                    error.message ||
-                    "This data was updated elsewhere. Reload and try again.",
-                  revision: error.revision || "",
-                  rows: error.rows || [],
-                },
+                withD1(
+                  {
+                    error:
+                      error.message ||
+                      "This data was updated elsewhere. Reload and try again.",
+                    revision: error.revision || "",
+                    rows: error.rows || [],
+                    games: error.games || [],
+                  },
+                  db
+                ),
                 409
               )
             );
@@ -457,22 +500,30 @@ async function handleApi(request, env, url) {
       );
     }
 
-    if (url.pathname === "/api/presence") {
+    if (url.pathname === "/api/games") {
       const auth = await requireFirebaseUser(
         request,
         env.FIREBASE_PROJECT_ID || DEFAULT_FIREBASE_PROJECT_ID
       );
       if (auth.error) return withCors(request, auth.error);
 
-      if (request.method === "POST") {
-        await touchAdminPresence(env.DB, auth.user);
-        const activeEditors = await listActiveEditors(env.DB);
-        return withCors(request, json({ ok: true, activeEditors }));
+      if (request.method === "GET") {
+        const db = instrumentDb(env.DB, "Load games", url.pathname);
+        const games = await listGames(db);
+        return withCors(request, json(withD1({ games }, db)));
       }
 
-      if (request.method === "GET") {
-        const activeEditors = await listActiveEditors(env.DB);
-        return withCors(request, json({ activeEditors }));
+      if (request.method === "POST") {
+        const body = await request.json().catch(() => ({}));
+        const db = instrumentDb(env.DB, "Create game", url.pathname);
+        await touchAdminPresence(db, auth.user);
+        const game = await createGame(db, body || {});
+        const games = await listGames(db);
+        const revision = await getDatasetRevision(db);
+        return withCors(
+          request,
+          json(withD1({ game, games, revision }, db))
+        );
       }
 
       return withCors(
@@ -486,6 +537,215 @@ async function handleApi(request, env, url) {
           },
           405
         )
+      );
+    }
+
+    const gameRowMatch = url.pathname.match(/^\/api\/games\/([^/]+)$/);
+    if (gameRowMatch) {
+      const auth = await requireFirebaseUser(
+        request,
+        env.FIREBASE_PROJECT_ID || DEFAULT_FIREBASE_PROJECT_ID
+      );
+      if (auth.error) return withCors(request, auth.error);
+
+      const gameId = decodeURIComponent(gameRowMatch[1] || "").trim();
+      if (!gameId) {
+        return withCors(request, json({ error: "Missing game id." }, 400));
+      }
+
+      if (request.method === "PATCH" || request.method === "PUT") {
+        const body = await request.json().catch(() => ({}));
+        const db = instrumentDb(env.DB, "Update game", url.pathname);
+        await touchAdminPresence(db, auth.user);
+        const game = await updateGame(db, gameId, body || {});
+        const games = await listGames(db);
+        const revision = await getDatasetRevision(db);
+        return withCors(
+          request,
+          json(withD1({ game, games, revision }, db))
+        );
+      }
+
+      if (request.method === "DELETE") {
+        const db = instrumentDb(env.DB, "Delete game", url.pathname);
+        await touchAdminPresence(db, auth.user);
+        await deleteGame(db, gameId);
+        const games = await listGames(db);
+        const rows = await listAllAnnouncements(db, {
+          includeMediaCoverage: false,
+        });
+        const revision = await getDatasetRevision(db);
+        return withCors(
+          request,
+          json(
+            withD1(datasetResponse(rows, revision, undefined, games), db)
+          )
+        );
+      }
+
+      return withCors(
+        request,
+        json(
+          {
+            error: "Method not allowed.",
+            allowed: ["PATCH", "PUT", "DELETE", "OPTIONS"],
+            method: request.method,
+            path: url.pathname,
+          },
+          405
+        )
+      );
+    }
+
+    const pressKitMatch = url.pathname.match(
+      /^\/api\/press-kits\/([^/]+)\/([^/]+)$/
+    );
+    if (pressKitMatch) {
+      if (request.method !== "GET" && request.method !== "HEAD") {
+        return withCors(request, json({ error: "Method not allowed." }, 405));
+      }
+      return withCors(
+        request,
+        await serveStoredImage(
+          env,
+          "press-kits",
+          pressKitMatch[1],
+          pressKitMatch[2],
+          request
+        )
+      );
+    }
+
+    if (url.pathname === "/api/press-kits") {
+      const auth = await requireFirebaseUser(
+        request,
+        env.FIREBASE_PROJECT_ID || DEFAULT_FIREBASE_PROJECT_ID
+      );
+      if (auth.error) return withCors(request, auth.error);
+
+      if (request.method !== "POST") {
+        return withCors(request, json({ error: "Method not allowed." }, 405));
+      }
+
+      const uploaded = await uploadPressKit(
+        env,
+        auth.user.uid,
+        request,
+        url.origin
+      );
+      return withCors(request, json(uploaded));
+    }
+
+    if (url.pathname === "/api/presence") {
+      const auth = await requireFirebaseUser(
+        request,
+        env.FIREBASE_PROJECT_ID || DEFAULT_FIREBASE_PROJECT_ID
+      );
+      if (auth.error) return withCors(request, auth.error);
+
+      if (request.method === "POST") {
+        const db = instrumentDb(env.DB, "Presence ping", url.pathname);
+        await touchAdminPresence(db, auth.user);
+        const activeEditors = await listActiveEditors(db);
+        return withCors(
+          request,
+          json(withD1({ ok: true, activeEditors }, db))
+        );
+      }
+
+      if (request.method === "GET") {
+        const db = instrumentDb(env.DB, "Load presence", url.pathname);
+        const activeEditors = await listActiveEditors(db);
+        return withCors(request, json(withD1({ activeEditors }, db)));
+      }
+
+      return withCors(
+        request,
+        json(
+          {
+            error: "Method not allowed.",
+            allowed: ["GET", "POST", "OPTIONS"],
+            method: request.method,
+            path: url.pathname,
+          },
+          405
+        )
+      );
+    }
+
+    // Cheap poll: revision + presence only (no announcement / media-coverage scans).
+    if (url.pathname === "/api/announcements/revision") {
+      const auth = await requireFirebaseUser(
+        request,
+        env.FIREBASE_PROJECT_ID || DEFAULT_FIREBASE_PROJECT_ID
+      );
+      if (auth.error) return withCors(request, auth.error);
+      if (request.method !== "GET") {
+        return withCors(
+          request,
+          json(
+            {
+              error: "Method not allowed.",
+              allowed: ["GET", "OPTIONS"],
+              method: request.method,
+              path: url.pathname,
+            },
+            405
+          )
+        );
+      }
+      const db = instrumentDb(env.DB, "Poll revision", url.pathname);
+      const revision = await getDatasetRevision(db);
+      const etag = revisionEtag(revision);
+      if (etagMatches(request.headers.get("If-None-Match"), etag)) {
+        return withCors(
+          request,
+          new Response(null, {
+            status: 304,
+            headers: {
+              ETag: etag,
+              "Cache-Control": "no-store",
+            },
+          })
+        );
+      }
+      const activeEditors = await listActiveEditors(db);
+      return withCors(
+        request,
+        json(withD1({ revision, activeEditors }, db), 200, {
+          ETag: etag,
+          "Cache-Control": "no-store",
+        })
+      );
+    }
+
+    if (url.pathname === "/api/media-coverage") {
+      const auth = await requireFirebaseUser(
+        request,
+        env.FIREBASE_PROJECT_ID || DEFAULT_FIREBASE_PROJECT_ID
+      );
+      if (auth.error) return withCors(request, auth.error);
+      if (request.method !== "GET") {
+        return withCors(
+          request,
+          json(
+            {
+              error: "Method not allowed.",
+              allowed: ["GET", "OPTIONS"],
+              method: request.method,
+              path: url.pathname,
+            },
+            405
+          )
+        );
+      }
+      const gameTitle =
+        String(url.searchParams.get("game") || "").trim() || "Untitled";
+      const db = instrumentDb(env.DB, "Load media coverage", url.pathname);
+      const mediaCoverage = await loadMediaCoverageValueForGame(db, gameTitle);
+      return withCors(
+        request,
+        json(withD1({ gameTitle, mediaCoverage }, db))
       );
     }
 
@@ -507,31 +767,43 @@ async function handleApi(request, env, url) {
       if (request.method === "PATCH" || request.method === "PUT") {
         const body = await request.json();
         const row = body?.row && typeof body.row === "object" ? body.row : body;
-        await touchAdminPresence(env.DB, auth.user);
+        const db = instrumentDb(env.DB, "Save announcement", url.pathname);
+        await touchAdminPresence(db, auth.user);
         const result = await upsertAnnouncement(
-          env.DB,
+          db,
           auth.user.uid,
           rowId,
           row || {}
         );
-        const activeEditors = await listActiveEditors(env.DB);
+        const activeEditors = await listActiveEditors(db);
         return withCors(
           request,
-          json({
-            row: result.row,
-            revision: result.revision,
-            activeEditors,
-          })
+          json(
+            withD1(
+              {
+                row: result.row,
+                revision: result.revision,
+                activeEditors,
+              },
+              db
+            )
+          )
         );
       }
 
       if (request.method === "DELETE") {
-        await touchAdminPresence(env.DB, auth.user);
-        const result = await deleteAnnouncementById(env.DB, rowId);
-        const activeEditors = await listActiveEditors(env.DB);
+        const db = instrumentDb(env.DB, "Delete announcement", url.pathname);
+        await touchAdminPresence(db, auth.user);
+        const result = await deleteAnnouncementById(db, rowId);
+        const activeEditors = await listActiveEditors(db);
         return withCors(
           request,
-          json({ id: rowId, revision: result.revision, activeEditors })
+          json(
+            withD1(
+              { id: rowId, revision: result.revision, activeEditors },
+              db
+            )
+          )
         );
       }
 
@@ -580,15 +852,113 @@ function json(data, status = 200, headers = {}) {
   });
 }
 
+/** Track D1 rows_read / rows_written for admin activity toasts (Steam Search style). */
+function createD1Session(query, path) {
+  return {
+    query: String(query || "D1 query"),
+    path: String(path || ""),
+    rows_read: 0,
+    rows_written: 0,
+    duration_ms: 0,
+    absorb(meta) {
+      if (!meta) return;
+      if (typeof meta.rows_read === "number") this.rows_read += meta.rows_read;
+      if (typeof meta.rows_written === "number") {
+        this.rows_written += meta.rows_written;
+      }
+      if (typeof meta.duration === "number") this.duration_ms += meta.duration;
+    },
+    snapshot() {
+      return {
+        query: this.query,
+        path: this.path,
+        rows_read: this.rows_read,
+        rows_written: this.rows_written,
+        duration_ms: this.duration_ms,
+      };
+    },
+  };
+}
+
+function instrumentStatement(stmt, session) {
+  return {
+    _stmt: stmt,
+    bind(...args) {
+      return instrumentStatement(stmt.bind(...args), session);
+    },
+    async all(...args) {
+      const result = await stmt.all(...args);
+      session.absorb(result?.meta);
+      return result;
+    },
+    async run(...args) {
+      const result = await stmt.run(...args);
+      session.absorb(result?.meta);
+      return result;
+    },
+    async first(...args) {
+      // .first() does not expose meta; use .all() so reads are counted.
+      const result = await stmt.all(...args);
+      session.absorb(result?.meta);
+      const rows = result?.results || [];
+      return rows.length ? rows[0] : null;
+    },
+  };
+}
+
+function instrumentDb(db, query, path) {
+  const session = createD1Session(query, path);
+  return {
+    _session: session,
+    prepare(sql) {
+      return instrumentStatement(db.prepare(sql), session);
+    },
+    async batch(statements) {
+      const raw = (statements || []).map((item) => item?._stmt || item);
+      const results = await db.batch(raw);
+      for (const result of results || []) session.absorb(result?.meta);
+      return results;
+    },
+    getD1() {
+      return session.snapshot();
+    },
+  };
+}
+
+function withD1(payload, db) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return payload;
+  }
+  const d1 = db?.getD1?.();
+  if (!d1) return payload;
+  return { ...payload, d1 };
+}
+
 function corsHeaders(request) {
   const origin = request.headers.get("Origin") || "*";
   return {
     "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Methods": "GET,HEAD,POST,PUT,PATCH,DELETE,OPTIONS",
-    "Access-Control-Allow-Headers": "Authorization, Content-Type",
+    "Access-Control-Allow-Headers":
+      "Authorization, Content-Type, If-None-Match",
+    "Access-Control-Expose-Headers": "ETag",
     "Access-Control-Max-Age": "86400",
     Vary: "Origin",
   };
+}
+
+function revisionEtag(revision) {
+  const value = String(revision || "").trim();
+  if (!value) return "";
+  return `"${value.replace(/"/g, "")}"`;
+}
+
+function etagMatches(ifNoneMatch, etag) {
+  if (!ifNoneMatch || !etag) return false;
+  return String(ifNoneMatch)
+    .split(",")
+    .map((part) => part.trim())
+    .includes(etag);
 }
 
 function withCors(request, response) {
@@ -873,34 +1243,58 @@ async function replaceMediaCoverageForGame(db, gameTitle, mediaCoverageValue) {
     .bind(key)
     .run();
 
-  if (!rows.length) return;
-
-  const statements = [];
-  for (let i = 0; i < rows.length; i += MEDIA_COVERAGE_ROWS_PER_CHUNK) {
-    const chunk = rows.slice(i, i + MEDIA_COVERAGE_ROWS_PER_CHUNK);
-    const chunkIndex = Math.floor(i / MEDIA_COVERAGE_ROWS_PER_CHUNK);
-    statements.push(
-      db
-        .prepare(
-          `INSERT INTO media_coverage_chunks (
-             game_title_key, game_title, chunk_index, data_json, updated_at
-           ) VALUES (?, ?, ?, ?, datetime('now'))`
-        )
-        .bind(key, title, chunkIndex, JSON.stringify(chunk))
-    );
+  if (rows.length) {
+    const statements = [];
+    for (let i = 0; i < rows.length; i += MEDIA_COVERAGE_ROWS_PER_CHUNK) {
+      const chunk = rows.slice(i, i + MEDIA_COVERAGE_ROWS_PER_CHUNK);
+      const chunkIndex = Math.floor(i / MEDIA_COVERAGE_ROWS_PER_CHUNK);
+      statements.push(
+        db
+          .prepare(
+            `INSERT INTO media_coverage_chunks (
+               game_title_key, game_title, chunk_index, data_json, updated_at
+             ) VALUES (?, ?, ?, ?, datetime('now'))`
+          )
+          .bind(key, title, chunkIndex, JSON.stringify(chunk))
+      );
+    }
+    await db.batch(statements);
   }
-  await db.batch(statements);
+  await bumpDatasetRevision(db);
 }
 
-async function loadMediaCoverageValueMap(db) {
+async function loadMediaCoverageValueMap(db, gameTitles = null) {
   await ensureMediaCoverageChunksTable(db);
-  const result = await db
-    .prepare(
-      `SELECT game_title_key, chunk_index, data_json
-       FROM media_coverage_chunks
-       ORDER BY game_title_key ASC, chunk_index ASC`
-    )
-    .all();
+
+  let result;
+  if (Array.isArray(gameTitles)) {
+    const keys = [
+      ...new Set(
+        gameTitles
+          .map((title) => mediaCoverageGameKey(title))
+          .filter(Boolean)
+      ),
+    ];
+    if (!keys.length) return new Map();
+    const placeholders = keys.map(() => "?").join(", ");
+    result = await db
+      .prepare(
+        `SELECT game_title_key, chunk_index, data_json
+         FROM media_coverage_chunks
+         WHERE game_title_key IN (${placeholders})
+         ORDER BY game_title_key ASC, chunk_index ASC`
+      )
+      .bind(...keys)
+      .all();
+  } else {
+    result = await db
+      .prepare(
+        `SELECT game_title_key, chunk_index, data_json
+         FROM media_coverage_chunks
+         ORDER BY game_title_key ASC, chunk_index ASC`
+      )
+      .all();
+  }
 
   const grouped = new Map();
   for (const row of result.results || []) {
@@ -924,36 +1318,22 @@ async function loadMediaCoverageValueMap(db) {
   return out;
 }
 
-async function attachMediaCoverageToRows(db, rows) {
+async function migrateLegacyMediaCoverageRows(db, rows) {
   const list = Array.isArray(rows) ? rows : [];
-  if (!list.length) return list;
-
-  const map = await loadMediaCoverageValueMap(db);
   const migrated = [];
-
-  const next = list.map((row) => {
-    const key = mediaCoverageGameKey(row.gameTitle);
-    const fromChunks = map.get(key);
-    if (fromChunks) {
-      return { ...row, mediaCoverage: fromChunks };
-    }
-
-    const legacy = String(row.mediaCoverage || "").trim();
-    if (legacy) {
-      migrated.push({
-        title: String(row.gameTitle || "").trim() || "Untitled",
-        key,
-        value: legacy,
-      });
-    }
-    return row;
-  });
-
-  // One-time move of legacy announcement.media_coverage blobs into chunks.
   const seen = new Set();
+
+  for (const row of list) {
+    const legacy = String(row?.mediaCoverage || "").trim();
+    if (!legacy) continue;
+    const title = String(row.gameTitle || "").trim() || "Untitled";
+    const key = mediaCoverageGameKey(title);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    migrated.push({ title, key, value: legacy });
+  }
+
   for (const item of migrated) {
-    if (seen.has(item.key)) continue;
-    seen.add(item.key);
     try {
       await replaceMediaCoverageForGame(db, item.title, item.value);
       await db
@@ -964,15 +1344,24 @@ async function attachMediaCoverageToRows(db, rows) {
         )
         .bind(item.title)
         .run();
-      map.set(item.key, buildMediaCoverageValue(parseMediaCoverageRowsFromValue(item.value)));
     } catch {
       // Leave legacy value on the row if migration fails.
     }
   }
 
-  if (!seen.size) return next;
+  return seen.size;
+}
 
-  return next.map((row) => {
+async function attachMediaCoverageToRows(db, rows) {
+  const list = Array.isArray(rows) ? rows : [];
+  if (!list.length) return list;
+
+  await migrateLegacyMediaCoverageRows(db, list);
+
+  const titles = list.map((row) => row.gameTitle);
+  const map = await loadMediaCoverageValueMap(db, titles);
+
+  return list.map((row) => {
     const key = mediaCoverageGameKey(row.gameTitle);
     const fromChunks = map.get(key);
     return fromChunks ? { ...row, mediaCoverage: fromChunks } : row;
@@ -1352,6 +1741,69 @@ async function uploadPressReleasePdf(env, ownerUid, request, origin) {
   };
 }
 
+async function uploadPressKit(env, ownerUid, request, origin) {
+  if (!env.IMAGES) {
+    throw new Error(
+      "File storage is not configured. Create an R2 bucket and bind it as IMAGES."
+    );
+  }
+
+  const form = await request.formData();
+  const file = form.get("file");
+  const label = String(form.get("label") || form.get("gameTitle") || "press-kit");
+
+  if (!(file instanceof File) && !(file instanceof Blob)) {
+    throw new Error("Choose a press kit file (PDF or ZIP).");
+  }
+
+  const contentType = String(file.type || "").toLowerCase();
+  const fileNameHint = typeof file.name === "string" ? file.name : "";
+  const extMatch = fileNameHint.match(/\.([a-z0-9]+)$/i);
+  const ext = (extMatch?.[1] || "").toLowerCase();
+  const looksLikeKit =
+    contentType === "application/pdf" ||
+    contentType === "application/x-pdf" ||
+    contentType === "application/zip" ||
+    contentType === "application/x-zip-compressed" ||
+    contentType === "application/octet-stream" ||
+    ["pdf", "zip"].includes(ext);
+  if (!looksLikeKit) {
+    throw new Error("Please choose a PDF or ZIP press kit.");
+  }
+
+  if (typeof file.size === "number" && file.size > MAX_PRESS_KIT_BYTES) {
+    throw new Error("Press kit must be 200 MB or smaller.");
+  }
+
+  const safeExt = ["pdf", "zip"].includes(ext) ? ext : "bin";
+  const baseName = sanitizePathPart(
+    fileNameHint.replace(/\.[a-z0-9]+$/i, "") || label
+  );
+  const fileName = `${baseName}-${crypto.randomUUID()}.${safeExt}`;
+  const key = `press-kits/${ownerUid}/${fileName}`;
+
+  await env.IMAGES.put(key, file.stream(), {
+    httpMetadata: {
+      contentType:
+        safeExt === "pdf"
+          ? "application/pdf"
+          : contentType || "application/octet-stream",
+      contentDisposition: `attachment; filename="${fileName}"`,
+      cacheControl: "public, max-age=31536000, immutable",
+    },
+    customMetadata: {
+      ownerUid,
+      label: String(label).slice(0, 200),
+      originalName: fileNameHint.slice(0, 200),
+    },
+  });
+
+  return {
+    key,
+    url: `${origin}/api/press-kits/${encodeURIComponent(ownerUid)}/${encodeURIComponent(fileName)}`,
+  };
+}
+
 function isPersistedImagePath(pathname) {
   return /^\/api\/(?:game-images|coverage-covers)\/[^/]+\/[^/]+$/i.test(
     String(pathname || "")
@@ -1491,6 +1943,12 @@ async function serveStoredImage(env, folder, ownerUid, fileName, request) {
       );
     }
   }
+  if (folder === "press-kits" && !headers.has("Content-Disposition")) {
+    headers.set(
+      "Content-Disposition",
+      `attachment; filename="${safeName.replace(/"/g, "")}"`
+    );
+  }
 
   if (request.method === "HEAD") {
     return new Response(null, { status: 200, headers });
@@ -1534,7 +1992,7 @@ async function propagateGameImageToTitle(db, gameTitle, gameImage) {
     .run();
 }
 
-async function listAnnouncements(db, ownerUid) {
+async function listAnnouncements(db, ownerUid, options = {}) {
   await ensureMediaCoverageColumn(db);
   const result = await db
     .prepare(
@@ -1546,14 +2004,16 @@ async function listAnnouncements(db, ownerUid) {
     .bind(ownerUid)
     .all();
 
-  const rows = await attachMediaCoverageToRows(
-    db,
-    (result.results || []).map(rowFromDb)
-  );
+  const mapped = (result.results || []).map(rowFromDb);
+  if (options.includeMediaCoverage === false) {
+    await migrateLegacyMediaCoverageRows(db, mapped);
+    return attachGameImagesToRows(mapped);
+  }
+  const rows = await attachMediaCoverageToRows(db, mapped);
   return attachGameImagesToRows(rows);
 }
 
-async function listAllAnnouncements(db) {
+async function listAllAnnouncements(db, options = {}) {
   await ensureMediaCoverageColumn(db);
   const result = await db
     .prepare(
@@ -1563,10 +2023,12 @@ async function listAllAnnouncements(db) {
     )
     .all();
 
-  const rows = await attachMediaCoverageToRows(
-    db,
-    (result.results || []).map(rowFromDb)
-  );
+  const mapped = (result.results || []).map(rowFromDb);
+  if (options.includeMediaCoverage === false) {
+    await migrateLegacyMediaCoverageRows(db, mapped);
+    return attachGameImagesToRows(mapped);
+  }
+  const rows = await attachMediaCoverageToRows(db, mapped);
   return attachGameImagesToRows(rows);
 }
 
@@ -1740,15 +2202,70 @@ async function filterPublicAnnouncements(db, rows, searchParams) {
   return { rows: filtered };
 }
 
-async function getDatasetRevision(db) {
-  const result = await db
+async function ensureDatasetRevisionTable(db) {
+  await db
     .prepare(
-      `SELECT COUNT(*) AS cnt,
-              COALESCE(MAX(updated_at), '') AS stamp
-       FROM announcements`
+      `CREATE TABLE IF NOT EXISTS dataset_revision (
+         id INTEGER PRIMARY KEY CHECK (id = 1),
+         revision TEXT NOT NULL,
+         updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+       )`
     )
+    .run();
+}
+
+function newDatasetRevisionToken() {
+  return `${Date.now().toString(36)}-${crypto.randomUUID().slice(0, 8)}`;
+}
+
+/** One-row revision token — cheap to poll; bump on every dataset write. */
+async function getDatasetRevision(db) {
+  await ensureDatasetRevisionTable(db);
+  const row = await db
+    .prepare(`SELECT revision FROM dataset_revision WHERE id = 1`)
     .first();
-  return `${Number(result?.cnt ?? 0)}:${String(result?.stamp ?? "")}`;
+  if (row?.revision) return String(row.revision);
+
+  const seeded = newDatasetRevisionToken();
+  await db
+    .prepare(
+      `INSERT INTO dataset_revision (id, revision, updated_at)
+       VALUES (1, ?, datetime('now'))
+       ON CONFLICT(id) DO NOTHING`
+    )
+    .bind(seeded)
+    .run();
+  const again = await db
+    .prepare(`SELECT revision FROM dataset_revision WHERE id = 1`)
+    .first();
+  return String(again?.revision || seeded);
+}
+
+async function bumpDatasetRevision(db) {
+  await ensureDatasetRevisionTable(db);
+  const next = newDatasetRevisionToken();
+  await db
+    .prepare(
+      `INSERT INTO dataset_revision (id, revision, updated_at)
+       VALUES (1, ?, datetime('now'))
+       ON CONFLICT(id) DO UPDATE SET
+         revision = excluded.revision,
+         updated_at = datetime('now')`
+    )
+    .bind(next)
+    .run();
+  return next;
+}
+
+async function announcementRowCount(db) {
+  try {
+    const row = await db
+      .prepare(`SELECT COUNT(*) AS cnt FROM announcements`)
+      .first();
+    return Number(row?.cnt ?? 0);
+  } catch {
+    return 0;
+  }
 }
 
 async function nextSortOrder(db) {
@@ -1837,13 +2354,13 @@ async function upsertAnnouncement(db, ownerUid, id, row) {
     .first();
   const withMedia = await attachMediaCoverageToRows(db, [rowFromDb(saved)]);
   const [attached] = attachGameImagesToRows(withMedia);
-  const revision = await getDatasetRevision(db);
+  const revision = await bumpDatasetRevision(db);
   return { row: attached || rowFromDb(saved), revision };
 }
 
 async function deleteAnnouncementById(db, id) {
   await db.prepare(`DELETE FROM announcements WHERE id = ?`).bind(id).run();
-  const revision = await getDatasetRevision(db);
+  const revision = await bumpDatasetRevision(db);
   return { revision };
 }
 
@@ -1857,9 +2374,9 @@ async function replaceAnnouncements(db, ownerUid, rows, expectedRevision) {
     expectedRevision === undefined || expectedRevision === null
       ? ""
       : String(expectedRevision);
-  const dbCount = Number(String(currentRevision).split(":")[0] || 0);
-  // Reject stale/missing revisions so an older tab cannot wipe newer shared edits
-  // (e.g. coverage links saved elsewhere). Empty revision is only OK on an empty DB.
+  // Reject stale/missing revisions so an older tab cannot wipe newer shared edits.
+  // Empty revision is only OK when there are no announcements yet.
+  const dbCount = await announcementRowCount(db);
   const revisionMismatch =
     expected !== currentRevision && (expected !== "" || dbCount > 0);
   if (revisionMismatch) {
@@ -1868,7 +2385,10 @@ async function replaceAnnouncements(db, ownerUid, rows, expectedRevision) {
     );
     error.code = "REVISION_CONFLICT";
     error.revision = currentRevision;
-    error.rows = await listAllAnnouncements(db);
+    error.rows = await listAllAnnouncements(db, {
+      includeMediaCoverage: false,
+    });
+    error.games = await listGames(db);
     throw error;
   }
 
@@ -1916,19 +2436,346 @@ async function replaceAnnouncements(db, ownerUid, rows, expectedRevision) {
   });
 
   await db.batch(statements);
-  const nextRows = await listAllAnnouncements(db);
-  const revision = await getDatasetRevision(db);
+  // Return rows without re-reading every media-coverage chunk; admin loads per game.
+  const nextRows = await listAllAnnouncements(db, {
+    includeMediaCoverage: false,
+  });
+  const revision = await bumpDatasetRevision(db);
   return { rows: nextRows, revision };
 }
 
-function datasetResponse(rows, revision, activeEditors) {
+function datasetResponse(rows, revision, activeEditors, games) {
   const payload = {
     columns: DISPLAY_COLUMNS,
     rows,
   };
   if (revision !== undefined) payload.revision = revision;
   if (activeEditors !== undefined) payload.activeEditors = activeEditors;
+  if (games !== undefined) payload.games = games;
   return payload;
+}
+
+async function ensureGamesTable(db) {
+  await db
+    .prepare(
+      `CREATE TABLE IF NOT EXISTS games (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL UNIQUE,
+        key_art TEXT NOT NULL DEFAULT '',
+        press_kit TEXT NOT NULL DEFAULT '',
+        store_links TEXT NOT NULL DEFAULT '[]',
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`
+    )
+    .run();
+}
+
+function parseStoreLinks(raw) {
+  const text = String(raw ?? "").trim();
+  if (!text) return [];
+  try {
+    const parsed = JSON.parse(text);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map((item) => {
+        if (typeof item === "string") {
+          const url = item.trim();
+          return url ? { label: "", url } : null;
+        }
+        if (!item || typeof item !== "object") return null;
+        const url = String(item.url ?? item.href ?? "").trim();
+        if (!url) return null;
+        return {
+          label: String(item.label ?? item.name ?? "").trim(),
+          url,
+        };
+      })
+      .filter(Boolean);
+  } catch {
+    return text
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((url) => ({ label: "", url }));
+  }
+}
+
+function serializeStoreLinks(value) {
+  if (typeof value === "string") {
+    return JSON.stringify(parseStoreLinks(value));
+  }
+  if (!Array.isArray(value)) return "[]";
+  return JSON.stringify(
+    value
+      .map((item) => {
+        if (typeof item === "string") {
+          const url = item.trim();
+          return url ? { label: "", url } : null;
+        }
+        if (!item || typeof item !== "object") return null;
+        const url = String(item.url ?? item.href ?? "").trim();
+        if (!url) return null;
+        return {
+          label: String(item.label ?? item.name ?? "").trim(),
+          url,
+        };
+      })
+      .filter(Boolean)
+  );
+}
+
+function gameFromDb(record, announcementCount = 0) {
+  return {
+    id: record.id,
+    title: record.title ?? "",
+    keyArt: record.key_art ?? "",
+    pressKit: record.press_kit ?? "",
+    storeLinks: parseStoreLinks(record.store_links),
+    sortOrder: Number(record.sort_order) || 0,
+    announcementCount: Number(announcementCount) || 0,
+  };
+}
+
+async function backfillGamesFromAnnouncements(db) {
+  // One anti-join for missing titles (not a per-title existence check loop).
+  const missing = await db
+    .prepare(
+      `SELECT DISTINCT trim(a.game_title) AS title
+       FROM announcements a
+       WHERE trim(a.game_title) != ''
+         AND NOT EXISTS (
+           SELECT 1
+           FROM games g
+           WHERE lower(trim(g.title)) = lower(trim(a.game_title))
+         )
+       ORDER BY title ASC`
+    )
+    .all();
+
+  const titles = missing.results || [];
+  if (!titles.length) return;
+
+  const maxOrder = await db
+    .prepare(`SELECT COALESCE(MAX(sort_order), -1) AS m FROM games`)
+    .first();
+  let nextOrder = Number(maxOrder?.m ?? -1) + 1;
+
+  for (const row of titles) {
+    const title = String(row.title || "").trim();
+    if (!title) continue;
+
+    const imageRow = await db
+      .prepare(
+        `SELECT game_image
+         FROM announcements
+         WHERE lower(trim(game_title)) = lower(trim(?))
+           AND trim(game_image) != ''
+         ORDER BY sort_order ASC
+         LIMIT 1`
+      )
+      .bind(title)
+      .first();
+
+    await db
+      .prepare(
+        `INSERT INTO games (id, title, key_art, press_kit, store_links, sort_order, updated_at)
+         VALUES (?, ?, ?, '', '[]', ?, datetime('now'))`
+      )
+      .bind(
+        crypto.randomUUID(),
+        title,
+        String(imageRow?.game_image || "").trim(),
+        nextOrder
+      )
+      .run();
+    nextOrder += 1;
+  }
+}
+
+async function listGames(db) {
+  await ensureGamesTable(db);
+  await backfillGamesFromAnnouncements(db);
+
+  const result = await db
+    .prepare(
+      `SELECT
+         g.*,
+         COALESCE(c.announcement_count, 0) AS announcement_count
+       FROM games g
+       LEFT JOIN (
+         SELECT lower(trim(game_title)) AS title_key,
+                COUNT(*) AS announcement_count
+         FROM announcements
+         WHERE trim(game_title) != ''
+         GROUP BY lower(trim(game_title))
+       ) c ON lower(trim(g.title)) = c.title_key
+       ORDER BY g.sort_order ASC, g.title ASC`
+    )
+    .all();
+
+  return (result.results || []).map((row) =>
+    gameFromDb(row, row.announcement_count)
+  );
+}
+
+async function createGame(db, body) {
+  await ensureGamesTable(db);
+  const title = String(body?.title ?? body?.gameTitle ?? "").trim();
+  if (!title) throw new Error("Game name is required.");
+
+  const existing = await db
+    .prepare(
+      `SELECT id FROM games WHERE lower(trim(title)) = lower(trim(?)) LIMIT 1`
+    )
+    .bind(title)
+    .first();
+  if (existing?.id) {
+    throw new Error(`A game named “${title}” already exists.`);
+  }
+
+  const keyArt = String(body?.keyArt ?? body?.gameImage ?? "").trim();
+  const pressKit = String(body?.pressKit ?? "").trim();
+  const storeLinks = serializeStoreLinks(body?.storeLinks ?? []);
+  const id = String(body?.id || "").trim() || crypto.randomUUID();
+
+  const maxOrder = await db
+    .prepare(`SELECT COALESCE(MAX(sort_order), -1) AS max_order FROM games`)
+    .first();
+  const sortOrder = Number(maxOrder?.max_order ?? -1) + 1;
+
+  await db
+    .prepare(
+      `INSERT INTO games (id, title, key_art, press_kit, store_links, sort_order, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, datetime('now'))`
+    )
+    .bind(id, title, keyArt, pressKit, storeLinks, sortOrder)
+    .run();
+
+  if (keyArt) {
+    await propagateGameImageToTitle(db, title, keyArt);
+  }
+
+  await bumpDatasetRevision(db);
+
+  const saved = await db
+    .prepare(`SELECT * FROM games WHERE id = ?`)
+    .bind(id)
+    .first();
+  return gameFromDb(saved, 0);
+}
+
+async function updateGame(db, gameId, body) {
+  await ensureGamesTable(db);
+  const existing = await db
+    .prepare(`SELECT * FROM games WHERE id = ?`)
+    .bind(gameId)
+    .first();
+  if (!existing) throw new Error("Game not found.");
+
+  const previousTitle = String(existing.title || "").trim();
+  const nextTitle =
+    body?.title !== undefined || body?.gameTitle !== undefined
+      ? String(body?.title ?? body?.gameTitle ?? "").trim()
+      : previousTitle;
+  if (!nextTitle) throw new Error("Game name is required.");
+
+  if (nextTitle.toLowerCase() !== previousTitle.toLowerCase()) {
+    const clash = await db
+      .prepare(
+        `SELECT id FROM games
+         WHERE lower(trim(title)) = lower(trim(?)) AND id != ?
+         LIMIT 1`
+      )
+      .bind(nextTitle, gameId)
+      .first();
+    if (clash?.id) {
+      throw new Error(`A game named “${nextTitle}” already exists.`);
+    }
+  }
+
+  const keyArt =
+    body?.keyArt !== undefined || body?.gameImage !== undefined
+      ? String(body?.keyArt ?? body?.gameImage ?? "").trim()
+      : String(existing.key_art || "").trim();
+  const pressKit =
+    body?.pressKit !== undefined
+      ? String(body.pressKit ?? "").trim()
+      : String(existing.press_kit || "").trim();
+  const storeLinks =
+    body?.storeLinks !== undefined
+      ? serializeStoreLinks(body.storeLinks)
+      : String(existing.store_links || "[]");
+
+  await db
+    .prepare(
+      `UPDATE games
+       SET title = ?, key_art = ?, press_kit = ?, store_links = ?, updated_at = datetime('now')
+       WHERE id = ?`
+    )
+    .bind(nextTitle, keyArt, pressKit, storeLinks, gameId)
+    .run();
+
+  if (previousTitle && nextTitle !== previousTitle) {
+    await db
+      .prepare(
+        `UPDATE announcements
+         SET game_title = ?, updated_at = datetime('now')
+         WHERE lower(trim(game_title)) = lower(trim(?))`
+      )
+      .bind(nextTitle, previousTitle)
+      .run();
+  }
+
+  if (keyArt !== String(existing.key_art || "").trim() || nextTitle !== previousTitle) {
+    await propagateGameImageToTitle(db, nextTitle, keyArt);
+  }
+
+  await bumpDatasetRevision(db);
+
+  const countRow = await db
+    .prepare(
+      `SELECT COUNT(*) AS count
+       FROM announcements
+       WHERE lower(trim(game_title)) = lower(trim(?))`
+    )
+    .bind(nextTitle)
+    .first();
+  const saved = await db
+    .prepare(`SELECT * FROM games WHERE id = ?`)
+    .bind(gameId)
+    .first();
+  return gameFromDb(saved, countRow?.count);
+}
+
+async function deleteGame(db, gameId) {
+  await ensureGamesTable(db);
+  const existing = await db
+    .prepare(`SELECT * FROM games WHERE id = ?`)
+    .bind(gameId)
+    .first();
+  if (!existing) throw new Error("Game not found.");
+
+  const title = String(existing.title || "").trim();
+  if (title) {
+    const rows = await db
+      .prepare(
+        `SELECT id FROM announcements
+         WHERE lower(trim(game_title)) = lower(trim(?))`
+      )
+      .bind(title)
+      .all();
+    for (const row of rows.results || []) {
+      await db
+        .prepare(`DELETE FROM announcements WHERE id = ?`)
+        .bind(row.id)
+        .run();
+    }
+    await replaceMediaCoverageForGame(db, title, "");
+  }
+
+  await db.prepare(`DELETE FROM games WHERE id = ?`).bind(gameId).run();
+  await bumpDatasetRevision(db);
 }
 
 function displayNameFromUser(user) {

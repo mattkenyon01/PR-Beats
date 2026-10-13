@@ -328,6 +328,28 @@ export function emptyMediaCoverageRow() {
   );
 }
 
+/** Drop midnight time suffixes so dates show as dates (e.g. 2024-01-15, not …00:00:00). */
+export function formatMediaCoveragePublishedTime(value) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+
+  const stripped = raw
+    .replace(/[Tt]00:00:00(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?$/, "")
+    .replace(/\s+00:00:00(?:\.\d+)?$/, "")
+    .replace(/\s+12:00:00(?:\.\d+)?\s*(?:AM|am)$/, "")
+    .replace(/[Tt]$/, "")
+    .trim();
+
+  return stripped || raw;
+}
+
+function mediaCoverageFieldValue(key, value) {
+  const text = String(value ?? "").trim();
+  if (!text) return "";
+  if (key === "publishedTime") return formatMediaCoveragePublishedTime(text);
+  return text;
+}
+
 function mediaCoverageRowHasContent(row) {
   return MEDIA_COVERAGE_COLUMNS.some(
     (column) => String(row?.[column.key] || "").trim() !== ""
@@ -353,7 +375,10 @@ export function parseMediaCoverageValue(value) {
             return row;
           }
           MEDIA_COVERAGE_COLUMNS.forEach((column) => {
-            row[column.key] = String(item?.[column.key] ?? "").trim();
+            row[column.key] = mediaCoverageFieldValue(
+              column.key,
+              item?.[column.key]
+            );
           });
           return row;
         })
@@ -380,7 +405,7 @@ export function serializeMediaCoverageValue(rows) {
     .map((item) => {
       const row = {};
       MEDIA_COVERAGE_COLUMNS.forEach((column) => {
-        const value = String(item?.[column.key] ?? "").trim();
+        const value = mediaCoverageFieldValue(column.key, item?.[column.key]);
         if (value) row[column.key] = value;
       });
       return row;
@@ -400,7 +425,10 @@ function mapMediaCoverageCsvRows(rawRows, mapping) {
       const record = emptyMediaCoverageRow();
       mapping.forEach((column) => {
         if (column.sourceIndex >= 0) {
-          record[column.key] = (row[column.sourceIndex] ?? "").trim();
+          record[column.key] = mediaCoverageFieldValue(
+            column.key,
+            row[column.sourceIndex]
+          );
         }
       });
       return record;
@@ -571,9 +599,6 @@ export function mediaCoverageTypeLabel(value) {
 /** Shared columns shown on every media-coverage type table. */
 const MEDIA_COVERAGE_SHARED_KEYS = new Set([
   "publishedTime",
-  "game",
-  "type",
-  "customName",
   "handleId",
   "handleUrl",
   "handleLanguage",
@@ -630,6 +655,7 @@ export function mediaCoveragePlatformId(typeValue) {
  * Columns to show for a given Type section.
  * YouTube tables omit Twitch/TikTok/Instagram/BiliBili headers (and vice versa).
  * Unknown / Other sections only show shared fields.
+ * Type, Game, and Custom Name are omitted from the visual tables.
  */
 export function mediaCoverageColumnsForType(typeValue) {
   const platform = mediaCoveragePlatformId(typeValue);
@@ -637,6 +663,13 @@ export function mediaCoverageColumnsForType(typeValue) {
     ? MEDIA_COVERAGE_PLATFORM_KEYS[platform]
     : null;
   return MEDIA_COVERAGE_COLUMNS.filter((column) => {
+    if (
+      column.key === "type" ||
+      column.key === "game" ||
+      column.key === "customName"
+    ) {
+      return false;
+    }
     if (MEDIA_COVERAGE_SHARED_KEYS.has(column.key)) return true;
     return Boolean(platformKeys?.has(column.key));
   });

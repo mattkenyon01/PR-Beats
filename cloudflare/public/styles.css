@@ -835,6 +835,107 @@ body.admin-page:has(.admin-app.is-grid-layout) {
   color: #c5cad3;
 }
 
+.d1-reads-toasts {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 4000;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 0.5rem;
+  max-width: min(22.5rem, calc(100vw - 2rem));
+  pointer-events: none;
+}
+
+.d1-reads-toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0.65rem;
+  background: var(--panel);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+  animation: d1-reads-toast-in 180ms ease-out;
+}
+
+.d1-reads-toast.is-heavy {
+  border-color: #f59e0b;
+}
+
+.d1-reads-toast.is-error {
+  border-color: #ef4444;
+}
+
+.d1-reads-toast-body {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.d1-reads-toast-name {
+  font-size: 0.78rem;
+  font-weight: 650;
+  color: var(--text);
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.d1-reads-toast-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.85rem;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.d1-reads-toast-meta em {
+  font-style: normal;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.d1-reads-toast.is-heavy .d1-reads-toast-meta em {
+  color: #f59e0b;
+}
+
+.d1-reads-toast-close {
+  flex-shrink: 0;
+  width: 1.35rem;
+  height: 1.35rem;
+  padding: 0;
+  border: none;
+  border-radius: 0.35rem;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.d1-reads-toast-close:hover,
+.d1-reads-toast-close:focus-visible {
+  background: var(--panel-hover, rgba(255, 255, 255, 0.06));
+  color: var(--text);
+}
+
+@keyframes d1-reads-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .save-status.is-ok {
   color: #7dcea0;
   opacity: 1;
@@ -1080,6 +1181,392 @@ body.admin-page:has(.admin-app.is-grid-layout) {
   font-size: 0.9rem;
   opacity: 0.65;
   color: #c5cad3;
+}
+
+.game-catalog {
+  width: 100%;
+}
+
+.game-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: 1rem;
+}
+
+.game-card {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.85rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 0.9rem;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.game-card:hover {
+  border-color: var(--border-strong, var(--border));
+  background: var(--panel-hover, var(--panel));
+}
+
+.game-card-cover {
+  aspect-ratio: 16 / 10;
+  border-radius: 0.65rem;
+  overflow: hidden;
+  background: var(--embed, #111);
+  display: grid;
+  place-items: center;
+}
+
+.game-card-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.game-card-cover.is-empty {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+.game-card-body {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto;
+  gap: 0.2rem 0.5rem;
+  align-items: center;
+}
+
+.game-card-title {
+  grid-column: 1;
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.game-card-meta {
+  grid-column: 1;
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.game-card-open {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+
+.game-detail {
+  display: grid;
+  gap: 1rem;
+}
+
+/* Game detail uses the grid-layout viewport lock; scroll the detail pane. */
+.admin-app.is-game-detail .game-detail {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.admin-app.is-game-detail .game-detail-header {
+  flex: 0 0 auto;
+}
+
+.admin-app.is-game-detail .game-sections.is-grid-view {
+  flex: 0 0 auto;
+  overflow: visible;
+  min-height: 0;
+  height: auto;
+}
+
+.admin-app.is-game-detail .game-sections.is-grid-view .grid-table-wrap:not(.media-coverage-h-scroll) {
+  flex: 0 0 auto;
+  height: auto;
+  max-height: none;
+  /* clip (not visible) avoids the overflow-x/auto → overflow-y/auto quirk
+     that traps wheel scrolling inside the table. */
+  overflow-x: auto;
+  overflow-y: clip;
+  overscroll-behavior: auto;
+  /* Don't reserve dual gutters — keeps Status flush in the table corner. */
+  scrollbar-gutter: auto;
+}
+
+.game-detail-delete {
+  color: #f2a4a4;
+}
+
+.game-detail-delete[hidden] {
+  display: none !important;
+}
+
+.admin-app.is-game-detail #view-mode-control,
+.admin-app.is-game-detail #import-btn,
+.admin-app.is-game-detail #share-btn,
+#view-mode-control[hidden] {
+  display: none !important;
+}
+
+.admin-header-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.admin-home-btn[hidden] {
+  display: none !important;
+}
+
+.game-detail-header {
+  display: grid;
+  grid-template-columns: minmax(8rem, 12rem) 1fr;
+  gap: 1rem;
+  align-items: start;
+  padding: 1rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 0.9rem;
+}
+
+.game-detail-art {
+  aspect-ratio: 16 / 10;
+  border-radius: 0.65rem;
+  overflow: hidden;
+  background: var(--embed, #111);
+  display: grid;
+  place-items: center;
+}
+
+.game-detail-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.game-detail-art.is-empty {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+.game-detail-copy {
+  display: grid;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.game-detail-title {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.game-detail-meta {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.game-detail-store-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.85rem;
+}
+
+.game-detail-store-links a {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+  word-break: break-all;
+}
+
+.game-detail-meta-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.game-section.game-section-detail {
+  position: relative;
+}
+
+.game-detail-section-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.55rem;
+  padding-right: 2.6rem;
+}
+
+.game-detail-section-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.game-detail-section-add {
+  position: absolute;
+  top: 0.85rem;
+  right: 0.85rem;
+  width: 2.1rem;
+  height: 2.1rem;
+}
+
+.game-section-media-coverage {
+  display: grid;
+  gap: 1rem;
+}
+
+.media-coverage-inline-type {
+  display: grid;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+/* Media coverage: full-height grid + Excel-style H scrollbar pinned to viewport. */
+.game-section-media-coverage,
+.game-section-media-coverage .media-coverage-inline-type {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.media-coverage-h-scroll {
+  box-sizing: border-box;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  flex: 0 0 auto !important;
+  height: auto !important;
+  max-height: none !important;
+  overflow-x: auto !important;
+  overflow-y: visible !important;
+  /* Native bar hidden — viewport bar is the Excel-style control. */
+  scrollbar-width: none !important;
+}
+
+.media-coverage-h-scroll::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
+}
+
+.media-coverage-h-scroll .media-coverage-inline-table,
+.media-coverage-h-scroll .grid-table {
+  width: max-content;
+  min-width: 100%;
+}
+
+.media-coverage-viewport-hscroll {
+  position: fixed;
+  z-index: 35;
+  height: 14px;
+  overflow-x: scroll;
+  overflow-y: hidden;
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  border-radius: 0.35rem;
+  background: var(--panel-elevated);
+  scrollbar-width: auto;
+  scrollbar-color: var(--scrollbar) var(--panel-elevated);
+}
+
+.media-coverage-viewport-hscroll[hidden] {
+  display: none !important;
+}
+
+.media-coverage-viewport-hscroll::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+  display: block;
+}
+
+.media-coverage-viewport-hscroll::-webkit-scrollbar-track {
+  background: var(--panel-elevated);
+}
+
+.media-coverage-viewport-hscroll::-webkit-scrollbar-thumb {
+  background: var(--scrollbar);
+  border-radius: 999px;
+  border: 2px solid var(--panel-elevated);
+  background-clip: padding-box;
+}
+
+.media-coverage-viewport-hscroll-spacer {
+  height: 1px;
+  pointer-events: none;
+}
+
+/* Dialog keeps an in-panel always-on H scrollbar. */
+.media-coverage-dialog .media-coverage-type-table-scroll.grid-table-wrap {
+  box-sizing: border-box;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  overflow-x: scroll !important;
+  overflow-y: auto !important;
+  max-height: min(70vh, 40rem);
+  scrollbar-width: auto !important;
+  scrollbar-color: var(--scrollbar) var(--panel-elevated) !important;
+}
+
+.media-coverage-dialog .media-coverage-type-table-scroll.grid-table-wrap::-webkit-scrollbar {
+  width: 12px !important;
+  height: 12px !important;
+  display: block !important;
+}
+
+.game-sections.is-grid-view .media-coverage-inline-table a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 0.12em;
+}
+
+/* Match announcement grid row height (td pad + .cell-input min-height). */
+.game-sections.is-grid-view .media-coverage-inline-table tbody td {
+  height: calc(1.9rem + 0.7rem);
+  box-sizing: border-box;
+  vertical-align: middle;
+}
+
+.add-game-store-links-list {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.add-game-store-link-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.add-row-field-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.35rem;
+}
+
+.btn-ghost.is-danger {
+  color: #f2a4a4;
+}
+
+@media (max-width: 640px) {
+  .game-detail-header {
+    grid-template-columns: 1fr;
+  }
 }
 
 .game-sections {
@@ -1383,31 +1870,40 @@ body.admin-page:has(.admin-app.is-grid-layout) {
 .media-coverage-public-table-wrap {
   width: 100%;
   overflow-x: auto;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 0.75rem;
-  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: 0.45rem;
+  background: var(--surface, var(--panel));
 }
 
 .media-coverage-public-table {
   width: max-content;
   min-width: 100%;
   border-collapse: collapse;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
 }
 
 .media-coverage-public-table th,
 .media-coverage-public-table td {
-  padding: 0.55rem 0.7rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 0.35rem 0.45rem;
+  border: 1px solid var(--border);
   text-align: left;
   white-space: nowrap;
-  vertical-align: top;
+  vertical-align: middle;
+  background: var(--surface, var(--panel));
+  color: var(--text);
 }
 
 .media-coverage-public-table th {
-  font-weight: 700;
-  color: var(--text);
-  background: rgba(255, 255, 255, 0.04);
+  font-weight: 600;
+  font-size: 0.8rem;
+  letter-spacing: 0.01em;
+  background: var(--surface-2, var(--panel-elevated));
+}
+
+.media-coverage-public-table tbody tr:nth-child(even) td {
+  background: var(--panel-elevated);
 }
 
 .media-coverage-public-table a {
@@ -2719,51 +3215,80 @@ body.admin-page:has(.admin-app.is-grid-layout) {
 
 .media-coverage-type-tables {
   display: grid;
-  gap: 1.15rem;
+  gap: 1.35rem;
   width: max-content;
   min-width: 100%;
 }
 
+/* Match announcement grid: type label above a bordered spreadsheet table. */
 .media-coverage-type-table {
   display: grid;
-  gap: 0.55rem;
+  gap: 0.45rem;
   min-width: 0;
-  padding: 0.85rem;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 0.85rem;
-  background: rgba(255, 255, 255, 0.03);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .media-coverage-type-table-heading {
   display: flex;
   align-items: baseline;
   gap: 0.45rem;
+  padding: 0 0.1rem;
 }
 
 .media-coverage-type-table-heading .media-coverage-type-header-label {
   margin: 0;
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 700;
   letter-spacing: -0.01em;
 }
 
 /* Keep overflow on the outer wrap only so vertical scroll moves all tables. */
-.media-coverage-dialog .media-coverage-type-table-scroll.coverage-links-dialog-table-wrap {
+.media-coverage-dialog .media-coverage-type-table-scroll.grid-table-wrap {
   max-height: none;
+  height: auto;
   overflow: visible;
   padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 0.45rem;
+  background: var(--surface, var(--panel));
 }
 
-.media-coverage-dialog-table {
+.media-coverage-dialog-table.grid-table {
   table-layout: auto;
   width: max-content;
   min-width: max-content;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.9rem;
+  line-height: 1.4;
 }
 
-.media-coverage-dialog-table th,
-.media-coverage-dialog-table td {
+.media-coverage-dialog-table.grid-table th,
+.media-coverage-dialog-table.grid-table td {
+  border: 1px solid var(--border);
+  padding: 0.35rem 0.45rem;
+  background: var(--surface, var(--panel));
   white-space: nowrap;
   overflow: visible;
+  vertical-align: middle;
+}
+
+.media-coverage-dialog-table.grid-table th {
+  background: var(--surface-2, var(--panel-elevated));
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  text-align: left;
+}
+
+.media-coverage-dialog-table.grid-table tbody tr:nth-child(even) td {
+  background: var(--panel-elevated);
 }
 
 /* Don't inherit Coverage Links' fixed first/last column widths. */
@@ -2779,6 +3304,7 @@ body.admin-page:has(.admin-app.is-grid-layout) {
 .media-coverage-dialog-table td:last-child {
   width: 2.75rem;
   min-width: 2.75rem;
+  text-align: center;
 }
 
 .media-coverage-dialog-table .media-coverage-field {
@@ -2788,6 +3314,23 @@ body.admin-page:has(.admin-app.is-grid-layout) {
   box-sizing: border-box;
   overflow: visible;
   text-overflow: clip;
+  padding: 0.3rem 0.4rem;
+  border-radius: 0.2rem;
+  min-height: 1.9rem;
+  border: 1px solid transparent;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+.media-coverage-dialog-table .media-coverage-field:hover {
+  background: var(--panel-hover, rgba(255, 255, 255, 0.04));
+}
+
+.media-coverage-dialog-table .media-coverage-field:focus {
+  outline: none;
+  border-color: var(--border-strong, var(--border));
+  background: var(--panel);
 }
 
 .media-coverage-dialog.is-importing .media-coverage-table-wrap {
@@ -3041,7 +3584,7 @@ body.admin-page:has(.admin-app.is-grid-layout) {
 }
 
 .game-sections.is-grid-view {
-  gap: 0;
+  gap: 1.25rem;
   width: 100%;
 }
 

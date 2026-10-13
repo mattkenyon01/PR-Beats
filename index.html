@@ -136,7 +136,6 @@
       formatCoverageStat,
       groupMediaCoverageRowsByType,
       mediaCoverageColumnsForType,
-      mediaCoverageDisplayLabel,
       parseCoverageLinksValue,
       parseCoverageSectionTitle,
       parseMediaCoverageValue,
@@ -849,7 +848,6 @@
       // Useful public columns, further narrowed per Type section.
       const publicKeys = new Set([
         "publishedTime",
-        "customName",
         "handleId",
         "handleUrl",
         "handleCountry",
@@ -883,10 +881,10 @@
         heading.innerHTML = `<span class="media-coverage-type-header-label">${group.label}</span><span class="media-coverage-type-header-count">(${group.rows.length})</span>`;
 
         const wrap = document.createElement("div");
-        wrap.className = "media-coverage-public-table-wrap";
+        wrap.className = "media-coverage-public-table-wrap grid-table-wrap";
 
         const table = document.createElement("table");
-        table.className = "media-coverage-public-table";
+        table.className = "media-coverage-public-table grid-table";
 
         const thead = document.createElement("thead");
         const headRow = document.createElement("tr");
@@ -912,10 +910,7 @@
               anchor.href = value;
               anchor.target = "_blank";
               anchor.rel = "noopener noreferrer";
-              anchor.textContent =
-                column.key === "handleUrl"
-                  ? mediaCoverageDisplayLabel(row)
-                  : value;
+              anchor.textContent = value;
               td.appendChild(anchor);
             } else {
               td.textContent = value || "—";
