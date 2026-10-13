@@ -182,12 +182,12 @@
                             </li>
                         </ul>
                     </section>
-                    @if (!string.IsNullOrWhiteSpace(active.TotalWishlists))
+                    @if (HasWishlistData(active.TotalWishlists))
                     {
                         <section class="detail-card detail-card-wishlists">
                             <h3 class="detail-card-label">Total wishlists</h3>
                             <ul class="detail-card-list">
-                                <li>@active.TotalWishlists.Trim()</li>
+                                <li>@active.TotalWishlists!.Trim()</li>
                             </ul>
                         </section>
                     }
@@ -738,6 +738,18 @@
         return CountryFlagCodes.TryGetValue(key, out var mapped)
             ? $"https://flagcdn.com/w80/{mapped}.png"
             : "";
+    }
+
+    private static bool HasWishlistData(string? value)
+    {
+        var text = value?.Trim() ?? "";
+        if (string.IsNullOrWhiteSpace(text)) return false;
+        return !System.Text.RegularExpressions.Regex.IsMatch(
+            text,
+            @"^(no data|n/a|na|-|—|–)$",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase |
+                System.Text.RegularExpressions.RegexOptions.CultureInvariant
+        );
     }
 
     private static List<CoverageLinkItem> CoverageLinksForEntries(IEnumerable<AnnouncementRow> entries)

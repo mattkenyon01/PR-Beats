@@ -1287,6 +1287,11 @@ body.admin-page:has(.admin-app.is-grid-layout) {
   min-width: 0;
 }
 
+/* .detail-card { display: grid } otherwise wins over the UA [hidden] rule. */
+.detail-card[hidden] {
+  display: none !important;
+}
+
 .detail-card > .platform-chips.readonly,
 .detail-card > .detail-card-list {
   align-self: center;

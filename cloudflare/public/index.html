@@ -1111,7 +1111,9 @@
       estimatedReachEl.appendChild(reachLi);
 
       const wishlists = (row.totalWishlists || "").trim();
-      if (wishlists) {
+      const hasWishlists =
+        wishlists && !/^(no data|n\/a|na|-|—|–)$/i.test(wishlists);
+      if (hasWishlists) {
         const wishlistsLi = document.createElement("li");
         wishlistsLi.textContent = wishlists;
         totalWishlistsEl.appendChild(wishlistsLi);
