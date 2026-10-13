@@ -748,6 +748,274 @@ async function ensureMediaCoverageColumn(db) {
   }
 }
 
+/** Keep each media-coverage chunk well under D1's 2MB row limit. */
+const MEDIA_COVERAGE_ROWS_PER_CHUNK = 75;
+const MEDIA_COVERAGE_SECTION_TITLE = "Media Coverage";
+
+async function ensureMediaCoverageChunksTable(db) {
+  await db
+    .prepare(
+      `CREATE TABLE IF NOT EXISTS media_coverage_chunks (
+         game_title_key TEXT NOT NULL,
+         game_title TEXT NOT NULL DEFAULT '',
+         chunk_index INTEGER NOT NULL,
+         data_json TEXT NOT NULL DEFAULT '[]',
+         updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+         PRIMARY KEY (game_title_key, chunk_index)
+       )`
+    )
+    .run();
+  try {
+    await db
+      .prepare(
+        `CREATE INDEX IF NOT EXISTS idx_media_coverage_chunks_game
+         ON media_coverage_chunks (game_title_key, chunk_index)`
+      )
+      .run();
+  } catch {
+    // Index already exists.
+  }
+}
+
+function mediaCoverageGameKey(gameTitle) {
+  return normalizeFilterKey(gameTitle) || "untitled";
+}
+
+function compactMediaCoverageItem(item) {
+  if (!item || typeof item !== "object") return null;
+  const out = {};
+  for (const [key, value] of Object.entries(item)) {
+    const text = String(value ?? "").trim();
+    if (text) out[key] = text;
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+function parseMediaCoverageRowsFromValue(value) {
+  const text = String(value || "").trim();
+  if (!text) return [];
+
+  if (text.startsWith("{") || text.startsWith("[")) {
+    try {
+      const parsed = JSON.parse(text);
+      const rows = Array.isArray(parsed)
+        ? parsed
+        : parsed?.rows ?? parsed?.links ?? [];
+      if (!Array.isArray(rows)) return [];
+      return rows
+        .map((item) => {
+          if (typeof item === "string") {
+            const details = item.trim();
+            return details ? { details } : null;
+          }
+          return compactMediaCoverageItem(item);
+        })
+        .filter(Boolean);
+    } catch {
+      /* fall through */
+    }
+  }
+
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => ({ details: line }));
+}
+
+function buildMediaCoverageValue(rows) {
+  const cleaned = (Array.isArray(rows) ? rows : [])
+    .map((item) => compactMediaCoverageItem(item))
+    .filter(Boolean);
+  if (!cleaned.length) return "";
+  return JSON.stringify({
+    sectionTitle: MEDIA_COVERAGE_SECTION_TITLE,
+    rows: cleaned,
+  });
+}
+
+async function loadMediaCoverageValueForGame(db, gameTitle) {
+  await ensureMediaCoverageChunksTable(db);
+  const key = mediaCoverageGameKey(gameTitle);
+  const result = await db
+    .prepare(
+      `SELECT data_json
+       FROM media_coverage_chunks
+       WHERE game_title_key = ?
+       ORDER BY chunk_index ASC`
+    )
+    .bind(key)
+    .all();
+
+  const rows = [];
+  for (const row of result.results || []) {
+    try {
+      const parsed = JSON.parse(String(row.data_json || "[]"));
+      if (Array.isArray(parsed)) rows.push(...parsed);
+    } catch {
+      // Skip corrupt chunks.
+    }
+  }
+  return buildMediaCoverageValue(rows);
+}
+
+async function replaceMediaCoverageForGame(db, gameTitle, mediaCoverageValue) {
+  await ensureMediaCoverageChunksTable(db);
+  const title = String(gameTitle || "").trim() || "Untitled";
+  const key = mediaCoverageGameKey(title);
+  const rows = parseMediaCoverageRowsFromValue(mediaCoverageValue);
+  const nextValue = buildMediaCoverageValue(rows);
+  const existingValue = await loadMediaCoverageValueForGame(db, title);
+  if (existingValue === nextValue) return;
+
+  await db
+    .prepare(`DELETE FROM media_coverage_chunks WHERE game_title_key = ?`)
+    .bind(key)
+    .run();
+
+  if (!rows.length) return;
+
+  const statements = [];
+  for (let i = 0; i < rows.length; i += MEDIA_COVERAGE_ROWS_PER_CHUNK) {
+    const chunk = rows.slice(i, i + MEDIA_COVERAGE_ROWS_PER_CHUNK);
+    const chunkIndex = Math.floor(i / MEDIA_COVERAGE_ROWS_PER_CHUNK);
+    statements.push(
+      db
+        .prepare(
+          `INSERT INTO media_coverage_chunks (
+             game_title_key, game_title, chunk_index, data_json, updated_at
+           ) VALUES (?, ?, ?, ?, datetime('now'))`
+        )
+        .bind(key, title, chunkIndex, JSON.stringify(chunk))
+    );
+  }
+  await db.batch(statements);
+}
+
+async function loadMediaCoverageValueMap(db) {
+  await ensureMediaCoverageChunksTable(db);
+  const result = await db
+    .prepare(
+      `SELECT game_title_key, chunk_index, data_json
+       FROM media_coverage_chunks
+       ORDER BY game_title_key ASC, chunk_index ASC`
+    )
+    .all();
+
+  const grouped = new Map();
+  for (const row of result.results || []) {
+    const key = String(row.game_title_key || "");
+    if (!key) continue;
+    if (!grouped.has(key)) grouped.set(key, []);
+    try {
+      const parsed = JSON.parse(String(row.data_json || "[]"));
+      if (Array.isArray(parsed)) {
+        grouped.get(key).push(...parsed);
+      }
+    } catch {
+      // Skip corrupt chunks.
+    }
+  }
+
+  const out = new Map();
+  for (const [key, rows] of grouped.entries()) {
+    out.set(key, buildMediaCoverageValue(rows));
+  }
+  return out;
+}
+
+async function attachMediaCoverageToRows(db, rows) {
+  const list = Array.isArray(rows) ? rows : [];
+  if (!list.length) return list;
+
+  const map = await loadMediaCoverageValueMap(db);
+  const migrated = [];
+
+  const next = list.map((row) => {
+    const key = mediaCoverageGameKey(row.gameTitle);
+    const fromChunks = map.get(key);
+    if (fromChunks) {
+      return { ...row, mediaCoverage: fromChunks };
+    }
+
+    const legacy = String(row.mediaCoverage || "").trim();
+    if (legacy) {
+      migrated.push({
+        title: String(row.gameTitle || "").trim() || "Untitled",
+        key,
+        value: legacy,
+      });
+    }
+    return row;
+  });
+
+  // One-time move of legacy announcement.media_coverage blobs into chunks.
+  const seen = new Set();
+  for (const item of migrated) {
+    if (seen.has(item.key)) continue;
+    seen.add(item.key);
+    try {
+      await replaceMediaCoverageForGame(db, item.title, item.value);
+      await db
+        .prepare(
+          `UPDATE announcements
+           SET media_coverage = '', updated_at = datetime('now')
+           WHERE lower(trim(game_title)) = lower(trim(?))`
+        )
+        .bind(item.title)
+        .run();
+      map.set(item.key, buildMediaCoverageValue(parseMediaCoverageRowsFromValue(item.value)));
+    } catch {
+      // Leave legacy value on the row if migration fails.
+    }
+  }
+
+  if (!seen.size) return next;
+
+  return next.map((row) => {
+    const key = mediaCoverageGameKey(row.gameTitle);
+    const fromChunks = map.get(key);
+    return fromChunks ? { ...row, mediaCoverage: fromChunks } : row;
+  });
+}
+
+async function replaceAllMediaCoverageFromAnnouncementRows(db, rows) {
+  await ensureMediaCoverageChunksTable(db);
+  const byGame = new Map();
+  for (const row of Array.isArray(rows) ? rows : []) {
+    const title = String(row?.gameTitle || "").trim() || "Untitled";
+    const key = mediaCoverageGameKey(title);
+    if (byGame.has(key)) continue;
+    byGame.set(key, {
+      title,
+      value: String(row?.mediaCoverage || ""),
+    });
+  }
+
+  await db.prepare(`DELETE FROM media_coverage_chunks`).run();
+
+  for (const { title, value } of byGame.values()) {
+    const items = parseMediaCoverageRowsFromValue(value);
+    if (!items.length) continue;
+    const statements = [];
+    const key = mediaCoverageGameKey(title);
+    for (let i = 0; i < items.length; i += MEDIA_COVERAGE_ROWS_PER_CHUNK) {
+      const chunk = items.slice(i, i + MEDIA_COVERAGE_ROWS_PER_CHUNK);
+      const chunkIndex = Math.floor(i / MEDIA_COVERAGE_ROWS_PER_CHUNK);
+      statements.push(
+        db
+          .prepare(
+            `INSERT INTO media_coverage_chunks (
+               game_title_key, game_title, chunk_index, data_json, updated_at
+             ) VALUES (?, ?, ?, ?, datetime('now'))`
+          )
+          .bind(key, title, chunkIndex, JSON.stringify(chunk))
+      );
+    }
+    if (statements.length) await db.batch(statements);
+  }
+}
+
 function isPrivateHostname(hostname) {
   const host = String(hostname || "").toLowerCase();
   if (
@@ -1231,6 +1499,41 @@ async function serveStoredImage(env, folder, ownerUid, fileName, request) {
   return new Response(object.body, { status: 200, headers });
 }
 
+/** Fill empty gameImage from any sibling row with the same game title. */
+function attachGameImagesToRows(rows) {
+  const list = Array.isArray(rows) ? rows : [];
+  if (!list.length) return list;
+
+  const imageByGame = new Map();
+  for (const row of list) {
+    const key = mediaCoverageGameKey(row.gameTitle);
+    const image = String(row.gameImage || "").trim();
+    if (image && !imageByGame.has(key)) imageByGame.set(key, image);
+  }
+
+  return list.map((row) => {
+    const key = mediaCoverageGameKey(row.gameTitle);
+    const shared = imageByGame.get(key) || "";
+    if (!shared) return row;
+    if (String(row.gameImage || "").trim() === shared) return row;
+    return { ...row, gameImage: shared };
+  });
+}
+
+/** Persist a cover URL onto every announcement row for that game title. */
+async function propagateGameImageToTitle(db, gameTitle, gameImage) {
+  const title = String(gameTitle || "").trim() || "Untitled";
+  const image = String(gameImage || "").trim();
+  await db
+    .prepare(
+      `UPDATE announcements
+       SET game_image = ?, updated_at = datetime('now')
+       WHERE lower(trim(game_title)) = lower(trim(?))`
+    )
+    .bind(image, title)
+    .run();
+}
+
 async function listAnnouncements(db, ownerUid) {
   await ensureMediaCoverageColumn(db);
   const result = await db
@@ -1243,7 +1546,11 @@ async function listAnnouncements(db, ownerUid) {
     .bind(ownerUid)
     .all();
 
-  return (result.results || []).map(rowFromDb);
+  const rows = await attachMediaCoverageToRows(
+    db,
+    (result.results || []).map(rowFromDb)
+  );
+  return attachGameImagesToRows(rows);
 }
 
 async function listAllAnnouncements(db) {
@@ -1256,7 +1563,11 @@ async function listAllAnnouncements(db) {
     )
     .all();
 
-  return (result.results || []).map(rowFromDb);
+  const rows = await attachMediaCoverageToRows(
+    db,
+    (result.results || []).map(rowFromDb)
+  );
+  return attachGameImagesToRows(rows);
 }
 
 /** Normalize labels for URL matching: case-insensitive, spaces/hyphens/underscores equal. */
@@ -1465,6 +1776,12 @@ async function upsertAnnouncement(db, ownerUid, id, row) {
       : await nextSortOrder(db);
 
   await ensureMediaCoverageColumn(db);
+  const gameTitle = String(row.gameTitle ?? "");
+  const mediaCoverageValue = String(row.mediaCoverage ?? "");
+  const gameImageValue = String(row.gameImage ?? "").trim();
+  // Keep announcement row small; large CSVs live in media_coverage_chunks.
+  await replaceMediaCoverageForGame(db, gameTitle, mediaCoverageValue);
+
   await db
     .prepare(
       `INSERT INTO announcements (
@@ -1494,7 +1811,7 @@ async function upsertAnnouncement(db, ownerUid, id, row) {
     .bind(
       rowId,
       ownerUid,
-      String(row.gameTitle ?? ""),
+      gameTitle,
       String(row.announcementTitle ?? ""),
       String(row.date ?? ""),
       String(row.month ?? ""),
@@ -1505,18 +1822,23 @@ async function upsertAnnouncement(db, ownerUid, id, row) {
       String(row.highlights ?? ""),
       String(row.totalWishlists ?? ""),
       String(row.coverageLinks ?? ""),
-      String(row.mediaCoverage ?? ""),
-      String(row.gameImage ?? ""),
+      "",
+      gameImageValue,
       sortOrder
     )
     .run();
+
+  // Covers are per-game: copy onto every announcement with this title.
+  await propagateGameImageToTitle(db, gameTitle, gameImageValue);
 
   const saved = await db
     .prepare(`SELECT * FROM announcements WHERE id = ?`)
     .bind(rowId)
     .first();
+  const withMedia = await attachMediaCoverageToRows(db, [rowFromDb(saved)]);
+  const [attached] = attachGameImagesToRows(withMedia);
   const revision = await getDatasetRevision(db);
-  return { row: rowFromDb(saved), revision };
+  return { row: attached || rowFromDb(saved), revision };
 }
 
 async function deleteAnnouncementById(db, id) {
@@ -1553,9 +1875,11 @@ async function replaceAnnouncements(db, ownerUid, rows, expectedRevision) {
   // Shared dataset: any admin save replaces the full announcement table.
   // owner_uid is retained as the last editor for audit, not as a visibility filter.
   await ensureMediaCoverageColumn(db);
+  await replaceAllMediaCoverageFromAnnouncementRows(db, rows);
+  const syncedRows = attachGameImagesToRows(rows);
   const statements = [db.prepare(`DELETE FROM announcements`)];
 
-  rows.forEach((row, index) => {
+  syncedRows.forEach((row, index) => {
     const rawId = String(row?.id ?? "").trim();
     // Ignore legacy numeric CSV indexes; always persist stable string ids.
     const id = rawId && !/^\d+$/.test(rawId) ? rawId : crypto.randomUUID();
@@ -1584,8 +1908,8 @@ async function replaceAnnouncements(db, ownerUid, rows, expectedRevision) {
           String(row.highlights ?? ""),
           String(row.totalWishlists ?? ""),
           String(row.coverageLinks ?? ""),
-          String(row.mediaCoverage ?? ""),
-          String(row.gameImage ?? ""),
+          "",
+          String(row.gameImage ?? "").trim(),
           index
         )
     );

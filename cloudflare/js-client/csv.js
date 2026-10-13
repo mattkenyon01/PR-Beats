@@ -142,12 +142,12 @@ export const MEDIA_COVERAGE_COLUMNS = [
   },
   {
     key: "customName",
-    label: 'Custom First/Last Name-Field (e.g. "Ben")',
+    label: "Custom Name",
     aliases: [
+      "custom name",
       "custom first/last name-field (e.g. \"ben\")",
       "custom first/last name-field",
       "custom first last name",
-      "custom name",
       "name",
       "first last name",
       "creator name",
@@ -375,15 +375,17 @@ export function parseMediaCoverageValue(value) {
 }
 
 export function serializeMediaCoverageValue(rows) {
+  // Omit empty fields so large CSVs stay compact over the wire / in D1 chunks.
   const cleaned = (Array.isArray(rows) ? rows : [])
     .map((item) => {
-      const row = emptyMediaCoverageRow();
+      const row = {};
       MEDIA_COVERAGE_COLUMNS.forEach((column) => {
-        row[column.key] = String(item?.[column.key] ?? "").trim();
+        const value = String(item?.[column.key] ?? "").trim();
+        if (value) row[column.key] = value;
       });
       return row;
     })
-    .filter(mediaCoverageRowHasContent);
+    .filter((row) => Object.keys(row).length > 0);
 
   if (!cleaned.length) return "";
   return JSON.stringify({
@@ -566,6 +568,80 @@ export function mediaCoverageTypeLabel(value) {
   return raw;
 }
 
+/** Shared columns shown on every media-coverage type table. */
+const MEDIA_COVERAGE_SHARED_KEYS = new Set([
+  "publishedTime",
+  "game",
+  "type",
+  "customName",
+  "handleId",
+  "handleUrl",
+  "handleLanguage",
+  "handleCountry",
+  "handleEmail",
+  "details",
+]);
+
+/** Platform-specific metric columns keyed by normalized platform id. */
+const MEDIA_COVERAGE_PLATFORM_KEYS = {
+  youtube: new Set([
+    "youtubeViews",
+    "youtubeLikes",
+    "youtubeComments",
+    "youtubeTitle",
+    "youtubeChannelTitle",
+    "youtubeSubs",
+  ]),
+  twitch: new Set([
+    "twitchAccount",
+    "twitchFollower",
+    "twitchAverageViewers",
+    "twitchStreamDuration",
+    "twitchStreamDurationMinutes",
+  ]),
+  tiktok: new Set(["tiktokViews", "tiktokFollower"]),
+  instagram: new Set([
+    "instagramViews",
+    "instagramLikes",
+    "instagramComments",
+  ]),
+  bilibili: new Set([
+    "bilibiliTitle",
+    "bilibiliViews",
+    "bilibiliLikes",
+    "bilibiliComments",
+  ]),
+};
+
+/** Normalize a Type value to youtube | twitch | tiktok | instagram | bilibili | "". */
+export function mediaCoveragePlatformId(typeValue) {
+  const key = mediaCoverageTypeKey(mediaCoverageTypeLabel(typeValue));
+  if (key === "yt" || key === "youtube") return "youtube";
+  if (key === "twitch") return "twitch";
+  if (key === "tiktok" || key === "tik tok") return "tiktok";
+  if (key === "instagram" || key === "ig") return "instagram";
+  if (key === "bilibili" || key === "bili bili" || key === "bili") {
+    return "bilibili";
+  }
+  return "";
+}
+
+/**
+ * Columns to show for a given Type section.
+ * YouTube tables omit Twitch/TikTok/Instagram/BiliBili headers (and vice versa).
+ * Unknown / Other sections only show shared fields.
+ */
+export function mediaCoverageColumnsForType(typeValue) {
+  const platform = mediaCoveragePlatformId(typeValue);
+  const platformKeys = platform
+    ? MEDIA_COVERAGE_PLATFORM_KEYS[platform]
+    : null;
+  return MEDIA_COVERAGE_COLUMNS.filter((column) => {
+    if (MEDIA_COVERAGE_SHARED_KEYS.has(column.key)) return true;
+    return Boolean(platformKeys?.has(column.key));
+  });
+}
+
 function mediaCoverageTypeSortRank(value) {
   const key = mediaCoverageTypeKey(value);
   if (!key) return MEDIA_COVERAGE_TYPE_ORDER.length + 1;
@@ -607,8 +683,8 @@ export function linkSectionDef(key) {
     return {
       key: "coverageLinks",
       label: "Coverage Links",
-      defaultTitle: "Coverage links",
-      prefixes: ["coverage", "coverage links", "coverage link"],
+      defaultTitle: "Campaign Coverage",
+      prefixes: ["coverage", "coverage links", "coverage link", "campaign coverage"],
       optionalInStatus: false,
     };
   }
@@ -1198,7 +1274,7 @@ function coverageRowHasContent(row) {
   );
 }
 
-export const DEFAULT_COVERAGE_SECTION_TITLE = "Coverage links";
+export const DEFAULT_COVERAGE_SECTION_TITLE = "Campaign Coverage";
 
 function mapCoverageLinkItems(parsed) {
   if (!Array.isArray(parsed)) return [];

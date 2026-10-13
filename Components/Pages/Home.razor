@@ -2,11 +2,14 @@
 @rendermode InteractiveServer
 @inject HttpClient Http
 @inject NavigationManager Navigation
+@inject IJSRuntime JS
+@implements IAsyncDisposable
 
 <PageTitle>PR beats</PageTitle>
 
 @{
     string? activeImageUrl = null;
+    string? coverDiagnostic = null;
     var coverAlt = "";
     if (_slides.Count > 0)
     {
@@ -14,11 +17,30 @@
         coverAlt = string.IsNullOrWhiteSpace(activeRow.GameTitle)
             ? "Untitled"
             : activeRow.GameTitle.Trim();
-        activeImageUrl = string.IsNullOrWhiteSpace(activeRow.GameImage)
-            ? null
-            : activeRow.GameImage.Trim();
+        var rowImage = activeRow.GameImage?.Trim() ?? "";
+        var sharedImage = GameImageForTitle(coverAlt);
+        if (!string.IsNullOrWhiteSpace(rowImage))
+        {
+            activeImageUrl = rowImage;
+        }
+        else if (!string.IsNullOrWhiteSpace(sharedImage))
+        {
+            // Same behavior as Admin: cover is per-game, not per-announcement.
+            activeImageUrl = sharedImage;
+        }
+        else
+        {
+            coverDiagnostic =
+                $"No cover image found for “{coverAlt}”. " +
+                "This announcement’s gameImage field is empty in the API, " +
+                "and no other announcement for this game has one either. " +
+                "Re-upload the cover in Admin (game settings) and wait for Save to finish.";
+        }
     }
-    var hasCover = !string.IsNullOrWhiteSpace(activeImageUrl);
+    var hasCover = !string.IsNullOrWhiteSpace(activeImageUrl) && string.IsNullOrWhiteSpace(_coverLoadError);
+    var coverErrorText = !string.IsNullOrWhiteSpace(_coverLoadError)
+        ? _coverLoadError
+        : coverDiagnostic;
 }
 
 <div class="public-app @(_showGate ? "is-gate" : null)">
@@ -88,13 +110,20 @@
             </div>
 
             <div class="cover-banner @(hasCover ? null : "is-empty")" aria-hidden="@(hasCover ? "false" : "true")">
-                @if (hasCover)
+                @if (!string.IsNullOrWhiteSpace(activeImageUrl) && string.IsNullOrWhiteSpace(_coverLoadError))
                 {
-                    <img class="carousel-game-image" src="@activeImageUrl" alt="@coverAlt" />
+                    <img class="carousel-game-image"
+                         src="@activeImageUrl"
+                         alt="@coverAlt"
+                         @onerror="OnCoverImageError" />
                 }
                 else
                 {
                     <span class="cover-banner-placeholder">Cover image</span>
+                    @if (!string.IsNullOrWhiteSpace(coverErrorText))
+                    {
+                        <p class="cover-banner-error" role="alert">@coverErrorText</p>
+                    }
                 }
             </div>
 
@@ -104,8 +133,8 @@
                 {
                     <p class="carousel-subtitle">@announcementTitle</p>
                 }
-                <div class="detail-cards detail-cards-row">
-                    <section class="detail-card">
+                <div class="detail-cards detail-cards-row" @ref="_detailCardsRef">
+                    <section class="detail-card detail-card-platforms" @ref="_platformsCardRef">
                         <h3 class="detail-card-label">Platforms</h3>
                         @{
                             var platforms = PlatformsForEntries(entries);
@@ -120,7 +149,7 @@
                                 @foreach (var platform in platforms)
                                 {
                                     <div class="platform-entry">
-                                        <img class="platform-icon" src="@platform.Icon" alt="" />
+                                        <img class="platform-icon" src="@platform.Icon" alt="" @onload="OnPlatformIconLoad" />
                                         <span class="platform-name">@platform.Label</span>
                                     </div>
                                 }
@@ -153,24 +182,21 @@
                             </li>
                         </ul>
                     </section>
-                    <section class="detail-card">
-                        <h3 class="detail-card-label">Total wishlists</h3>
-                        <ul class="detail-card-list">
-                            @{
-                                var wishlists = string.IsNullOrWhiteSpace(active.TotalWishlists)
-                                    ? "No data"
-                                    : active.TotalWishlists.Trim();
-                            }
-                            <li class="@(string.IsNullOrWhiteSpace(active.TotalWishlists) ? "is-empty" : null)">
-                                @wishlists
-                            </li>
-                        </ul>
-                    </section>
+                    @if (!string.IsNullOrWhiteSpace(active.TotalWishlists))
+                    {
+                        <section class="detail-card detail-card-wishlists">
+                            <h3 class="detail-card-label">Total wishlists</h3>
+                            <ul class="detail-card-list">
+                                <li>@active.TotalWishlists.Trim()</li>
+                            </ul>
+                        </section>
+                    }
                 </div>
 
                 @{
                     var trailerEmbed = YoutubeEmbedUrl(active.Trailer);
-                    var pdfEmbed = PdfEmbedUrl(active.PressReleasePdf);
+                    var pdfFull = PdfEmbedUrl(active.PressReleasePdf, toolbar: true);
+                    var pdfEmbed = PdfEmbedUrl(active.PressReleasePdf, toolbar: false);
                 }
                 <div class="media-cards">
                     <section class="trailer-card @(string.IsNullOrWhiteSpace(trailerEmbed) ? "is-empty" : null)" aria-label="Trailer">
@@ -191,22 +217,30 @@
                         </div>
                     </section>
 
-                    <section class="trailer-card @(string.IsNullOrWhiteSpace(pdfEmbed) ? "is-empty" : null)" aria-label="Press release PDF">
+                    <section class="trailer-card pdf-card @(string.IsNullOrWhiteSpace(pdfEmbed) ? "is-empty" : null)" aria-label="Press release PDF">
                         <div class="media-card-heading">
                             <h3 class="detail-card-label">Press release PDF</h3>
-                            @if (!string.IsNullOrWhiteSpace(pdfEmbed))
+                            @if (!string.IsNullOrWhiteSpace(pdfFull))
                             {
                                 <button type="button"
                                         class="btn-ghost media-expand-btn"
-                                        @onclick="() => OpenPdfViewer(pdfEmbed)">
-                                    Expand
+                                        aria-label="Expand PDF"
+                                        title="Expand PDF"
+                                        @onclick="() => OpenPdfViewer(pdfFull)">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                        <path d="M15 3h6v6" />
+                                        <path d="m21 3-7 7" />
+                                        <path d="m3 21 7-7" />
+                                        <path d="M3 15v6h6" />
+                                    </svg>
                                 </button>
                             }
                         </div>
                         <div class="trailer-embed">
                             @if (!string.IsNullOrWhiteSpace(pdfEmbed))
                             {
-                                <iframe src="@pdfEmbed"
+                                <iframe class="pdf-preview-frame"
+                                        src="@pdfEmbed"
                                         title="Press release PDF"
                                         allow="fullscreen"
                                         allowfullscreen></iframe>
@@ -221,10 +255,9 @@
 
                 @{
                     var coverageLinks = CoverageLinksForEntries(entries);
-                    var coverageSectionTitle = CoverageSectionTitleForEntries(entries);
                 }
                 <section class="coverage-links-section" aria-labelledby="coverage-links-heading">
-                    <h3 class="detail-card-label coverage-links-heading" id="coverage-links-heading">@coverageSectionTitle (@coverageLinks.Count)</h3>
+                    <h3 class="detail-card-label coverage-links-heading" id="coverage-links-heading">Campaign Coverage</h3>
                     <div class="coverage-links-panel">
                     <div class="coverage-links-grid">
                         @if (coverageLinks.Count == 0)
@@ -335,6 +368,59 @@
     private bool _pdfViewerOpen;
     private string? _pdfViewerUrl;
     private List<AnnouncementRow> _slides = [];
+    private ElementReference _detailCardsRef;
+    private ElementReference _platformsCardRef;
+    private bool _detailCardsWatchReady;
+    private string? _coverLoadError;
+    private string? _coverLoadAttemptUrl;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_showGate || _slides.Count == 0) return;
+        await SyncDetailCardHeightsAsync(setupWatch: firstRender || !_detailCardsWatchReady);
+    }
+
+    private async Task SyncDetailCardHeightsAsync(bool setupWatch = false)
+    {
+        try
+        {
+            if (setupWatch || !_detailCardsWatchReady)
+            {
+                await JS.InvokeVoidAsync(
+                    "prbeatsWatchDetailCardHeights",
+                    _detailCardsRef,
+                    _platformsCardRef);
+                _detailCardsWatchReady = true;
+            }
+            else
+            {
+                await JS.InvokeVoidAsync(
+                    "prbeatsSyncDetailCardHeights",
+                    _detailCardsRef,
+                    _platformsCardRef);
+            }
+        }
+        catch (JSDisconnectedException)
+        {
+            // Circuit gone.
+        }
+        catch (InvalidOperationException)
+        {
+            // JS not ready yet on first paint.
+        }
+        catch (JSException)
+        {
+            // Script may not be loaded yet; retry next render.
+            _detailCardsWatchReady = false;
+        }
+    }
+
+    private async Task OnPlatformIconLoad()
+    {
+        await SyncDetailCardHeightsAsync();
+    }
+
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 
     protected override async Task OnInitializedAsync()
     {
@@ -382,6 +468,47 @@
         if (_slides.Count == 0) return;
         ClosePdfViewer();
         _activeIndex = ((index % _slides.Count) + _slides.Count) % _slides.Count;
+        _detailCardsWatchReady = false;
+        _coverLoadError = null;
+        _coverLoadAttemptUrl = null;
+    }
+
+    private void OnCoverImageError()
+    {
+        if (_slides.Count == 0) return;
+        var activeRow = _slides[_activeIndex];
+        var gameTitle = string.IsNullOrWhiteSpace(activeRow.GameTitle)
+            ? "Untitled"
+            : activeRow.GameTitle.Trim();
+        var url = GameImageForTitle(gameTitle);
+        if (string.IsNullOrWhiteSpace(url))
+            url = activeRow.GameImage?.Trim() ?? "";
+        if (string.IsNullOrWhiteSpace(url)) return;
+        if (string.Equals(_coverLoadAttemptUrl, url, StringComparison.Ordinal))
+            return;
+        _coverLoadAttemptUrl = url;
+        var shortUrl = url.Length > 120 ? url[..117] + "…" : url;
+        _coverLoadError =
+            $"Cover image URL failed to load for “{gameTitle}”. " +
+            $"Browser could not fetch: {shortUrl}. " +
+            "Check the URL is reachable from this page (Worker / R2), or re-upload in Admin.";
+    }
+
+    private string GameImageForTitle(string gameTitle)
+    {
+        var key = string.IsNullOrWhiteSpace(gameTitle) ? "Untitled" : gameTitle.Trim();
+        foreach (var row in _slides)
+        {
+            var title = string.IsNullOrWhiteSpace(row.GameTitle)
+                ? "Untitled"
+                : row.GameTitle.Trim();
+            if (!string.Equals(title, key, StringComparison.OrdinalIgnoreCase))
+                continue;
+            var image = row.GameImage?.Trim() ?? "";
+            if (!string.IsNullOrWhiteSpace(image))
+                return image;
+        }
+        return "";
     }
 
     private void OpenPdfViewer(string? url)
@@ -650,50 +777,6 @@
             : double.NegativeInfinity;
     }
 
-    private const string DefaultCoverageSectionTitle = "Coverage links";
-
-    private static string CoverageSectionTitleForEntries(IEnumerable<AnnouncementRow> entries)
-    {
-        string? fallback = null;
-        foreach (var row in entries)
-        {
-            var title = ParseCoverageSectionTitle(row.CoverageLinks);
-            if (string.IsNullOrWhiteSpace(title)) continue;
-            fallback ??= title;
-            if (!title.Equals(DefaultCoverageSectionTitle, StringComparison.OrdinalIgnoreCase))
-            {
-                return title;
-            }
-        }
-        return fallback ?? DefaultCoverageSectionTitle;
-    }
-
-    private static string ParseCoverageSectionTitle(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value)) return DefaultCoverageSectionTitle;
-        var text = value.Trim();
-        if (!text.StartsWith('{')) return DefaultCoverageSectionTitle;
-        try
-        {
-            using var document = System.Text.Json.JsonDocument.Parse(text);
-            if (document.RootElement.ValueKind != System.Text.Json.JsonValueKind.Object)
-            {
-                return DefaultCoverageSectionTitle;
-            }
-            if (document.RootElement.TryGetProperty("sectionTitle", out var sectionTitle) ||
-                document.RootElement.TryGetProperty("title", out sectionTitle))
-            {
-                var title = sectionTitle.GetString()?.Trim() ?? "";
-                return string.IsNullOrWhiteSpace(title) ? DefaultCoverageSectionTitle : title;
-            }
-        }
-        catch (System.Text.Json.JsonException)
-        {
-            // Fall through.
-        }
-        return DefaultCoverageSectionTitle;
-    }
-
     private static List<CoverageLinkItem> ParseCoverageLinkArray(System.Text.Json.JsonElement array)
     {
         return array
@@ -846,7 +929,7 @@
             .ToList();
     }
 
-    private static string? PdfEmbedUrl(string? value)
+    private static string? PdfEmbedUrl(string? value, bool toolbar = true)
     {
         var raw = value?.Trim();
         if (string.IsNullOrWhiteSpace(raw)) return null;
@@ -869,7 +952,44 @@
                 : $"https://drive.google.com/file/d/{id}/preview";
         }
 
-        return uri.AbsoluteUri;
+        return WithPdfViewerChrome(uri.AbsoluteUri, toolbar);
+    }
+
+    private static string WithPdfViewerChrome(string href, bool toolbar)
+    {
+        if (!Uri.TryCreate(href, UriKind.Absolute, out var uri)) return href;
+
+        var host = uri.Host.Replace("www.", "", StringComparison.OrdinalIgnoreCase);
+        if (host.Equals("drive.google.com", StringComparison.OrdinalIgnoreCase) ||
+            host.Equals("docs.google.com", StringComparison.OrdinalIgnoreCase))
+        {
+            return href;
+        }
+
+        var parts = (uri.Fragment ?? "")
+            .TrimStart('#')
+            .Split('&', StringSplitOptions.RemoveEmptyEntries)
+            .Select(part => part.Trim())
+            .Where(part =>
+                !part.StartsWith("toolbar=", StringComparison.OrdinalIgnoreCase) &&
+                !part.StartsWith("navpanes=", StringComparison.OrdinalIgnoreCase) &&
+                !part.StartsWith("scrollbar=", StringComparison.OrdinalIgnoreCase) &&
+                !part.StartsWith("zoom=", StringComparison.OrdinalIgnoreCase) &&
+                !part.StartsWith("view=", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        if (!toolbar)
+        {
+            parts.Add("toolbar=0");
+            parts.Add("navpanes=0");
+            parts.Add("scrollbar=0");
+            parts.Add("page=1");
+            parts.Add("view=FitH");
+        }
+
+        // Build the hash manually — UriBuilder can escape "&" in fragments and break viewer params.
+        var baseUrl = uri.GetLeftPart(UriPartial.Query);
+        return parts.Count > 0 ? $"{baseUrl}#{string.Join("&", parts)}" : baseUrl;
     }
 
     private static string? YoutubeEmbedUrl(string? value)

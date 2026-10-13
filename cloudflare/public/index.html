@@ -39,13 +39,14 @@
       <div class="cover-banner is-empty" id="cover-banner" aria-hidden="true">
         <img class="carousel-game-image" id="carousel-game-image" alt="" hidden />
         <span class="cover-banner-placeholder" id="cover-placeholder">Cover image</span>
+        <p class="cover-banner-error" id="cover-error" role="alert" hidden></p>
       </div>
 
       <div class="carousel-slide" id="carousel-slide" aria-live="polite">
         <h2 class="carousel-game" id="carousel-game"></h2>
         <p class="carousel-subtitle" id="carousel-subtitle" hidden></p>
         <div class="detail-cards detail-cards-row" id="detail-cards">
-          <section class="detail-card">
+          <section class="detail-card detail-card-platforms" id="detail-card-platforms">
             <h3 class="detail-card-label">Platforms</h3>
             <div class="platform-chips readonly" id="announcement-platforms"></div>
           </section>
@@ -57,7 +58,7 @@
             <h3 class="detail-card-label">Estimated reach</h3>
             <ul class="detail-card-list" id="estimated-reach"></ul>
           </section>
-          <section class="detail-card">
+          <section class="detail-card detail-card-wishlists" id="total-wishlists-card" hidden>
             <h3 class="detail-card-label">Total wishlists</h3>
             <ul class="detail-card-list" id="total-wishlists"></ul>
           </section>
@@ -71,10 +72,17 @@
             </div>
           </section>
 
-          <section class="trailer-card is-empty" id="pdf-card" aria-label="Press release PDF">
+          <section class="trailer-card pdf-card is-empty" id="pdf-card" aria-label="Press release PDF">
             <div class="media-card-heading">
               <h3 class="detail-card-label">Press release PDF</h3>
-              <button type="button" class="btn-ghost media-expand-btn" id="pdf-expand-btn" hidden>Expand</button>
+              <button type="button" class="btn-ghost media-expand-btn" id="pdf-expand-btn" aria-label="Expand PDF" title="Expand PDF" hidden>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M15 3h6v6" />
+                  <path d="m21 3-7 7" />
+                  <path d="m3 21 7-7" />
+                  <path d="M3 15v6h6" />
+                </svg>
+              </button>
             </div>
             <div class="trailer-embed" id="pdf-embed">
               <span class="trailer-placeholder" id="pdf-placeholder">No PDF</span>
@@ -83,7 +91,7 @@
         </div>
 
         <section class="coverage-links-section" id="coverage-links-card" aria-labelledby="coverage-links-heading">
-          <h3 class="detail-card-label coverage-links-heading" id="coverage-links-heading">Coverage links</h3>
+          <h3 class="detail-card-label coverage-links-heading" id="coverage-links-heading">Campaign Coverage</h3>
           <div class="coverage-links-panel">
             <div class="coverage-links-grid" id="coverage-links-grid"></div>
           </div>
@@ -124,11 +132,10 @@
       coverageLinkDisplayLabel,
       coverageLinkUrls,
       coverageStatSortValue,
-      DEFAULT_COVERAGE_SECTION_TITLE,
       DEFAULT_MEDIA_COVERAGE_TITLE,
       formatCoverageStat,
-      MEDIA_COVERAGE_COLUMNS,
       groupMediaCoverageRowsByType,
+      mediaCoverageColumnsForType,
       mediaCoverageDisplayLabel,
       parseCoverageLinksValue,
       parseCoverageSectionTitle,
@@ -140,14 +147,20 @@
     const statusEl = document.getElementById("status");
     const coverBannerEl = document.getElementById("cover-banner");
     const coverPlaceholderEl = document.getElementById("cover-placeholder");
+    const coverErrorEl = document.getElementById("cover-error");
     const carouselEl = document.getElementById("carousel");
     const gameEl = document.getElementById("carousel-game");
     const subtitleEl = document.getElementById("carousel-subtitle");
     const gameImageEl = document.getElementById("carousel-game-image");
+    const detailCardsEl = document.getElementById("detail-cards");
+    const detailCardPlatformsEl = document.getElementById(
+      "detail-card-platforms"
+    );
     const announcementPlatformsEl = document.getElementById(
       "announcement-platforms"
     );
     const announcementDatesEl = document.getElementById("announcement-dates");
+    let detailCardSizeObserver = null;
     const trailerCardEl = document.getElementById("trailer-card");
     const trailerEmbedEl = document.getElementById("trailer-embed");
     const trailerPlaceholderEl = document.getElementById("trailer-placeholder");
@@ -161,6 +174,7 @@
     let currentPdfUrl = "";
     const estimatedReachEl = document.getElementById("estimated-reach");
     const totalWishlistsEl = document.getElementById("total-wishlists");
+    const totalWishlistsCardEl = document.getElementById("total-wishlists-card");
     const coverageLinksGridEl = document.getElementById("coverage-links-grid");
     const coverageLinksHeadingEl = document.getElementById("coverage-links-heading");
     const mediaCoverageCardEl = document.getElementById("media-coverage-card");
@@ -231,6 +245,40 @@
       return PLATFORM_OPTIONS.filter((option) => ids.includes(option.id));
     }
 
+    function syncDetailCardSizes() {
+      if (!detailCardsEl || !detailCardPlatformsEl) return;
+      // Clear so Platforms can measure at its natural height first.
+      detailCardsEl.style.removeProperty("--detail-card-min-height");
+      const height = Math.ceil(
+        detailCardPlatformsEl.getBoundingClientRect().height
+      );
+      if (height > 0) {
+        detailCardsEl.style.setProperty(
+          "--detail-card-min-height",
+          `${height}px`
+        );
+      }
+    }
+
+    function scheduleSyncDetailCardSizes() {
+      requestAnimationFrame(() => {
+        syncDetailCardSizes();
+        // Second pass after icons/fonts settle.
+        requestAnimationFrame(syncDetailCardSizes);
+      });
+    }
+
+    function ensureDetailCardSizeObserver() {
+      if (!detailCardPlatformsEl || detailCardSizeObserver) return;
+      if (typeof ResizeObserver === "function") {
+        detailCardSizeObserver = new ResizeObserver(() => {
+          syncDetailCardSizes();
+        });
+        detailCardSizeObserver.observe(detailCardPlatformsEl);
+      }
+      window.addEventListener("resize", scheduleSyncDetailCardSizes);
+    }
+
     function setPlatforms(entries) {
       announcementPlatformsEl.innerHTML = "";
       const platforms = platformsForEntries(entries);
@@ -243,6 +291,7 @@
         empty.style.fontStyle = "italic";
         empty.style.opacity = "0.45";
         announcementPlatformsEl.appendChild(empty);
+        scheduleSyncDetailCardSizes();
         return;
       }
 
@@ -255,6 +304,9 @@
         img.className = "platform-icon";
         img.src = option.icon;
         img.alt = "";
+        img.addEventListener("load", scheduleSyncDetailCardSizes, {
+          once: true,
+        });
         item.appendChild(img);
 
         const name = document.createElement("span");
@@ -264,6 +316,8 @@
 
         announcementPlatformsEl.appendChild(item);
       });
+      ensureDetailCardSizeObserver();
+      scheduleSyncDetailCardSizes();
     }
 
     function youtubeEmbedUrl(value) {
@@ -327,7 +381,7 @@
       }
     }
 
-    function pdfEmbedUrl(value) {
+    function pdfEmbedUrl(value, { toolbar = true } = {}) {
       const raw = String(value || "").trim();
       if (!raw) return "";
 
@@ -342,9 +396,44 @@
           return id ? `https://drive.google.com/file/d/${id}/preview` : raw;
         }
 
-        return url.href;
+        return withPdfViewerChrome(url.href, { toolbar });
       } catch {
         return "";
+      }
+    }
+
+    /** Chrome/Edge/Firefox PDF viewers: hide toolbar + fit width in the card preview. */
+    function withPdfViewerChrome(href, { toolbar = true } = {}) {
+      try {
+        const url = new URL(href);
+        const host = url.hostname.replace(/^www\./, "").toLowerCase();
+        if (host === "drive.google.com" || host === "docs.google.com") {
+          return url.href;
+        }
+
+        const parts = String(url.hash || "")
+          .replace(/^#/, "")
+          .split("&")
+          .map((part) => part.trim())
+          .filter(Boolean)
+          .filter(
+            (part) =>
+              !/^toolbar=/i.test(part) &&
+              !/^navpanes=/i.test(part) &&
+              !/^scrollbar=/i.test(part) &&
+              !/^zoom=/i.test(part) &&
+              !/^view=/i.test(part)
+          );
+
+        if (!toolbar) {
+          // Fit page width to the iframe (slightly inset via CSS).
+          parts.push("toolbar=0", "navpanes=0", "scrollbar=0", "page=1", "view=FitH");
+        }
+
+        const base = `${url.origin}${url.pathname}${url.search}`;
+        return parts.length ? `${base}#${parts.join("&")}` : base;
+      } catch {
+        return href;
       }
     }
 
@@ -585,7 +674,7 @@
 
       const title = sectionTitle || "Links";
       if (headingEl) {
-        headingEl.textContent = `${title} (${links.length})`;
+        headingEl.textContent = title;
       }
 
       if (sectionEl) {
@@ -711,7 +800,7 @@
     }
 
     function setCoverageLinks(entries) {
-      const { links, sectionTitle } = collectLinksFromValues(
+      const { links } = collectLinksFromValues(
         entries.map((row) => row.coverageLinks),
         { includeHighlights: true, rows: entries }
       );
@@ -720,7 +809,7 @@
         coverageLinksHeadingEl,
         links,
         {
-          sectionTitle: sectionTitle || DEFAULT_COVERAGE_SECTION_TITLE,
+          sectionTitle: "Campaign Coverage",
           emptyLabel: "No coverage links",
         }
       );
@@ -757,24 +846,35 @@
       mediaCoveragePublicTablesEl.innerHTML = "";
       if (!rows.length) return;
 
-      // Show the most useful columns publicly; full set stays in admin/CSV.
-      const publicColumns = MEDIA_COVERAGE_COLUMNS.filter((column) =>
-        [
-          "publishedTime",
-          "customName",
-          "handleId",
-          "handleUrl",
-          "handleCountry",
-          "youtubeViews",
-          "youtubeTitle",
-          "twitchAccount",
-          "tiktokViews",
-          "instagramViews",
-          "details",
-        ].includes(column.key)
-      );
+      // Useful public columns, further narrowed per Type section.
+      const publicKeys = new Set([
+        "publishedTime",
+        "customName",
+        "handleId",
+        "handleUrl",
+        "handleCountry",
+        "youtubeViews",
+        "youtubeLikes",
+        "youtubeTitle",
+        "youtubeChannelTitle",
+        "youtubeSubs",
+        "twitchAccount",
+        "twitchFollower",
+        "twitchAverageViewers",
+        "tiktokViews",
+        "tiktokFollower",
+        "instagramViews",
+        "instagramLikes",
+        "bilibiliTitle",
+        "bilibiliViews",
+        "details",
+      ]);
 
       groupMediaCoverageRowsByType(rows).forEach((group) => {
+        const publicColumns = mediaCoverageColumnsForType(group.label).filter(
+          (column) => publicKeys.has(column.key)
+        );
+
         const block = document.createElement("section");
         block.className = "media-coverage-public-type";
 
@@ -856,24 +956,28 @@
     }
 
     function setPdf(entries) {
-      const embedUrl = entries
-        .map((row) => pdfEmbedUrl(row.pressReleasePdf))
+      const fullUrl = entries
+        .map((row) => pdfEmbedUrl(row.pressReleasePdf, { toolbar: true }))
         .find(Boolean);
+      const previewUrl = fullUrl
+        ? withPdfViewerChrome(fullUrl, { toolbar: false })
+        : "";
 
       const existing = pdfEmbedEl.querySelector("iframe");
       if (existing) existing.remove();
       closePdfViewer();
 
-      if (embedUrl) {
+      if (previewUrl && fullUrl) {
         const iframe = document.createElement("iframe");
-        iframe.src = embedUrl;
+        iframe.className = "pdf-preview-frame";
+        iframe.src = previewUrl;
         iframe.title = "Press release PDF";
         iframe.allow = "fullscreen";
         iframe.allowFullscreen = true;
         pdfEmbedEl.appendChild(iframe);
         pdfPlaceholderEl.hidden = true;
         pdfExpandBtn.hidden = false;
-        pdfExpandBtn.onclick = () => openPdfViewer(embedUrl);
+        pdfExpandBtn.onclick = () => openPdfViewer(fullUrl);
         pdfCardEl.classList.remove("is-empty");
       } else {
         pdfPlaceholderEl.hidden = false;
@@ -901,6 +1005,69 @@
       });
     }
 
+    function gameImageForTitle(gameTitle, rows = allPublicRows) {
+      const key = (gameTitle || "").trim() || "Untitled";
+      for (const row of rows || []) {
+        const title = (row.gameTitle || "").trim() || "Untitled";
+        if (title.toLowerCase() !== key.toLowerCase()) continue;
+        const image = String(row.gameImage || "").trim();
+        if (image) return image;
+      }
+      return "";
+    }
+
+    function setCoverError(message) {
+      if (!coverErrorEl) return;
+      const text = String(message || "").trim();
+      coverErrorEl.textContent = text;
+      coverErrorEl.hidden = !text;
+    }
+
+    function showCoverImage(gameTitle, row) {
+      const rowImage = String(row?.gameImage || "").trim();
+      const sharedImage = gameImageForTitle(gameTitle);
+      const imageUrl = rowImage || sharedImage;
+      setCoverError("");
+
+      if (imageUrl) {
+        gameImageEl.onload = () => {
+          setCoverError("");
+          coverPlaceholderEl.hidden = true;
+          coverBannerEl.classList.remove("is-empty");
+          coverBannerEl.setAttribute("aria-hidden", "false");
+        };
+        gameImageEl.onerror = () => {
+          gameImageEl.hidden = true;
+          gameImageEl.removeAttribute("src");
+          coverPlaceholderEl.hidden = false;
+          coverBannerEl.classList.add("is-empty");
+          coverBannerEl.setAttribute("aria-hidden", "true");
+          const shortUrl =
+            imageUrl.length > 120 ? `${imageUrl.slice(0, 117)}…` : imageUrl;
+          setCoverError(
+            `Cover image URL failed to load for “${gameTitle}”. Browser could not fetch: ${shortUrl}. Check the Worker/R2 URL, or re-upload in Admin.`
+          );
+        };
+        gameImageEl.src = imageUrl;
+        gameImageEl.alt = gameTitle;
+        gameImageEl.hidden = false;
+        coverPlaceholderEl.hidden = true;
+        coverBannerEl.classList.remove("is-empty");
+        coverBannerEl.setAttribute("aria-hidden", "false");
+        return;
+      }
+
+      gameImageEl.removeAttribute("src");
+      gameImageEl.alt = "";
+      gameImageEl.hidden = true;
+      coverPlaceholderEl.hidden = false;
+      coverBannerEl.classList.add("is-empty");
+      coverBannerEl.setAttribute("aria-hidden", "true");
+      setCoverError(
+        `No cover image found for “${gameTitle}”. This announcement’s gameImage field is empty in the API, and no other announcement for this game has one either. Re-upload the cover in Admin (game settings) and wait for Save to finish.`
+      );
+    }
+
     function slideLabel(row) {
       const gameTitle = (row.gameTitle || "").trim() || "Untitled";
       const announcementTitle = (row.announcementTitle || "").trim();
@@ -926,22 +1093,7 @@
         subtitleEl.textContent = "";
         subtitleEl.hidden = true;
       }
-      const imageUrl = (row.gameImage || "").trim();
-      if (imageUrl) {
-        gameImageEl.src = imageUrl;
-        gameImageEl.alt = gameTitle;
-        gameImageEl.hidden = false;
-        coverPlaceholderEl.hidden = true;
-        coverBannerEl.classList.remove("is-empty");
-        coverBannerEl.setAttribute("aria-hidden", "false");
-      } else {
-        gameImageEl.removeAttribute("src");
-        gameImageEl.alt = "";
-        gameImageEl.hidden = true;
-        coverPlaceholderEl.hidden = false;
-        coverBannerEl.classList.add("is-empty");
-        coverBannerEl.setAttribute("aria-hidden", "true");
-      }
+      showCoverImage(gameTitle, row);
       announcementDatesEl.innerHTML = "";
       estimatedReachEl.innerHTML = "";
       totalWishlistsEl.innerHTML = "";
@@ -959,10 +1111,14 @@
       estimatedReachEl.appendChild(reachLi);
 
       const wishlists = (row.totalWishlists || "").trim();
-      const wishlistsLi = document.createElement("li");
-      wishlistsLi.textContent = wishlists || "No data";
-      if (!wishlists) wishlistsLi.classList.add("is-empty");
-      totalWishlistsEl.appendChild(wishlistsLi);
+      if (wishlists) {
+        const wishlistsLi = document.createElement("li");
+        wishlistsLi.textContent = wishlists;
+        totalWishlistsEl.appendChild(wishlistsLi);
+        if (totalWishlistsCardEl) totalWishlistsCardEl.hidden = false;
+      } else if (totalWishlistsCardEl) {
+        totalWishlistsCardEl.hidden = true;
+      }
 
       setPlatforms(entries);
       setTrailer(entries);

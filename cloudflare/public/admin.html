@@ -313,7 +313,7 @@
               id="coverage-links-dialog-title"
               class="coverage-links-dialog-title-input"
               type="text"
-              value="Coverage links"
+              value="Campaign Coverage"
               autocomplete="off"
               maxlength="80"
             />
@@ -357,18 +357,19 @@
         </div>
         <button type="button" class="btn-ghost" id="media-coverage-dialog-close">Close</button>
       </header>
+      <div class="media-coverage-pager" id="media-coverage-pager" hidden>
+        <button type="button" class="btn-ghost" id="media-coverage-page-prev">
+          Previous
+        </button>
+        <p class="media-coverage-pager-label" id="media-coverage-page-label">
+          Showing 0–0 of 0
+        </p>
+        <button type="button" class="btn-ghost" id="media-coverage-page-next">
+          Next
+        </button>
+      </div>
       <div class="media-coverage-table-wrap" id="media-coverage-table-wrap">
         <div class="media-coverage-type-tables" id="media-coverage-type-tables"></div>
-      </div>
-      <div class="media-coverage-loading" id="media-coverage-loading" hidden>
-        <div class="media-coverage-loading-card" role="status" aria-live="polite">
-          <div class="media-coverage-spinner" aria-hidden="true"></div>
-          <p class="media-coverage-loading-text" id="media-coverage-loading-text">Loading CSV…</p>
-          <div class="media-coverage-progress-track" aria-hidden="true">
-            <div class="media-coverage-progress-bar" id="media-coverage-progress-bar"></div>
-          </div>
-          <p class="media-coverage-progress-count" id="media-coverage-progress-count">0 / 0</p>
-        </div>
       </div>
       <footer class="coverage-links-dialog-footer">
         <input id="media-coverage-csv-input" type="file" accept=".csv,text/csv" hidden />
@@ -379,6 +380,16 @@
         <button type="button" class="btn-ghost" id="media-coverage-dialog-add">Add row</button>
         <button type="button" class="btn-primary" id="media-coverage-dialog-done">Save</button>
       </footer>
+      <div class="media-coverage-loading" id="media-coverage-loading" hidden>
+        <div class="media-coverage-loading-card" role="status" aria-live="polite">
+          <div class="media-coverage-spinner" aria-hidden="true"></div>
+          <p class="media-coverage-loading-text" id="media-coverage-loading-text">Loading CSV…</p>
+          <div class="media-coverage-progress-track" aria-hidden="true">
+            <div class="media-coverage-progress-bar" id="media-coverage-progress-bar"></div>
+          </div>
+          <p class="media-coverage-progress-count" id="media-coverage-progress-count">0 / 0</p>
+        </div>
+      </div>
     </div>
   </dialog>
 
@@ -423,7 +434,6 @@
     import {
       DISPLAY_COLUMNS,
       COVERAGE_LINK_COLUMNS,
-      MEDIA_COVERAGE_COLUMNS,
       coverageLinkDisplayLabel,
       coverageLinksFromCsv,
       csvToTable,
@@ -436,7 +446,9 @@
       groupMediaCoverageRowsByType,
       isLinkSectionKey,
       linkSectionDef,
+      mediaCoverageColumnsForType,
       mediaCoverageFromCsvProgressive,
+      mediaCoverageTypeLabel,
       monthFromDate,
       parseCoverageLinksValue,
       parseCoverageSectionTitle,
@@ -546,6 +558,10 @@
       "media-coverage-type-tables"
     );
     const mediaCoverageTableWrap = document.getElementById("media-coverage-table-wrap");
+    const mediaCoveragePagerEl = document.getElementById("media-coverage-pager");
+    const mediaCoveragePagePrev = document.getElementById("media-coverage-page-prev");
+    const mediaCoveragePageNext = document.getElementById("media-coverage-page-next");
+    const mediaCoveragePageLabel = document.getElementById("media-coverage-page-label");
     const mediaCoverageLoadingEl = document.getElementById("media-coverage-loading");
     const mediaCoverageLoadingTextEl = document.getElementById(
       "media-coverage-loading-text"
@@ -563,6 +579,7 @@
     const mediaCoverageDialogDone = document.getElementById("media-coverage-dialog-done");
     const mediaCoverageDialogClose = document.getElementById("media-coverage-dialog-close");
     const mediaCoverageCsvInput = document.getElementById("media-coverage-csv-input");
+    const MEDIA_COVERAGE_PAGE_SIZE = 50;
     let mediaCoverageEdit = null;
     let mediaCoverageImporting = false;
     const coverPreviewDialog = document.getElementById("cover-preview-dialog");
@@ -789,6 +806,7 @@
         rows: (rows || []).map((row) => normalizeAnnouncementRow(row)),
       };
       syncPerGameMediaCoverage(table);
+      syncPerGameGameImages(table);
       return table;
     }
 
@@ -807,6 +825,24 @@
             .find(Boolean) || "";
         for (const row of rows) {
           row.mediaCoverage = shared;
+        }
+      }
+    }
+
+    function syncPerGameGameImages(table = currentTable) {
+      if (!table?.rows?.length) return;
+      const byGame = new Map();
+      for (const row of table.rows) {
+        const gameTitle = (row.gameTitle || "").trim() || "Untitled";
+        if (!byGame.has(gameTitle)) byGame.set(gameTitle, []);
+        byGame.get(gameTitle).push(row);
+      }
+      for (const rows of byGame.values()) {
+        const shared =
+          rows.map((row) => String(row.gameImage || "").trim()).find(Boolean) ||
+          "";
+        for (const row of rows) {
+          row.gameImage = shared;
         }
       }
     }
@@ -1070,8 +1106,8 @@
       return "";
     }
 
-    function setGameImageForTitle(gameTitle, url) {
-      if (!currentTable) return;
+    async function setGameImageForTitle(gameTitle, url) {
+      if (!currentTable) return false;
       const key = (gameTitle || "").trim() || "Untitled";
       const value = String(url || "").trim();
       const touched = [];
@@ -1082,8 +1118,32 @@
           touched.push(row);
         }
       });
+      if (!touched.length) return false;
       markRowsDirty(touched);
-      scheduleSave();
+      clearTimeout(saveTimer);
+      setSaveStatus("Saving…");
+      let ok = await persistTable({ quiet: false, mode: "dirty" });
+      if (!ok) {
+        // Another save was in flight; wait for the queue, then retry if needed.
+        for (let i = 0; i < 40 && persistInFlight; i++) {
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        }
+        const stillDirty = touched.some((row) =>
+          dirtyRowIds.has(ensureRowId(row))
+        );
+        if (stillDirty) {
+          ok = await persistTable({ quiet: false, mode: "dirty" });
+        } else {
+          ok = true;
+          setSaveStatus("Saved", "ok");
+        }
+      }
+      if (!ok) {
+        throw new Error(
+          "Cover image uploaded, but saving it to the database failed. Check the save status and try again."
+        );
+      }
+      return true;
     }
 
     function mediaCoverageValueForTitle(gameTitle) {
@@ -1299,11 +1359,21 @@
         fileInput.click();
       });
 
-      clearItem.addEventListener("click", (event) => {
+      clearItem.addEventListener("click", async (event) => {
         event.stopPropagation();
         closeGameSettingsMenu();
-        setGameImageForTitle(gameTitle, "");
-        refreshPreview("");
+        clearItem.disabled = true;
+        try {
+          await setGameImageForTitle(gameTitle, "");
+          refreshPreview("");
+          showSuccess(`Cover cleared for ${gameTitle}.`);
+        } catch (err) {
+          showError(
+            err instanceof Error ? err.message : "Could not clear cover."
+          );
+        } finally {
+          clearItem.disabled = false;
+        }
       });
 
       deleteItem.addEventListener("click", (event) => {
@@ -1319,15 +1389,18 @@
 
         uploadItem.disabled = true;
         settingsBtn.disabled = true;
+        setSaveStatus("Uploading cover…");
         try {
           const token = await getIdToken();
           const url = await uploadGameImage(token, file, gameTitle);
-          setGameImageForTitle(gameTitle, url);
+          await setGameImageForTitle(gameTitle, url);
           refreshPreview(url);
+          showSuccess(`Cover saved for ${gameTitle}.`);
         } catch (err) {
           showError(
             err instanceof Error ? err.message : "Could not upload image."
           );
+          setSaveStatus("Save failed", "error");
         } finally {
           uploadItem.disabled = false;
           settingsBtn.disabled = false;
@@ -1366,9 +1439,25 @@
       btn.className = "game-link-section-btn coverage-links-count-btn";
 
       function refresh() {
-        const count = parseMediaCoverageValue(
-          mediaCoverageValueForTitle(gameTitle)
-        ).length;
+        const raw = mediaCoverageValueForTitle(gameTitle);
+        // Avoid full JSON parse just to count — use rows array length when possible.
+        let count = 0;
+        const text = String(raw || "").trim();
+        if (text) {
+          try {
+            if (text.startsWith("{") || text.startsWith("[")) {
+              const parsed = JSON.parse(text);
+              const rows = Array.isArray(parsed)
+                ? parsed
+                : parsed?.rows ?? parsed?.links ?? [];
+              count = Array.isArray(rows) ? rows.length : 0;
+            } else {
+              count = text.split(/\r?\n/).filter((line) => line.trim()).length;
+            }
+          } catch {
+            count = parseMediaCoverageValue(raw).length;
+          }
+        }
         btn.textContent =
           count === 0
             ? DEFAULT_MEDIA_COVERAGE_TITLE
@@ -1455,12 +1544,13 @@
       ];
     }
 
-    function createMediaCoverageColumnHeadRow() {
+    function createMediaCoverageColumnHeadRow(columns) {
       const headRow = document.createElement("tr");
-      MEDIA_COVERAGE_COLUMNS.forEach((column) => {
+      columns.forEach((column) => {
         const th = document.createElement("th");
         th.scope = "col";
         th.textContent = column.label;
+        th.dataset.mediaKey = column.key;
         headRow.appendChild(th);
       });
       const removeTh = document.createElement("th");
@@ -1477,6 +1567,7 @@
       const section = document.createElement("section");
       section.className = "media-coverage-type-table";
       section.dataset.typeLabel = label;
+      const columns = mediaCoverageColumnsForType(label);
 
       const heading = document.createElement("div");
       heading.className = "media-coverage-type-table-heading";
@@ -1496,7 +1587,7 @@
       table.className = "coverage-links-dialog-table media-coverage-dialog-table";
 
       const thead = document.createElement("thead");
-      thead.appendChild(createMediaCoverageColumnHeadRow());
+      thead.appendChild(createMediaCoverageColumnHeadRow(columns));
 
       const tbody = document.createElement("tbody");
       tbody.className = "media-coverage-type-body";
@@ -1506,64 +1597,72 @@
       tableWrap.appendChild(table);
       section.appendChild(heading);
       section.appendChild(tableWrap);
-      return { section, tbody, countEl: meta };
+      return { section, tbody, countEl: meta, columns };
     }
 
-    function refreshMediaCoverageTypeCounts() {
-      mediaCoverageTypeTablesEl
-        ?.querySelectorAll(".media-coverage-type-table")
-        .forEach((section) => {
-          const count = section.querySelectorAll("tr.media-coverage-data-row").length;
-          const countEl = section.querySelector(".media-coverage-type-header-count");
-          if (countEl) countEl.textContent = `(${count})`;
+    function mediaCoverageTotalRows() {
+      return Array.isArray(mediaCoverageEdit?.rows)
+        ? mediaCoverageEdit.rows.length
+        : 0;
+    }
+
+    function mediaCoveragePageCount() {
+      return Math.max(
+        1,
+        Math.ceil(Math.max(mediaCoverageTotalRows(), 1) / MEDIA_COVERAGE_PAGE_SIZE)
+      );
+    }
+
+    function flushMediaCoveragePageToModel() {
+      if (!mediaCoverageEdit || !Array.isArray(mediaCoverageEdit.rows)) return;
+      mediaCoverageDataRows().forEach((tr) => {
+        const index = Number(tr.dataset.rowIndex);
+        if (!Number.isInteger(index) || index < 0) return;
+        if (index >= mediaCoverageEdit.rows.length) return;
+        const row = { ...(tr._mediaCoverageValues || {}) };
+        tr.querySelectorAll("[data-media-key]").forEach((input) => {
+          const key = input.dataset.mediaKey;
+          if (!key) return;
+          row[key] = String(input.value || "").trim();
         });
+        mediaCoverageEdit.rows[index] = row;
+        tr._mediaCoverageValues = row;
+      });
     }
 
-    async function renderMediaCoverageDialogRowsProgressive(
-      rows,
-      { batchSize = 40, onProgress } = {}
-    ) {
-      if (!mediaCoverageTypeTablesEl) return;
-      mediaCoverageTypeTablesEl.innerHTML = "";
-
-      const list = rows.length ? rows : [emptyMediaCoverageRow()];
-      const groups = groupMediaCoverageRowsByType(list);
-      const dataTotal = list.length;
-      const size = Math.max(10, Number(batchSize) || 40);
-      let renderedData = 0;
-
-      for (const group of groups) {
-        const { section, tbody, countEl } = createMediaCoverageTypeTable(
-          group.label,
-          group.rows.length
-        );
-        mediaCoverageTypeTablesEl.appendChild(section);
-
-        for (let i = 0; i < group.rows.length; i += size) {
-          const chunk = group.rows.slice(i, i + size);
-          const fragment = document.createDocumentFragment();
-          chunk.forEach((row) => {
-            fragment.appendChild(createMediaCoverageDialogRow(row));
-            renderedData += 1;
-          });
-          tbody.appendChild(fragment);
-          countEl.textContent = `(${tbody.querySelectorAll("tr.media-coverage-data-row").length})`;
-
-          onProgress?.({
-            phase: "render",
-            current: Math.min(renderedData, dataTotal),
-            total: dataTotal,
-            label: `Building ${group.label}… ${Math.min(renderedData, dataTotal).toLocaleString()} / ${dataTotal.toLocaleString()}`,
-          });
-          await new Promise((resolve) => requestAnimationFrame(resolve));
-        }
+    function updateMediaCoveragePager() {
+      if (!mediaCoveragePagerEl || !mediaCoverageEdit) return;
+      const total = mediaCoverageTotalRows();
+      const pageCount = mediaCoveragePageCount();
+      const page = Math.min(
+        Math.max(0, Number(mediaCoverageEdit.page) || 0),
+        pageCount - 1
+      );
+      mediaCoverageEdit.page = page;
+      const start = total === 0 ? 0 : page * MEDIA_COVERAGE_PAGE_SIZE + 1;
+      const end = Math.min(total, (page + 1) * MEDIA_COVERAGE_PAGE_SIZE);
+      mediaCoveragePagerEl.hidden = total <= MEDIA_COVERAGE_PAGE_SIZE;
+      if (mediaCoveragePageLabel) {
+        mediaCoveragePageLabel.textContent =
+          total === 0
+            ? "No rows"
+            : `Showing ${start.toLocaleString()}–${end.toLocaleString()} of ${total.toLocaleString()} · Page ${(page + 1).toLocaleString()} of ${pageCount.toLocaleString()}`;
       }
-
-      if (dataTotal <= 250) {
-        fitMediaCoverageDialogColumns();
-      } else {
-        fitMediaCoverageDialogColumns({ sampleLimit: 120 });
+      if (mediaCoveragePagePrev) mediaCoveragePagePrev.disabled = page <= 0;
+      if (mediaCoveragePageNext) {
+        mediaCoveragePageNext.disabled = page >= pageCount - 1;
       }
+    }
+
+    function setMediaCoveragePage(nextPage, { focusLast = false } = {}) {
+      if (!mediaCoverageEdit) return;
+      flushMediaCoveragePageToModel();
+      const pageCount = mediaCoveragePageCount();
+      mediaCoverageEdit.page = Math.min(
+        Math.max(0, Number(nextPage) || 0),
+        pageCount - 1
+      );
+      renderMediaCoveragePage({ focusLast });
     }
 
     function mediaCoverageDialogIsDirty() {
@@ -1586,25 +1685,57 @@
       }
     }
 
-    function createMediaCoverageDialogRow(item = null) {
-      const row = { ...emptyMediaCoverageRow(), ...(item || {}) };
+    function removeMediaCoverageDialogRow(tr) {
+      if (!tr || !mediaCoverageEdit) return;
+      flushMediaCoveragePageToModel();
+      const index = Number(tr.dataset.rowIndex);
+      if (Number.isInteger(index) && index >= 0) {
+        mediaCoverageEdit.rows.splice(index, 1);
+      }
+      if (!mediaCoverageEdit.rows.length) {
+        mediaCoverageEdit.rows = [emptyMediaCoverageRow()];
+        mediaCoverageEdit.page = 0;
+      } else {
+        const pageCount = mediaCoveragePageCount();
+        mediaCoverageEdit.page = Math.min(
+          mediaCoverageEdit.page || 0,
+          pageCount - 1
+        );
+      }
+      renderMediaCoveragePage();
+    }
+
+    function createMediaCoverageDialogRow(
+      item = null,
+      typeLabel = "",
+      rowIndex = -1
+    ) {
+      const row = item ? { ...item } : emptyMediaCoverageRow();
+      delete row.__index;
+      const sectionLabel = typeLabel || row.type || "Other";
+      const columns = mediaCoverageColumnsForType(sectionLabel);
       const tr = document.createElement("tr");
       tr.className = "media-coverage-data-row";
+      if (Number.isInteger(rowIndex) && rowIndex >= 0) {
+        tr.dataset.rowIndex = String(rowIndex);
+      }
+      // Keep full row so hidden platform fields survive Save.
+      tr._mediaCoverageValues = row;
 
-      MEDIA_COVERAGE_COLUMNS.forEach((column) => {
+      for (const column of columns) {
         const td = document.createElement("td");
         const input = document.createElement("input");
-        input.className = "cell-input media-coverage-field";
+        input.className =
+          column.key === "handleUrl" || column.key === "details"
+            ? "cell-input media-coverage-field media-coverage-url"
+            : "cell-input media-coverage-field";
         input.type = "text";
         input.value = row[column.key] || "";
         input.dataset.mediaKey = column.key;
         input.setAttribute("aria-label", column.label);
-        if (column.key === "handleUrl" || column.key === "details") {
-          input.classList.add("media-coverage-url");
-        }
         td.appendChild(input);
         tr.appendChild(td);
-      });
+      }
 
       const actionTd = document.createElement("td");
       actionTd.className = "coverage-link-remove-cell";
@@ -1613,57 +1744,70 @@
       removeBtn.className = "btn-icon coverage-link-remove";
       removeBtn.setAttribute("aria-label", "Remove row");
       removeBtn.textContent = "×";
-      removeBtn.addEventListener("click", () => {
-        const section = tr.closest(".media-coverage-type-table");
-        tr.remove();
-        if (!mediaCoverageDataRows().length) {
-          mediaCoverageTypeTablesEl.innerHTML = "";
-          const created = createMediaCoverageTypeTable("Other", 1);
-          created.tbody.appendChild(createMediaCoverageDialogRow());
-          mediaCoverageTypeTablesEl.appendChild(created.section);
-        } else if (
-          section &&
-          !section.querySelector("tr.media-coverage-data-row")
-        ) {
-          section.remove();
-        }
-        refreshMediaCoverageTypeCounts();
-        scheduleFitMediaCoverageDialogColumns();
-      });
       actionTd.appendChild(removeBtn);
       tr.appendChild(actionTd);
       return tr;
     }
 
     function collectMediaCoverageDialogRows() {
-      return mediaCoverageDataRows().map((tr) => {
-        const row = emptyMediaCoverageRow();
-        MEDIA_COVERAGE_COLUMNS.forEach((column) => {
-          const input = tr.querySelector(`[data-media-key="${column.key}"]`);
-          row[column.key] = String(input?.value || "").trim();
-        });
+      flushMediaCoveragePageToModel();
+      if (!mediaCoverageEdit || !Array.isArray(mediaCoverageEdit.rows)) {
+        return [];
+      }
+      return mediaCoverageEdit.rows.map((item) => {
+        const row = { ...item };
+        delete row.__index;
         return row;
       });
     }
 
-    function renderMediaCoverageDialogRows(
-      rows,
+    function renderMediaCoveragePage(
       { focusLast = false, highlightLast = false } = {}
     ) {
-      if (!mediaCoverageTypeTablesEl) return;
+      if (!mediaCoverageTypeTablesEl || !mediaCoverageEdit) return;
+      if (!Array.isArray(mediaCoverageEdit.rows)) {
+        mediaCoverageEdit.rows = [];
+      }
+
+      const all = mediaCoverageEdit.rows;
+      const pageCount = mediaCoveragePageCount();
+      mediaCoverageEdit.page = Math.min(
+        Math.max(0, Number(mediaCoverageEdit.page) || 0),
+        pageCount - 1
+      );
+      const start = mediaCoverageEdit.page * MEDIA_COVERAGE_PAGE_SIZE;
+      const pageItems = all.length
+        ? all.slice(start, start + MEDIA_COVERAGE_PAGE_SIZE).map((row, offset) => ({
+            ...row,
+            __index: start + offset,
+          }))
+        : [{ ...emptyMediaCoverageRow(), __index: -1 }];
+
+      const typeTotals = new Map();
+      all.forEach((row) => {
+        const label = mediaCoverageTypeLabel(row?.type);
+        typeTotals.set(label, (typeTotals.get(label) || 0) + 1);
+      });
+
       mediaCoverageTypeTablesEl.innerHTML = "";
-      const list = rows.length ? rows : [emptyMediaCoverageRow()];
-      groupMediaCoverageRowsByType(list).forEach((group) => {
+      groupMediaCoverageRowsByType(pageItems).forEach((group) => {
+        const typeTotal = typeTotals.get(group.label) || group.rows.length;
         const { section, tbody } = createMediaCoverageTypeTable(
           group.label,
-          group.rows.length
+          typeTotal
         );
         group.rows.forEach((row) => {
-          tbody.appendChild(createMediaCoverageDialogRow(row));
+          const index = Number(row.__index);
+          tbody.appendChild(
+            createMediaCoverageDialogRow(row, group.label, index)
+          );
         });
         mediaCoverageTypeTablesEl.appendChild(section);
       });
+
+      updateMediaCoveragePager();
       fitMediaCoverageDialogColumns();
+      if (mediaCoverageTableWrap) mediaCoverageTableWrap.scrollTop = 0;
       if (focusLast || highlightLast) {
         requestAnimationFrame(() => {
           revealLastMediaCoverageRow({
@@ -1674,6 +1818,28 @@
       }
     }
 
+    function renderMediaCoverageDialogRows(
+      rows,
+      { focusLast = false, highlightLast = false, page = 0 } = {}
+    ) {
+      if (!mediaCoverageEdit) {
+        mediaCoverageEdit = {
+          gameTitle: "",
+          rowIndex: -1,
+          refresh: null,
+          baselineSerialized: "",
+          rows: [],
+          page: 0,
+        };
+      }
+      mediaCoverageEdit.rows = Array.isArray(rows) ? rows.map((row) => ({ ...row })) : [];
+      mediaCoverageEdit.page = page;
+      if (!mediaCoverageEdit.rows.length) {
+        mediaCoverageEdit.rows = [emptyMediaCoverageRow()];
+      }
+      renderMediaCoveragePage({ focusLast, highlightLast });
+    }
+
     let fitMediaCoverageColumnsTimer = 0;
 
     function scheduleFitMediaCoverageDialogColumns() {
@@ -1681,7 +1847,7 @@
       fitMediaCoverageColumnsTimer = setTimeout(fitMediaCoverageDialogColumns, 40);
     }
 
-    function fitMediaCoverageDialogColumns({ sampleLimit = 0 } = {}) {
+    function fitMediaCoverageDialogColumns() {
       const tables = [
         ...(mediaCoverageTypeTablesEl?.querySelectorAll(
           "table.media-coverage-dialog-table"
@@ -1692,95 +1858,150 @@
       const probe = document.createElement("span");
       probe.setAttribute("aria-hidden", "true");
       probe.style.cssText =
-        "position:absolute;left:-9999px;top:0;white-space:nowrap;visibility:hidden;";
+        "position:absolute;left:-9999px;top:0;white-space:nowrap;visibility:hidden;display:inline-block;";
       document.body.appendChild(probe);
 
-      const measureText = (node, text) => {
+      const applyFont = (node) => {
+        if (!node) return;
         const style = getComputedStyle(node);
-        probe.style.font = style.font;
-        probe.style.letterSpacing = style.letterSpacing;
-        probe.style.fontWeight = style.fontWeight;
+        probe.style.fontFamily = style.fontFamily;
         probe.style.fontSize = style.fontSize;
+        probe.style.fontWeight = style.fontWeight;
+        probe.style.fontStyle = style.fontStyle;
+        probe.style.letterSpacing = style.letterSpacing;
+        probe.style.textTransform = style.textTransform;
+      };
+
+      const measureText = (node, text) => {
+        applyFont(node);
         probe.textContent = text || "";
         return Math.ceil(probe.getBoundingClientRect().width);
       };
 
-      MEDIA_COVERAGE_COLUMNS.forEach((column, index) => {
-        let inputs = [
-          ...(mediaCoverageTypeTablesEl?.querySelectorAll(
-            `[data-media-key="${CSS.escape(column.key)}"]`
-          ) || []),
-        ];
-        if (sampleLimit > 0 && inputs.length > sampleLimit) {
-          const head = inputs.slice(0, Math.ceil(sampleLimit / 2));
-          const tail = inputs.slice(-Math.floor(sampleLimit / 2));
-          inputs = [...head, ...tail];
-        }
-        const sample = inputs[0] || tables[0]?.querySelector(`th:nth-child(${index + 1})`);
-        if (!sample) return;
-        const pad = inputs[0]
-          ? (() => {
-              const style = getComputedStyle(inputs[0]);
-              return (
-                (parseFloat(style.paddingLeft) || 0) +
-                (parseFloat(style.paddingRight) || 0) +
-                4
-              );
-            })()
-          : 28;
+      // scrollWidth is the most reliable width for input values.
+      const measureInputValue = (input, text) => {
+        if (!input) return measureText(null, text);
+        const previousValue = input.value;
+        const previousWidth = input.style.width;
+        const previousMinWidth = input.style.minWidth;
+        input.value = text || "";
+        input.style.width = "0px";
+        input.style.minWidth = "0px";
+        const width = Math.ceil(input.scrollWidth);
+        input.value = previousValue;
+        input.style.width = previousWidth;
+        input.style.minWidth = previousMinWidth;
+        return width;
+      };
 
-        let maxPx = measureText(sample, column.label || " ") + 28;
-        inputs.forEach((input) => {
-          maxPx = Math.max(
-            maxPx,
-            measureText(sample, String(input.value || "")) + pad
-          );
-        });
-        maxPx = Math.max(maxPx, Math.ceil(5.5 * 16));
-        maxPx = Math.min(maxPx, Math.ceil(18 * 16));
+      const allRows = Array.isArray(mediaCoverageEdit?.rows)
+        ? mediaCoverageEdit.rows
+        : [];
 
-        const width = `${maxPx}px`;
-        tables.forEach((table) => {
-          const th = table.querySelector(`thead tr th:nth-child(${index + 1})`);
+      tables.forEach((table) => {
+        const section = table.closest(".media-coverage-type-table");
+        const typeLabel = section?.dataset.typeLabel || "Other";
+        const columns = mediaCoverageColumnsForType(typeLabel);
+        const typeRows = allRows.filter(
+          (row) => mediaCoverageTypeLabel(row?.type) === typeLabel
+        );
+
+        columns.forEach((column, index) => {
+          const th =
+            table.querySelector(
+              `thead th[data-media-key="${CSS.escape(column.key)}"]`
+            ) || table.querySelector(`thead tr th:nth-child(${index + 1})`);
+          const inputs = [
+            ...(table.querySelectorAll(
+              `[data-media-key="${CSS.escape(column.key)}"]`
+            ) || []),
+          ];
+          const sampleInput = inputs[0];
+          if (!th && !sampleInput) return;
+
+          const buffer = 18;
+          let maxPx =
+            measureText(th || sampleInput, column.label || " ") + buffer;
+
+          inputs.forEach((input) => {
+            maxPx = Math.max(
+              maxPx,
+              measureInputValue(input, String(input.value || "")) + buffer
+            );
+          });
+
+          typeRows.forEach((row) => {
+            const value = String(row?.[column.key] || "").trim();
+            if (!value) return;
+            maxPx = Math.max(
+              maxPx,
+              (sampleInput
+                ? measureInputValue(sampleInput, value)
+                : measureText(th, value)) + buffer
+            );
+          });
+
+          maxPx = Math.max(maxPx, Math.ceil(4.5 * 16));
+
+          const width = `${maxPx}px`;
           if (th) {
             th.style.width = width;
             th.style.minWidth = width;
             th.style.maxWidth = "none";
           }
-          table.querySelectorAll("tbody tr.media-coverage-data-row").forEach((tr) => {
-            const td = tr.children[index];
-            if (td) {
-              td.style.width = width;
-              td.style.minWidth = width;
-              td.style.maxWidth = "none";
-            }
-            const input = tr.querySelector(
-              `[data-media-key="${CSS.escape(column.key)}"]`
-            );
-            if (input) {
-              input.style.width = width;
-              input.style.minWidth = width;
-              input.style.maxWidth = "none";
-            }
-          });
+          table
+            .querySelectorAll("tbody tr.media-coverage-data-row")
+            .forEach((tr) => {
+              const input = tr.querySelector(
+                `[data-media-key="${CSS.escape(column.key)}"]`
+              );
+              const td = input?.closest("td") || tr.children[index];
+              if (td) {
+                td.style.width = width;
+                td.style.minWidth = width;
+                td.style.maxWidth = "none";
+              }
+              if (input) {
+                input.style.width = width;
+                input.style.minWidth = width;
+                input.style.maxWidth = "none";
+              }
+            });
         });
+
+        table.style.width = "max-content";
+        table.style.minWidth = "max-content";
       });
 
       probe.remove();
     }
 
+    function setMediaCoverageScrollLock(locked) {
+      document.documentElement.classList.toggle("is-media-coverage-open", locked);
+      document.body.classList.toggle("is-media-coverage-open", locked);
+    }
+
+    let mediaCoverageRenderToken = 0;
+
     function closeMediaCoverageDialog() {
+      mediaCoverageRenderToken += 1;
       setMediaCoverageImporting(false);
       mediaCoverageEdit = null;
+      if (mediaCoveragePagerEl) mediaCoveragePagerEl.hidden = true;
       if (typeof mediaCoverageDialog.close === "function") {
         mediaCoverageDialog.close();
       } else {
         mediaCoverageDialog.removeAttribute("open");
       }
+      setMediaCoverageScrollLock(false);
     }
 
     function requestCloseMediaCoverageDialog() {
-      if (mediaCoverageImporting) return;
+      if (mediaCoverageImporting) {
+        // Allow canceling a long open/import render.
+        closeMediaCoverageDialog();
+        return;
+      }
       if (
         mediaCoverageDialogIsDirty() &&
         !window.confirm("Discard unsaved media coverage changes?")
@@ -1799,31 +2020,42 @@
       if (rowIndex < 0) return;
 
       const raw = mediaCoverageValueForTitle(key);
-      const existing = parseMediaCoverageValue(raw);
+      mediaCoverageRenderToken += 1;
+
+      let existing = [];
+      try {
+        existing = parseMediaCoverageValue(raw);
+      } catch {
+        existing = [];
+      }
 
       mediaCoverageEdit = {
         gameTitle: key,
         rowIndex,
         refresh,
         baselineSerialized: String(raw || ""),
+        rows: existing.length ? existing : [emptyMediaCoverageRow()],
+        page: 0,
       };
+
       setMediaCoverageImporting(false);
       setMediaCoverageDialogHint(
-        `Media coverage for ${key}. Changes stay local until you press Save.`
+        `Media coverage for ${key}${
+          existing.length
+            ? ` (${existing.length.toLocaleString()} row${existing.length === 1 ? "" : "s"})`
+            : ""
+        }. Showing ${MEDIA_COVERAGE_PAGE_SIZE} rows per page.`
       );
-      renderMediaCoverageDialogRows(existing, {
-        focusLast: !existing.length,
-      });
-
+      setMediaCoverageScrollLock(true);
       if (typeof mediaCoverageDialog.showModal === "function") {
         mediaCoverageDialog.showModal();
       } else {
         mediaCoverageDialog.setAttribute("open", "");
       }
-      requestAnimationFrame(() => fitMediaCoverageDialogColumns());
+      renderMediaCoveragePage({ focusLast: !existing.length });
     }
 
-    function commitMediaCoverageDialog() {
+    async function commitMediaCoverageDialog() {
       if (!mediaCoverageEdit || !currentTable || mediaCoverageImporting) {
         return;
       }
@@ -1831,10 +2063,28 @@
       const nextValue = serializeMediaCoverageValue(
         collectMediaCoverageDialogRows()
       );
-      if (nextValue !== (mediaCoverageEdit.baselineSerialized || "")) {
+      const changed =
+        nextValue !== (mediaCoverageEdit.baselineSerialized || "");
+
+      if (changed) {
         setMediaCoverageForTitle(mediaCoverageEdit.gameTitle, nextValue);
-        scheduleSave();
+        setMediaCoverageDialogHint("Saving media coverage…");
+        if (mediaCoverageDialogDone) mediaCoverageDialogDone.disabled = true;
+        if (mediaCoverageDialogClose) mediaCoverageDialogClose.disabled = true;
+        try {
+          const ok = await persistTable({ quiet: false, mode: "dirty" });
+          if (!ok) {
+            setMediaCoverageDialogHint(
+              "Save failed — media coverage was not stored. Fix the error and press Save again."
+            );
+            return;
+          }
+        } finally {
+          if (mediaCoverageDialogDone) mediaCoverageDialogDone.disabled = false;
+          if (mediaCoverageDialogClose) mediaCoverageDialogClose.disabled = false;
+        }
       }
+
       mediaCoverageEdit.refresh?.();
       closeMediaCoverageDialog();
     }
@@ -3089,27 +3339,19 @@
       setMediaCoverageDialogHint("Cleared all media coverage rows for this game.");
     });
     mediaCoverageDialogAdd.addEventListener("click", () => {
-      let otherSection = [
-        ...(mediaCoverageTypeTablesEl?.querySelectorAll(
-          ".media-coverage-type-table"
-        ) || []),
-      ].find((section) =>
-        /other/i.test(
-          section.querySelector(".media-coverage-type-header-label")?.textContent ||
-            ""
-        )
-      );
-      if (!otherSection) {
-        const created = createMediaCoverageTypeTable("Other", 0);
-        mediaCoverageTypeTablesEl.appendChild(created.section);
-        otherSection = created.section;
-      }
-      const body = otherSection.querySelector("tbody.media-coverage-type-body");
-      const row = createMediaCoverageDialogRow();
-      body.appendChild(row);
-      refreshMediaCoverageTypeCounts();
-      fitMediaCoverageDialogColumns();
-      row.querySelector(".media-coverage-field")?.focus();
+      if (!mediaCoverageEdit) return;
+      flushMediaCoveragePageToModel();
+      mediaCoverageEdit.rows.push(emptyMediaCoverageRow());
+      const lastPage = mediaCoveragePageCount() - 1;
+      setMediaCoveragePage(lastPage, { focusLast: true });
+    });
+    mediaCoveragePagePrev?.addEventListener("click", () => {
+      if (!mediaCoverageEdit) return;
+      setMediaCoveragePage((mediaCoverageEdit.page || 0) - 1);
+    });
+    mediaCoveragePageNext?.addEventListener("click", () => {
+      if (!mediaCoverageEdit) return;
+      setMediaCoveragePage((mediaCoverageEdit.page || 0) + 1);
     });
     mediaCoverageDialogImport.addEventListener("click", () => {
       if (mediaCoverageImporting) return;
@@ -3138,10 +3380,8 @@
             }
           );
 
-          await renderMediaCoverageDialogRowsProgressive(rows, {
-            batchSize: 35,
-            onProgress: (progress) => setMediaCoverageImportProgress(progress),
-          });
+          // Keep all rows in memory; only paint the first page.
+          renderMediaCoverageDialogRows(rows, { page: 0 });
 
           const last = rows[rows.length - 1];
           const lastLabel = last
@@ -3158,15 +3398,8 @@
           setMediaCoverageDialogHint(
             `Loaded ${rows.length.toLocaleString()} row${rows.length === 1 ? "" : "s"} from ${file.name}${
               lastLabel ? `. Last row: ${lastLabel}` : ""
-            }. Press Save to keep.`
+            }. Showing ${MEDIA_COVERAGE_PAGE_SIZE} per page — press Save to keep.`
           );
-          requestAnimationFrame(() => {
-            revealLastMediaCoverageRow({ focus: true, highlight: true });
-            mediaCoverageTableWrap?.scrollTo?.({
-              top: mediaCoverageTableWrap.scrollHeight,
-              behavior: "smooth",
-            });
-          });
         } catch (err) {
           setMediaCoverageDialogHint(
             err instanceof Error ? err.message : "Could not read that CSV."
@@ -3190,6 +3423,14 @@
     mediaCoverageDialog.addEventListener("click", (event) => {
       if (event.target === mediaCoverageDialog) requestCloseMediaCoverageDialog();
     });
+    mediaCoverageTypeTablesEl?.addEventListener("click", (event) => {
+      const removeBtn = event.target?.closest?.(".coverage-link-remove");
+      if (!removeBtn) return;
+      event.preventDefault();
+      removeMediaCoverageDialogRow(
+        removeBtn.closest("tr.media-coverage-data-row")
+      );
+    });
     mediaCoverageTypeTablesEl?.addEventListener("input", (event) => {
       if (!(event.target instanceof HTMLInputElement)) return;
       if (!event.target.classList.contains("media-coverage-field")) return;
@@ -3207,12 +3448,23 @@
     coverPreviewDialogReplace.addEventListener("click", () => {
       coverPreviewDialogInput.click();
     });
-    coverPreviewDialogClear.addEventListener("click", () => {
+    coverPreviewDialogClear.addEventListener("click", async () => {
       if (!coverPreviewGameTitle) return;
-      setGameImageForTitle(coverPreviewGameTitle, "");
+      coverPreviewDialogClear.disabled = true;
+      coverPreviewDialogReplace.disabled = true;
       showCoverPreviewError("");
-      refreshCoverPreviewDialog();
-      if (currentTable) renderTable(currentTable, currentFileName);
+      try {
+        await setGameImageForTitle(coverPreviewGameTitle, "");
+        refreshCoverPreviewDialog();
+        if (currentTable) renderTable(currentTable, currentFileName);
+      } catch (err) {
+        showCoverPreviewError(
+          err instanceof Error ? err.message : "Could not clear cover."
+        );
+      } finally {
+        coverPreviewDialogClear.disabled = false;
+        coverPreviewDialogReplace.disabled = false;
+      }
     });
     coverPreviewDialogInput.addEventListener("change", async () => {
       const file = coverPreviewDialogInput.files?.[0];
@@ -3231,7 +3483,7 @@
       try {
         const token = await getIdToken();
         const url = await uploadGameImage(token, file, coverPreviewGameTitle);
-        setGameImageForTitle(coverPreviewGameTitle, url);
+        await setGameImageForTitle(coverPreviewGameTitle, url);
         refreshCoverPreviewDialog();
         if (currentTable) renderTable(currentTable, currentFileName);
       } catch (err) {
