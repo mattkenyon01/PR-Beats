@@ -4,6 +4,18 @@
  */
 const API_BASE = "https://prbeats.matthew-d60.workers.dev";
 
+/** Turn `/api/...` paths into absolute Worker URLs when the admin page is on another host. */
+export function absoluteApiUrl(url) {
+  const raw = String(url || "").trim();
+  if (!raw) return "";
+  if (/^(?:https?:|blob:|data:)/i.test(raw)) return raw;
+  if (raw.startsWith("//")) {
+    return `${typeof location !== "undefined" ? location.protocol : "https:"}${raw}`;
+  }
+  if (raw.startsWith("/")) return `${API_BASE}${raw}`;
+  return raw;
+}
+
 async function api(path, { token, method = "GET", body, headers: extraHeaders } = {}) {
   const headers = {
     ...(body ? { "Content-Type": "application/json" } : {}),
@@ -145,14 +157,165 @@ export function linkPreviewImageUrl(imageUrl) {
   return `${API_BASE}/api/link-preview/image?${query.toString()}`;
 }
 
-export async function uploadGameImage(token, file, gameTitle = "") {
+/**
+ * Downscale large key-art before upload so table/card thumbs decode cheaper.
+ * Skips GIFs (animation) and already-small files.
+ */
+async function prepareImageForUpload(
+  file,
+  { maxEdge = 1280, quality = 0.82, skipUnderBytes = 350_000 } = {}
+) {
+  if (!(file instanceof Blob)) return file;
+  const type = String(file.type || "").toLowerCase();
+  if (!type.startsWith("image/") || type === "image/gif") return file;
+  if (typeof file.size === "number" && file.size <= skipUnderBytes) {
+    // Still clamp absurd pixel dimensions even when file weight is low.
+  }
+
+  if (typeof createImageBitmap !== "function") return file;
+
+  let bitmap;
+  try {
+    bitmap = await createImageBitmap(file);
+  } catch {
+    return file;
+  }
+
+  const longest = Math.max(bitmap.width, bitmap.height);
+  const scale = longest > maxEdge ? maxEdge / longest : 1;
+  if (
+    scale >= 1 &&
+    typeof file.size === "number" &&
+    file.size <= skipUnderBytes
+  ) {
+    bitmap.close?.();
+    return file;
+  }
+
+  const width = Math.max(1, Math.round(bitmap.width * scale));
+  const height = Math.max(1, Math.round(bitmap.height * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    bitmap.close?.();
+    return file;
+  }
+  ctx.drawImage(bitmap, 0, 0, width, height);
+  bitmap.close?.();
+
+  const blob = await new Promise((resolve) => {
+    canvas.toBlob(resolve, "image/webp", quality);
+  });
+  if (!blob) return file;
+
+  const baseName = String(file.name || "cover")
+    .replace(/\.[^.]+$/, "")
+    .slice(0, 80);
+  return new File([blob], `${baseName || "cover"}.webp`, {
+    type: "image/webp",
+    lastModified: Date.now(),
+  });
+}
+
+/**
+ * Resize an image blob/file to fit inside maxEdge (longest side), keeping aspect ratio.
+ * Never upscales. Returns a WebP File.
+ */
+export async function compressImageToMaxEdge(
+  source,
+  { maxEdge = 1280, quality = 0.85, fileName = "key-art" } = {}
+) {
+  if (source == null) {
+    throw new Error("Image data is missing.");
+  }
+  if (typeof createImageBitmap !== "function") {
+    throw new Error("Image compression is not supported in this browser.");
+  }
+
+  let bitmap;
+  try {
+    if (typeof ImageBitmap !== "undefined" && source instanceof ImageBitmap) {
+      bitmap = source;
+    } else {
+      bitmap = await createImageBitmap(source);
+    }
+  } catch {
+    throw new Error("Could not read that image.");
+  }
+
+  const srcW = bitmap.width;
+  const srcH = bitmap.height;
+  const longest = Math.max(srcW, srcH);
+  const edge = Math.max(1, Number(maxEdge) || 1280);
+  const scale = longest > edge ? edge / longest : 1;
+  const width = Math.max(1, Math.round(srcW * scale));
+  const height = Math.max(1, Math.round(srcH * scale));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    bitmap.close?.();
+    throw new Error("Could not compress that image.");
+  }
+  ctx.drawImage(bitmap, 0, 0, width, height);
+  bitmap.close?.();
+
+  const blob = await new Promise((resolve) => {
+    canvas.toBlob(resolve, "image/webp", quality);
+  });
+  if (!blob) throw new Error("Could not compress that image.");
+
+  const base = String(fileName || "key-art")
+    .replace(/\.[^.]+$/, "")
+    .slice(0, 80);
+  return {
+    file: new File([blob], `${base || "key-art"}-${width}x${height}.webp`, {
+      type: "image/webp",
+      lastModified: Date.now(),
+    }),
+    width,
+    height,
+    sourceWidth: srcW,
+    sourceHeight: srcH,
+  };
+}
+
+export function sizedCoverDimensions(sourceWidth, sourceHeight, maxEdge) {
+  const srcW = Math.max(0, Number(sourceWidth) || 0);
+  const srcH = Math.max(0, Number(sourceHeight) || 0);
+  const edge = Math.max(1, Number(maxEdge) || 1);
+  if (srcW <= 0 || srcH <= 0) return null;
+  const longest = Math.max(srcW, srcH);
+  const scale = longest > edge ? edge / longest : 1;
+  return {
+    width: Math.max(1, Math.round(srcW * scale)),
+    height: Math.max(1, Math.round(srcH * scale)),
+    maxEdge: edge,
+    scale,
+  };
+}
+
+export async function uploadGameImage(
+  token,
+  file,
+  gameTitle = "",
+  { skipPrepare = false, maxEdge = 1280, quality = 0.82 } = {}
+) {
   if (!file) throw new Error("Choose an image file.");
   if (!file.type.startsWith("image/")) {
     throw new Error("Please choose an image file (PNG, JPG, WebP, etc.).");
   }
 
+  const prepared = skipPrepare
+    ? file
+    : await prepareImageForUpload(file, { maxEdge, quality });
+
   const form = new FormData();
-  form.append("file", file);
+  form.append("file", prepared);
   if (gameTitle) form.append("gameTitle", gameTitle);
 
   const headers = {};

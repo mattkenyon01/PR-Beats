@@ -7,7 +7,7 @@
   <link rel="icon" type="image/png" href="images/SilverLiningIcon.png" />
   <link rel="apple-touch-icon" href="images/SilverLiningIcon.png" />
   <script src="js/theme-boot.js"></script>
-  <link rel="stylesheet" href="styles.css?v=coverage-sort-date-first-1" />
+  <link rel="stylesheet" href="styles.css?v=add-row-scroll-lock-1" />
 </head>
 <body class="admin-page">
   <p class="note" id="loading">Checking sign-in…</p>
@@ -60,6 +60,22 @@
               <circle cx="18" cy="19" r="3"/>
               <line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/>
               <line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/>
+            </svg>
+          </button>
+          <button
+            id="catalog-view-toggle"
+            type="button"
+            class="btn-icon"
+            aria-label="Table view"
+            title="Table view"
+            aria-pressed="false"
+            hidden
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M3 5h18"/>
+              <path d="M3 12h18"/>
+              <path d="M3 19h18"/>
+              <path d="M9 5v14"/>
             </svg>
           </button>
           <div class="coverage-header-actions" id="coverage-header-actions" hidden>
@@ -346,6 +362,24 @@
         </div>
       </div>
     </section>
+
+    <div
+      class="game-loading-screen"
+      id="game-loading-screen"
+      hidden
+      aria-live="polite"
+      aria-busy="true"
+    >
+      <div class="game-loading-inner">
+        <div class="game-loading-art is-empty" id="game-loading-art"></div>
+        <p class="game-loading-copy">
+          <span class="game-loading-spinner" aria-hidden="true"></span>
+          <span class="game-loading-text"
+            >Loading <span id="game-loading-name"></span
+          ></span>
+        </p>
+      </div>
+    </div>
   </div>
 
   <div class="row-context-menu" id="row-context-menu" hidden>
@@ -567,6 +601,37 @@
     </div>
   </dialog>
 
+  <dialog
+    class="compress-key-art-dialog"
+    id="compress-key-art-dialog"
+    aria-labelledby="compress-key-art-dialog-title"
+  >
+    <div class="compress-key-art-dialog-panel">
+      <header class="compress-key-art-dialog-header">
+        <div>
+          <h2 id="compress-key-art-dialog-title">Compress key art</h2>
+          <p class="compress-key-art-dialog-game" id="compress-key-art-dialog-game"></p>
+        </div>
+        <button type="button" class="btn-ghost" id="compress-key-art-dialog-close">Close</button>
+      </header>
+      <div class="compress-key-art-dialog-body">
+        <p class="compress-key-art-current" id="compress-key-art-current">Current size: —</p>
+        <p class="compress-key-art-hint">
+          Choose a target size. The image keeps its aspect ratio (longest side is scaled).
+        </p>
+        <div
+          class="compress-key-art-options"
+          id="compress-key-art-options"
+          role="list"
+        ></div>
+        <p class="compress-key-art-empty" id="compress-key-art-empty" hidden>
+          This image is already at or below the smallest preset.
+        </p>
+        <p class="admin-error" id="compress-key-art-dialog-error" hidden></p>
+      </div>
+    </div>
+  </dialog>
+
   <script type="module">
     import { initThemeToggle } from "./js/theme.js";
     import {
@@ -624,6 +689,9 @@
       updateGame as updateGameApi,
       deleteGame as deleteGameApi,
       uploadGameImage,
+      absoluteApiUrl,
+      compressImageToMaxEdge,
+      sizedCoverDimensions,
       uploadPressKit,
       uploadPressReleasePdf,
       fetchLinkPreview,
@@ -661,6 +729,10 @@
     const addGameSubmit = document.getElementById("add-game-submit");
     const gameCatalogEl = document.getElementById("game-catalog");
     const gameDetailEl = document.getElementById("game-detail");
+    const gameLoadingScreen = document.getElementById("game-loading-screen");
+    const gameLoadingArt = document.getElementById("game-loading-art");
+    const gameLoadingName = document.getElementById("game-loading-name");
+    let gameLoadingToken = 0;
     const gameDetailDelete = document.getElementById("game-detail-delete");
     const gameYoutubeTestBtn = document.getElementById("game-youtube-test-btn");
     const youtubeTestPageEl = document.getElementById("youtube-test-page");
@@ -736,6 +808,10 @@
     const viewModeControl = document.getElementById("view-mode-control");
     const viewModeSelect = document.getElementById("view-mode");
     const shareBtn = document.getElementById("share-btn");
+    const catalogViewToggle = document.getElementById("catalog-view-toggle");
+    const CATALOG_VIEW_KEY = "prbeats-admin-catalog-view";
+    let catalogViewMode =
+      sessionStorage.getItem(CATALOG_VIEW_KEY) === "table" ? "table" : "games";
     const shareDialog = document.getElementById("share-dialog");
     const shareDialogClose = document.getElementById("share-dialog-close");
     const shareGamesList = document.getElementById("share-games-list");
@@ -826,6 +902,23 @@
     const coverPreviewDialogClear = document.getElementById("cover-preview-dialog-clear");
     const coverPreviewDialogReplace = document.getElementById("cover-preview-dialog-replace");
     let coverPreviewGameTitle = "";
+    const compressKeyArtDialog = document.getElementById("compress-key-art-dialog");
+    const compressKeyArtDialogClose = document.getElementById(
+      "compress-key-art-dialog-close"
+    );
+    const compressKeyArtDialogGame = document.getElementById(
+      "compress-key-art-dialog-game"
+    );
+    const compressKeyArtCurrent = document.getElementById("compress-key-art-current");
+    const compressKeyArtOptions = document.getElementById("compress-key-art-options");
+    const compressKeyArtEmpty = document.getElementById("compress-key-art-empty");
+    const compressKeyArtDialogError = document.getElementById(
+      "compress-key-art-dialog-error"
+    );
+    const COMPRESS_MAX_EDGE_PRESETS = [
+      2560, 2048, 1920, 1600, 1440, 1280, 1024, 800, 640,
+    ];
+    let compressKeyArtState = null;
     const rowContextMenu = document.getElementById("row-context-menu");
     const rowContextDelete = document.getElementById("row-context-delete");
 
@@ -1267,10 +1360,16 @@
       });
     }
 
+    function setAddRowDialogScrollLock(locked) {
+      document.documentElement.classList.toggle("is-add-row-dialog-open", locked);
+      document.body.classList.toggle("is-add-row-dialog-open", locked);
+    }
+
     function closeAddRowDialog() {
       addRowGameTitleLocked = "";
       if (typeof addRowDialog.close === "function") addRowDialog.close();
       else addRowDialog.removeAttribute("open");
+      setAddRowDialogScrollLock(false);
     }
 
     function clearAddRowPressRelease() {
@@ -1301,7 +1400,14 @@
       addRowGameTitleLocked = String(
         preferredGameTitle || activeGameTitle || ""
       ).trim();
+      const titleEl = document.getElementById("add-row-dialog-title");
+      if (titleEl) {
+        titleEl.textContent = addRowGameTitleLocked
+          ? `Add announcement - ${addRowGameTitleLocked}`
+          : "Add announcement";
+      }
       renderAddRowPlatformOptions();
+      setAddRowDialogScrollLock(true);
       if (typeof addRowDialog.showModal === "function") {
         addRowDialog.showModal();
       } else {
@@ -1529,12 +1635,16 @@
     }
 
     function refreshCoverPreviewDialog() {
+      const frame = document.getElementById("cover-preview-dialog-frame");
+      frame?.querySelector(".cover-resolution-warning")?.remove();
+      frame?.classList.remove("has-resolution-warning");
       const src = gameImageForTitle(coverPreviewGameTitle);
       if (src) {
         coverPreviewDialogImage.src = src;
         coverPreviewDialogImage.hidden = false;
         coverPreviewDialogEmpty.hidden = true;
         coverPreviewDialogClear.hidden = false;
+        bindCoverResolutionWarning(coverPreviewDialogImage, frame);
       } else {
         coverPreviewDialogImage.removeAttribute("src");
         coverPreviewDialogImage.hidden = true;
@@ -1562,6 +1672,187 @@
         coverPreviewDialog.showModal();
       } else {
         coverPreviewDialog.setAttribute("open", "");
+      }
+    }
+
+    function showCompressKeyArtError(message) {
+      if (!compressKeyArtDialogError) return;
+      compressKeyArtDialogError.textContent = message || "";
+      compressKeyArtDialogError.hidden = !message;
+    }
+
+    function closeCompressKeyArtDialog() {
+      if (typeof compressKeyArtDialog?.close === "function") {
+        compressKeyArtDialog.close();
+      } else {
+        compressKeyArtDialog?.removeAttribute("open");
+      }
+      compressKeyArtState = null;
+      showCompressKeyArtError("");
+    }
+
+    function loadCorsImage(url) {
+      const absolute = absoluteApiUrl(url);
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.decoding = "async";
+        img.crossOrigin = "anonymous";
+        img.onload = () => resolve(img);
+        img.onerror = () =>
+          reject(
+            new Error(
+              "Could not load key art for compression (check the image URL / CORS)."
+            )
+          );
+        img.src = absolute;
+      });
+    }
+
+    async function applyCompressedKeyArt(maxEdge) {
+      const state = compressKeyArtState;
+      if (!state?.artUrl || !state?.gameTitle) return;
+      const buttons = [
+        ...compressKeyArtOptions.querySelectorAll("button"),
+      ];
+      buttons.forEach((btn) => {
+        btn.disabled = true;
+      });
+      showCompressKeyArtError("");
+      try {
+        const absolute = absoluteApiUrl(state.artUrl);
+        let source;
+        try {
+          const response = await fetch(absolute, {
+            mode: "cors",
+            credentials: "omit",
+            cache: "force-cache",
+          });
+          if (!response.ok) {
+            throw new Error(`Download failed (${response.status}).`);
+          }
+          source = await response.blob();
+        } catch {
+          // Fallback: decode via <img crossOrigin> (works when fetch is blocked).
+          source = await loadCorsImage(absolute);
+        }
+
+        const { file, width, height } = await compressImageToMaxEdge(source, {
+          maxEdge,
+          quality: 0.85,
+          fileName: state.gameTitle,
+        });
+        const token = await getIdToken();
+        const url = await uploadGameImage(token, file, state.gameTitle, {
+          skipPrepare: true,
+        });
+        await setGameImageForTitle(state.gameTitle, url);
+        if (state.gameId) {
+          const data = await updateGameApi(token, state.gameId, {
+            keyArt: url,
+          });
+          noteD1FromResponse(data, "Update game");
+          if (Array.isArray(data?.games)) {
+            gamesCatalog = normalizeGamesCatalog(
+              data.games,
+              currentTable?.rows
+            );
+          }
+        }
+        closeCompressKeyArtDialog();
+        if (currentTable) renderTable(currentTable, currentFileName);
+        showSuccess(`Key art compressed to ${width}×${height}.`);
+      } catch (err) {
+        const message =
+          err instanceof TypeError
+            ? "Could not reach the image server. Try again, or re-upload a smaller key art."
+            : err instanceof Error
+              ? err.message
+              : "Could not compress key art.";
+        showCompressKeyArtError(message);
+        buttons.forEach((btn) => {
+          btn.disabled = false;
+        });
+      }
+    }
+
+    async function openCompressKeyArtDialog(gameTitle) {
+      const title = String(gameTitle || "").trim() || "Untitled";
+      const game = findGameByTitle(title);
+      const artUrl = absoluteApiUrl(
+        String(game?.keyArt || gameImageForTitle(title) || "").trim()
+      );
+      if (!artUrl) {
+        showError("Upload key art before compressing.");
+        return;
+      }
+
+      showCompressKeyArtError("");
+      if (compressKeyArtDialogGame) compressKeyArtDialogGame.textContent = title;
+      if (compressKeyArtCurrent) {
+        compressKeyArtCurrent.textContent = "Reading image size…";
+      }
+      if (compressKeyArtOptions) compressKeyArtOptions.innerHTML = "";
+      if (compressKeyArtEmpty) compressKeyArtEmpty.hidden = true;
+
+      compressKeyArtState = {
+        gameTitle: title,
+        gameId: game?.id || "",
+        artUrl,
+        width: 0,
+        height: 0,
+      };
+
+      if (typeof compressKeyArtDialog?.showModal === "function") {
+        compressKeyArtDialog.showModal();
+      } else {
+        compressKeyArtDialog?.setAttribute("open", "");
+      }
+
+      try {
+        const img = await loadCorsImage(artUrl);
+        if (
+          !compressKeyArtState ||
+          compressKeyArtState.gameTitle !== title
+        ) {
+          return;
+        }
+        const size = {
+          width: img.naturalWidth,
+          height: img.naturalHeight,
+        };
+        compressKeyArtState.width = size.width;
+        compressKeyArtState.height = size.height;
+        if (compressKeyArtCurrent) {
+          compressKeyArtCurrent.textContent = `Current size: ${size.width}×${size.height}`;
+        }
+
+        const options = COMPRESS_MAX_EDGE_PRESETS.map((edge) => {
+          const dims = sizedCoverDimensions(size.width, size.height, edge);
+          if (!dims || dims.scale >= 1) return null;
+          return { maxEdge: edge, ...dims };
+        }).filter(Boolean);
+
+        if (!options.length) {
+          if (compressKeyArtEmpty) compressKeyArtEmpty.hidden = false;
+          return;
+        }
+
+        options.forEach((option) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "compress-key-art-option";
+          button.setAttribute("role", "listitem");
+          button.innerHTML = `<span class="compress-key-art-option-size">${option.width}×${option.height}</span><span class="compress-key-art-option-meta">Longest side ${option.maxEdge}px</span>`;
+          button.title = `Compress to ${option.width}×${option.height}`;
+          button.addEventListener("click", () =>
+            applyCompressedKeyArt(option.maxEdge)
+          );
+          compressKeyArtOptions.appendChild(button);
+        });
+      } catch (err) {
+        showCompressKeyArtError(
+          err instanceof Error ? err.message : "Could not read key art."
+        );
       }
     }
 
@@ -1669,12 +1960,15 @@
 
       function refreshPreview(url) {
         const src = (url || "").trim();
+        preview.querySelector(".cover-resolution-warning")?.remove();
+        preview.classList.remove("has-resolution-warning");
         if (src) {
           img.src = src;
           img.hidden = false;
           placeholder.hidden = true;
           clearItem.hidden = false;
           setGameSettingsMenuLabel(uploadItem, "Replace cover");
+          bindCoverResolutionWarning(img, preview);
         } else {
           img.removeAttribute("src");
           img.hidden = true;
@@ -2562,14 +2856,119 @@
         : "Admin — PR beats";
     }
 
-    function openGameDetail(gameTitle, { updateUrl = true } = {}) {
-      activeGameTitle = String(gameTitle || "").trim();
-      setAppTitle(activeGameTitle);
-      if (updateUrl) syncGameToUrl(activeGameTitle);
-      if (currentTable) renderTable(currentTable, currentFileName);
+    function waitUntilLoadingScreenPainted() {
+      // Force layout, wait for a frame, then yield so the browser can paint
+      // before any heavy sync work (double-rAF alone often still blocks paint).
+      if (gameLoadingScreen) {
+        void gameLoadingScreen.offsetHeight;
+      }
+      return new Promise((resolve) => {
+        requestAnimationFrame(() => {
+          setTimeout(resolve, 0);
+        });
+      });
+    }
+
+    const GAME_LOADING_EXIT_MS = 520;
+
+    function showGameLoadingScreen(gameTitle) {
+      const title = String(gameTitle || "").trim() || "Untitled";
+      const token = ++gameLoadingToken;
+      if (gameLoadingName) gameLoadingName.textContent = title;
+      if (gameLoadingArt) {
+        gameLoadingArt.innerHTML = "";
+        const art = String(
+          findGameByTitle(title)?.keyArt || gameImageForTitle(title) || ""
+        ).trim();
+        if (art) {
+          gameLoadingArt.classList.remove("is-empty");
+          const img = document.createElement("img");
+          img.src = art;
+          img.alt = "";
+          img.decoding = "async";
+          gameLoadingArt.appendChild(img);
+        } else {
+          gameLoadingArt.classList.add("is-empty");
+          gameLoadingArt.textContent = "No key art";
+        }
+      }
+      if (gameLoadingScreen) {
+        gameLoadingScreen.classList.remove("is-exiting");
+        gameLoadingScreen.hidden = false;
+        gameLoadingScreen.setAttribute("aria-busy", "true");
+        // Restart fade-up when opening another game.
+        const animated = gameLoadingScreen.querySelectorAll(
+          ".game-loading-art, .game-loading-copy"
+        );
+        animated.forEach((el) => {
+          el.style.animation = "none";
+          void el.offsetWidth;
+          el.style.animation = "";
+        });
+      }
+      panel?.classList.add("is-game-loading");
+      return token;
+    }
+
+    function hideGameLoadingScreen(token) {
+      if (token != null && token !== gameLoadingToken) return;
+      if (gameLoadingScreen) {
+        gameLoadingScreen.classList.remove("is-exiting");
+        gameLoadingScreen.hidden = true;
+        gameLoadingScreen.setAttribute("aria-busy", "false");
+      }
+      panel?.classList.remove("is-game-loading");
+    }
+
+    async function dismissGameLoadingScreen(token) {
+      if (token != null && token !== gameLoadingToken) return;
+      if (!gameLoadingScreen || gameLoadingScreen.hidden) {
+        hideGameLoadingScreen(token);
+        return;
+      }
+      gameLoadingScreen.classList.add("is-exiting");
+      gameLoadingScreen.setAttribute("aria-busy", "false");
+      await new Promise((resolve) => setTimeout(resolve, GAME_LOADING_EXIT_MS));
+      if (token != null && token !== gameLoadingToken) return;
+      hideGameLoadingScreen(token);
+    }
+
+    async function openGameDetail(gameTitle, { updateUrl = true } = {}) {
+      const title = String(gameTitle || "").trim();
+      if (!title) return;
+
+      // 1) Show loading UI only — no game detail work yet.
+      const token = showGameLoadingScreen(title);
+      const shownAt = performance.now();
+      const minVisibleMs = 1000;
+
+      try {
+        // 2) Wait until that screen has actually painted.
+        await waitUntilLoadingScreenPainted();
+        if (token !== gameLoadingToken) return;
+
+        // 3) Build the game detail behind the opaque loading screen.
+        activeGameTitle = title;
+        setAppTitle(title);
+        if (updateUrl) syncGameToUrl(title);
+        if (currentTable) renderTable(currentTable, currentFileName);
+
+        const remaining = minVisibleMs - (performance.now() - shownAt);
+        if (remaining > 0) {
+          await new Promise((resolve) => setTimeout(resolve, remaining));
+        }
+        if (token !== gameLoadingToken) return;
+
+        // 4) Fade image + text up, then reveal the loaded page.
+        await dismissGameLoadingScreen(token);
+      } catch {
+        hideGameLoadingScreen(token);
+      }
     }
 
     function closeGameDetail({ updateUrl = true } = {}) {
+      gameLoadingToken += 1;
+      hideGameLoadingScreen();
       if (coverageLinksPageOpen) {
         closeCoverageLinksDialog({ updateUrl: false });
       }
@@ -4816,6 +5215,16 @@
       closeCoverPreviewDialog();
     });
     bindDialogBackdropClose(coverPreviewDialog, () => closeCoverPreviewDialog());
+    compressKeyArtDialogClose?.addEventListener("click", () =>
+      closeCompressKeyArtDialog()
+    );
+    compressKeyArtDialog?.addEventListener("cancel", (event) => {
+      event.preventDefault();
+      closeCompressKeyArtDialog();
+    });
+    bindDialogBackdropClose(compressKeyArtDialog, () =>
+      closeCompressKeyArtDialog()
+    );
     coverPreviewDialogReplace.addEventListener("click", () => {
       coverPreviewDialogInput.click();
     });
@@ -4875,6 +5284,52 @@
       passwordSuccess.hidden = !successMessage;
     }
 
+    function syncCatalogViewToggle() {
+      if (!catalogViewToggle) return;
+      const show =
+        settingsView.hidden &&
+        hasTable &&
+        !activeGameTitle &&
+        !coverageLinksPageOpen &&
+        !youtubeTestPageOpen;
+      catalogViewToggle.hidden = !show;
+      if (!show) return;
+      const isTable = catalogViewMode === "table";
+      catalogViewToggle.setAttribute("aria-pressed", isTable ? "true" : "false");
+      catalogViewToggle.setAttribute(
+        "aria-label",
+        isTable ? "Games view" : "Table view"
+      );
+      catalogViewToggle.title = isTable ? "Games view" : "Table view";
+      catalogViewToggle.classList.toggle("is-active", isTable);
+      catalogViewToggle.innerHTML = isTable
+        ? `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="3" width="7" height="7" rx="1"/>
+            <rect x="14" y="3" width="7" height="7" rx="1"/>
+            <rect x="3" y="14" width="7" height="7" rx="1"/>
+            <rect x="14" y="14" width="7" height="7" rx="1"/>
+          </svg>`
+        : `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M3 5h18"/>
+            <path d="M3 12h18"/>
+            <path d="M3 19h18"/>
+            <path d="M9 5v14"/>
+          </svg>`;
+    }
+
+    function setCatalogViewMode(mode, { render = true } = {}) {
+      catalogViewMode = mode === "table" ? "table" : "games";
+      try {
+        sessionStorage.setItem(CATALOG_VIEW_KEY, catalogViewMode);
+      } catch {
+        // Ignore storage failures.
+      }
+      syncCatalogViewToggle();
+      if (render && currentTable && !activeGameTitle) {
+        renderTable(currentTable, currentFileName);
+      }
+    }
+
     function setView(view) {
       const settings = view === "settings";
       if (settings && youtubeTestPageOpen) {
@@ -4897,6 +5352,7 @@
       setCoverageHeaderActionsVisible(!settings && coverageLinksPageOpen);
       syncAddRowButtonVisibility();
       syncGameSearchBarVisibility();
+      syncCatalogViewToggle();
       if (settings) {
         showPasswordMessage("", "");
         passwordForm.reset();
@@ -4916,13 +5372,15 @@
       currentFileName = "";
       shareBtn.hidden = true;
       viewModeControl.hidden = true;
+      if (catalogViewToggle) catalogViewToggle.hidden = true;
       csvInput.value = "";
       gameSearchInput.value = "";
       monthFilter.innerHTML = '<option value="">All months</option>';
       setViewMode("formatted", { updateUrl: true, render: false });
-      gameSections.classList.remove("is-grid-view");
-      panel.classList.remove("is-grid-layout");
+      gameSections.classList.remove("is-grid-view", "is-catalog-readonly");
+      panel.classList.remove("is-grid-layout", "is-catalog-table");
       syncAddRowButtonVisibility();
+      syncCatalogViewToggle();
       showError("");
       showSuccess("");
 
@@ -5166,13 +5624,20 @@
       if (!currentTable) return [];
       const month = monthFilter.value;
       const query = gameSearchInput.value.trim().toLowerCase();
+      const searchAnnouncements =
+        !activeGameTitle && catalogViewMode === "table";
       return currentTable.rows
         .map((row, rowIndex) => ({ row, rowIndex }))
         .filter(({ row }) => {
           if (month && row.month !== month) return false;
           if (!query) return true;
           const title = (row.gameTitle || "").trim().toLowerCase();
-          return title.includes(query);
+          if (title.includes(query)) return true;
+          if (!searchAnnouncements) return false;
+          const announcement = (row.announcementTitle || "")
+            .trim()
+            .toLowerCase();
+          return announcement.includes(query);
         });
     }
 
@@ -5388,6 +5853,45 @@
       const direct = String(row?.gameImage || "").trim();
       if (direct) return direct;
       return gameImageForTitle(row?.gameTitle || "");
+    }
+
+    // Key art displayed tiny shouldn't stay at 4K+/huge pixel counts.
+    const HIGH_COVER_EDGE_PX = 2500;
+    const HIGH_COVER_PIXELS = 6_000_000;
+    const COVER_RES_WARNING_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>`;
+
+    function isInsanelyHighCoverResolution(width, height) {
+      const w = Number(width) || 0;
+      const h = Number(height) || 0;
+      if (w <= 0 || h <= 0) return false;
+      return (
+        Math.max(w, h) >= HIGH_COVER_EDGE_PX || w * h >= HIGH_COVER_PIXELS
+      );
+    }
+
+    function bindCoverResolutionWarning(img, host) {
+      if (!img || !host) return;
+      const apply = () => {
+        host.querySelector(".cover-resolution-warning")?.remove();
+        host.classList.remove("has-resolution-warning");
+        if (!isInsanelyHighCoverResolution(img.naturalWidth, img.naturalHeight)) {
+          return;
+        }
+        host.classList.add("has-resolution-warning");
+        const badge = document.createElement("span");
+        badge.className = "cover-resolution-warning";
+        badge.title = `Very high resolution (${img.naturalWidth}×${img.naturalHeight}). Replace with a smaller image for better performance.`;
+        badge.setAttribute("role", "img");
+        badge.setAttribute("aria-label", badge.title);
+        badge.innerHTML = COVER_RES_WARNING_ICON;
+        badge.addEventListener("click", (event) => event.stopPropagation());
+        host.appendChild(badge);
+      };
+      if (img.complete && img.naturalWidth > 0) {
+        apply();
+        return;
+      }
+      img.addEventListener("load", apply, { once: true });
     }
 
     function isRowFieldMissing(row, key) {
@@ -5762,8 +6266,13 @@
             img.src = src;
             img.alt = "";
             img.loading = "lazy";
+            img.decoding = "async";
+            img.fetchPriority = "low";
+            img.width = 68;
+            img.height = 32;
             img.referrerPolicy = "no-referrer";
             td.appendChild(img);
+            bindCoverResolutionWarning(img, td);
           } else {
             td.classList.add("is-empty-cover");
             const empty = document.createElement("span");
@@ -5895,8 +6404,13 @@
       if (!gameCatalogEl || !gameDetailEl) return;
       gameCatalogEl.hidden = false;
       gameDetailEl.hidden = true;
+      if (gameDetailHeader) {
+        gameDetailHeader.hidden = false;
+        gameDetailHeader.innerHTML = "";
+      }
       gameCatalogEl.innerHTML = "";
       gameSections.innerHTML = "";
+      panel?.classList.remove("is-game-detail", "is-catalog-table");
 
       const games = filteredGamesCatalog();
       if (!games.length) {
@@ -5926,7 +6440,11 @@
           const img = document.createElement("img");
           img.src = art;
           img.alt = "";
+          img.loading = "lazy";
+          img.decoding = "async";
+          img.fetchPriority = "low";
           cover.appendChild(img);
+          bindCoverResolutionWarning(img, cover);
         } else {
           cover.classList.add("is-empty");
           cover.textContent = "No key art";
@@ -5943,21 +6461,24 @@
         meta.className = "game-card-meta";
         meta.textContent = `${count} announcement${count === 1 ? "" : "s"}`;
 
-        const openBtn = document.createElement("button");
-        openBtn.type = "button";
-        openBtn.className = "btn-icon game-card-open";
-        openBtn.setAttribute("aria-label", `Open ${game.title}`);
-        openBtn.title = "Open game";
-        openBtn.innerHTML =
-          '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>';
-        openBtn.addEventListener("click", (event) => {
+        const addAnnouncementBtn = document.createElement("button");
+        addAnnouncementBtn.type = "button";
+        addAnnouncementBtn.className = "btn-icon game-card-open";
+        addAnnouncementBtn.setAttribute(
+          "aria-label",
+          `Add announcement for ${game.title}`
+        );
+        addAnnouncementBtn.title = "Add announcement";
+        addAnnouncementBtn.innerHTML =
+          '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg>';
+        addAnnouncementBtn.addEventListener("click", (event) => {
           event.stopPropagation();
-          openGameDetail(game.title);
+          openAddRowDialog(game.title);
         });
 
         body.appendChild(title);
         body.appendChild(meta);
-        body.appendChild(openBtn);
+        body.appendChild(addAnnouncementBtn);
         card.appendChild(cover);
         card.appendChild(body);
         card.addEventListener("click", () => openGameDetail(game.title));
@@ -5989,7 +6510,9 @@
         const img = document.createElement("img");
         img.src = art;
         img.alt = "";
+        img.decoding = "async";
         artWrap.appendChild(img);
+        bindCoverResolutionWarning(img, artWrap);
       } else {
         artWrap.classList.add("is-empty");
         artWrap.textContent = "No key art";
@@ -6086,8 +6609,19 @@
         actions.appendChild(download);
       }
 
+      const compressArt = document.createElement("button");
+      compressArt.type = "button";
+      compressArt.className = "btn-ghost";
+      compressArt.textContent = "Compress";
+      compressArt.hidden = !art;
+      compressArt.title = "Reduce key art resolution";
+      compressArt.addEventListener("click", () =>
+        openCompressKeyArtDialog(gameTitle)
+      );
+
       actions.appendChild(replaceArt);
       actions.appendChild(artInput);
+      actions.appendChild(compressArt);
       actions.appendChild(pressKitBtn);
       actions.appendChild(kitInput);
       copy.appendChild(actions);
@@ -6526,9 +7060,160 @@
       panel?.classList.remove("is-coverage-links-page");
       panel?.classList.remove("is-youtube-test-page");
       if (gameDetailEl) gameDetailEl.hidden = false;
+      if (gameDetailHeader) gameDetailHeader.hidden = false;
+      panel?.classList.remove("is-catalog-table");
       renderGameDetailHeader(activeGameTitle);
       renderGameDetailAnnouncements(visible, columns);
       void renderGameDetailMediaCoverage(activeGameTitle);
+    }
+
+    const CATALOG_TABLE_COLUMNS = [
+      { key: "gameTitle", label: "Game" },
+      { key: "announcementTitle", label: "Announcement" },
+      { key: "date", label: "Date" },
+      { key: "month", label: "Month" },
+      { key: "platforms", label: "Platforms" },
+      { key: "estimatedReach", label: "Est. reach" },
+      { key: "totalWishlists", label: "Wishlists" },
+    ];
+
+    function catalogPlatformsText(value) {
+      const ids = parsePlatforms(value);
+      if (!ids.length) {
+        const raw = String(value || "").trim();
+        return raw || "—";
+      }
+      return ids
+        .map(
+          (id) =>
+            PLATFORM_OPTIONS.find((option) => option.id === id)?.label || id
+        )
+        .join(", ");
+    }
+
+    function catalogCellText(row, key) {
+      if (key === "platforms") return catalogPlatformsText(row.platforms);
+      if (key === "gameTitle") {
+        return String(row.gameTitle || "").trim() || "Untitled";
+      }
+      const value = String(row?.[key] ?? "").trim();
+      return value || "—";
+    }
+
+    function renderCatalogAnnouncementsTable(visible) {
+      if (gameCatalogEl) gameCatalogEl.hidden = true;
+      // game-sections lives inside game-detail — keep the shell visible.
+      if (gameDetailEl) gameDetailEl.hidden = false;
+      if (gameDetailHeader) {
+        gameDetailHeader.hidden = true;
+        gameDetailHeader.innerHTML = "";
+      }
+      gameSections.innerHTML = "";
+      gameSections.classList.remove("is-grid-view");
+      gameSections.classList.add("is-catalog-readonly");
+      panel.classList.add("is-grid-layout", "is-catalog-table");
+
+      const rows = sortVisibleForGrid(visible, CATALOG_TABLE_COLUMNS);
+      const filterActive = Boolean(
+        gameSearchInput.value.trim() || monthFilter.value
+      );
+
+      if (rows.length === 0 && filterActive && currentTable?.rows.length > 0) {
+        const empty = document.createElement("p");
+        empty.className = "empty-filter";
+        empty.textContent = gameSearchInput.value.trim()
+          ? "No announcements match this search."
+          : "No rows match this month filter.";
+        gameSections.appendChild(empty);
+        return;
+      }
+
+      if (!rows.length) {
+        const empty = document.createElement("p");
+        empty.className = "empty-filter";
+        empty.textContent = "No announcements yet.";
+        gameSections.appendChild(empty);
+        return;
+      }
+
+      const wrap = document.createElement("div");
+      wrap.className = "table-wrap catalog-readonly-wrap";
+
+      const tableEl = document.createElement("table");
+      tableEl.className = "catalog-readonly-table";
+
+      const thead = document.createElement("thead");
+      const headRow = document.createElement("tr");
+      CATALOG_TABLE_COLUMNS.forEach((column) => {
+        const th = document.createElement("th");
+        th.scope = "col";
+        th.className = `col-${column.key} grid-sortable`;
+        if (gridSortKey === column.key) {
+          th.classList.add(
+            gridSortDirection === "asc" ? "is-sort-asc" : "is-sort-desc"
+          );
+        }
+
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "grid-sort-btn";
+        button.setAttribute(
+          "aria-label",
+          `Sort by ${column.label}${
+            gridSortKey === column.key
+              ? gridSortDirection === "asc"
+                ? ", ascending"
+                : ", descending"
+              : ""
+          }`
+        );
+        const label = document.createElement("span");
+        label.textContent = column.label;
+        button.appendChild(label);
+        const marker = document.createElement("span");
+        marker.className = "grid-sort-marker";
+        marker.setAttribute("aria-hidden", "true");
+        marker.textContent =
+          gridSortKey === column.key
+            ? gridSortDirection === "asc"
+              ? "▲"
+              : "▼"
+            : "⇅";
+        button.appendChild(marker);
+        button.addEventListener("click", () => setGridSort(column.key));
+        th.appendChild(button);
+        headRow.appendChild(th);
+      });
+      thead.appendChild(headRow);
+
+      const tbody = document.createElement("tbody");
+      const fragment = document.createDocumentFragment();
+      rows.forEach(({ row }) => {
+        const tr = document.createElement("tr");
+        tr.className = "catalog-readonly-row";
+        const gameTitle = String(row.gameTitle || "").trim() || "Untitled";
+        tr.title = `Open ${gameTitle}`;
+        tr.tabIndex = 0;
+        tr.addEventListener("click", () => openGameDetail(gameTitle));
+        tr.addEventListener("keydown", (event) => {
+          if (event.key !== "Enter" && event.key !== " ") return;
+          event.preventDefault();
+          openGameDetail(gameTitle);
+        });
+        CATALOG_TABLE_COLUMNS.forEach((column) => {
+          const td = document.createElement("td");
+          td.className = `col-${column.key}`;
+          td.textContent = catalogCellText(row, column.key);
+          tr.appendChild(td);
+        });
+        fragment.appendChild(tr);
+      });
+      tbody.appendChild(fragment);
+
+      tableEl.appendChild(thead);
+      tableEl.appendChild(tbody);
+      wrap.appendChild(tableEl);
+      gameSections.appendChild(wrap);
     }
 
     function renderFormattedView(visible, columns) {
@@ -6536,6 +7221,13 @@
         renderGameDetailPage(visible, columns);
         return;
       }
+      if (catalogViewMode === "table") {
+        renderCatalogAnnouncementsTable(visible);
+        return;
+      }
+      gameSections.classList.remove("is-grid-view", "is-catalog-readonly");
+      panel.classList.remove("is-grid-layout", "is-catalog-table");
+      if (gameDetailHeader) gameDetailHeader.hidden = false;
       renderGameCatalog();
     }
 
@@ -6710,11 +7402,23 @@
         const title = (row.gameTitle || "").trim() || "Untitled";
         return title === activeGameTitle;
       });
+      const isCatalogTable = !activeGameTitle && catalogViewMode === "table";
       const isGrid = Boolean(activeGameTitle) && viewModeSelect.value === "grid";
       const columns = tableColumns(table, { grid: isGrid });
-      gameSections.classList.toggle("is-grid-view", isGrid);
-      panel.classList.toggle("is-grid-layout", isGrid);
+      gameSections.classList.toggle(
+        "is-grid-view",
+        (isGrid || Boolean(activeGameTitle)) && !isCatalogTable
+      );
+      gameSections.classList.toggle("is-catalog-readonly", isCatalogTable);
+      panel.classList.toggle(
+        "is-grid-layout",
+        isGrid || Boolean(activeGameTitle) || isCatalogTable
+      );
+      panel.classList.toggle("is-catalog-table", isCatalogTable);
       panel.classList.toggle("is-game-detail", Boolean(activeGameTitle));
+      if (!isCatalogTable && gameDetailHeader && activeGameTitle) {
+        gameDetailHeader.hidden = false;
+      }
       if (gameDetailDelete) {
         gameDetailDelete.hidden = !activeGameTitle || youtubeTestPageOpen;
       }
@@ -6735,13 +7439,15 @@
       if (activeGameTitle) {
         // Game detail always uses the announcement + media coverage layout.
         gameSections.classList.add("is-grid-view");
+        gameSections.classList.remove("is-catalog-readonly");
         panel.classList.add("is-grid-layout");
         renderGameDetailPage(visible, columns);
       } else {
         renderFormattedView(visible, columns);
       }
 
-      fitTableColumns();
+      // Catalog table is read-only text — skip expensive per-cell measuring.
+      if (!isCatalogTable) fitTableColumns();
 
       if (restorePlatformMenuRowId) {
         openPlatformMenuForRow(restorePlatformMenuRowId);
@@ -6770,6 +7476,7 @@
         viewModeControl.hidden = true;
       }
       syncAddRowButtonVisibility();
+      syncCatalogViewToggle();
       showError("");
     }
 
@@ -6858,6 +7565,9 @@
     });
 
     shareBtn.addEventListener("click", () => openShareDialog());
+    catalogViewToggle?.addEventListener("click", () => {
+      setCatalogViewMode(catalogViewMode === "table" ? "games" : "table");
+    });
     shareDialogClose.addEventListener("click", () => closeShareDialog());
     bindDialogBackdropClose(shareDialog, () => closeShareDialog());
     shareDialog.addEventListener("close", () => setShareDialogScrollLock(false));
@@ -7149,6 +7859,8 @@
     });
     addRowDialogClose.addEventListener("click", () => closeAddRowDialog());
     bindDialogBackdropClose(addRowDialog, () => closeAddRowDialog());
+    addRowDialog.addEventListener("close", () => setAddRowDialogScrollLock(false));
+    addRowDialog.addEventListener("cancel", () => setAddRowDialogScrollLock(false));
     addRowPressReleaseUpload.addEventListener("click", () =>
       addRowPressReleaseInput.click()
     );

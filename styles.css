@@ -444,6 +444,126 @@ body.public-page:has(.public-app.is-gate) .page {
   opacity: 0.85;
 }
 
+.public-view-bar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  width: 100%;
+  margin: 0 0 0.25rem;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.public-view-bar[hidden] {
+  display: none !important;
+}
+
+.public-app.is-gate .public-view-bar {
+  display: none !important;
+}
+
+.home-view-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0.6rem 1rem;
+  border-radius: 0.55rem;
+  border: 1px solid var(--border-strong);
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-text);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.14);
+}
+
+.home-view-toggle-btn:hover,
+.home-view-toggle-btn:focus-visible {
+  filter: brightness(0.94);
+  outline: none;
+}
+
+.home-view-toggle-btn[aria-pressed="true"] {
+  background: var(--panel);
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
+.announcements-table-view {
+  width: min(100%, 78rem);
+  margin: 0 auto;
+  padding: 1rem 1rem 3.5rem;
+  box-sizing: border-box;
+}
+
+.announcements-table-wrap {
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 0.85rem;
+  background: var(--surface);
+  max-height: min(78vh, 52rem);
+}
+
+.announcements-public-table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  color: var(--text);
+}
+
+.announcements-public-table th,
+.announcements-public-table td {
+  padding: 0.7rem 0.85rem;
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  text-align: left;
+  vertical-align: middle;
+  font-size: 0.92rem;
+  background: var(--surface);
+}
+
+.announcements-public-table th:last-child,
+.announcements-public-table td:last-child {
+  border-right: 0;
+}
+
+.announcements-public-table th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--surface-2);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  white-space: nowrap;
+  box-shadow: 0 -12px 0 0 var(--surface-2);
+}
+
+.announcements-public-table tbody tr:nth-child(even) td {
+  background: var(--panel-elevated);
+}
+
+.announcements-public-table td.announcements-public-game {
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.announcements-public-table a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 0.12em;
+}
+
+.announcements-public-table a:hover {
+  color: var(--text);
+}
+
+
 .login h1 {
   font-size: clamp(1.75rem, 5vw, 2.25rem);
 }
@@ -611,7 +731,9 @@ body.admin-page {
 html.is-share-dialog-open,
 body.is-share-dialog-open,
 html.is-media-coverage-open,
-body.is-media-coverage-open {
+body.is-media-coverage-open,
+html.is-add-row-dialog-open,
+body.is-add-row-dialog-open {
   overflow: hidden !important;
   overscroll-behavior: none;
 }
@@ -622,7 +744,12 @@ body.is-share-dialog-open .table-wrap,
 body.is-media-coverage-open .admin-app,
 body.is-media-coverage-open .game-sections,
 body.is-media-coverage-open .table-wrap,
-body.is-media-coverage-open .grid-table-wrap {
+body.is-media-coverage-open .grid-table-wrap,
+body.is-add-row-dialog-open .admin-app,
+body.is-add-row-dialog-open .game-sections,
+body.is-add-row-dialog-open .game-detail,
+body.is-add-row-dialog-open .table-wrap,
+body.is-add-row-dialog-open .game-catalog {
   overflow: hidden !important;
   overscroll-behavior: none;
 }
@@ -683,6 +810,7 @@ body.public-page *::-webkit-scrollbar-thumb:hover {
 }
 
 .admin-app {
+  position: relative;
   width: 100%;
   max-width: none;
   margin: 0;
@@ -1027,8 +1155,13 @@ body.admin-page:has(.admin-app.is-grid-layout) {
   background: var(--btn-ghost-hover);
 }
 
-.admin-app.is-grid-layout #add-row-btn {
+.admin-app.is-game-detail #add-row-btn {
   display: none !important;
+}
+
+#catalog-view-toggle.is-active {
+  background: var(--btn-ghost-hover);
+  border-color: var(--border-strong);
 }
 
 .btn-icon svg {
@@ -1230,6 +1363,12 @@ body.admin-page:has(.admin-app.is-grid-layout) {
   cursor: pointer;
   text-align: left;
   transition: border-color 0.15s ease, background 0.15s ease;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 16rem;
+}
+
+.game-card-cover img {
+  content-visibility: auto;
 }
 
 .game-card:hover {
@@ -1238,12 +1377,52 @@ body.admin-page:has(.admin-app.is-grid-layout) {
 }
 
 .game-card-cover {
+  position: relative;
   aspect-ratio: 16 / 10;
   border-radius: 0.65rem;
   overflow: hidden;
   background: var(--embed, #111);
   display: grid;
   place-items: center;
+}
+
+.cover-resolution-warning {
+  position: absolute;
+  top: 0.35rem;
+  right: 0.35rem;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.45rem;
+  height: 1.45rem;
+  border-radius: 0.35rem;
+  border: 1px solid color-mix(in srgb, #c9852a 55%, var(--border));
+  background: color-mix(in srgb, #c9852a 88%, #1a1410);
+  color: #fff6e8;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 28%);
+  pointer-events: auto;
+  cursor: help;
+}
+
+.cover-resolution-warning svg {
+  display: block;
+}
+
+.admin-app td.cover-col {
+  position: relative;
+}
+
+.admin-app td.cover-col .cover-resolution-warning {
+  top: 0.15rem;
+  right: 0.15rem;
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.admin-app td.cover-col .cover-resolution-warning svg {
+  width: 11px;
+  height: 11px;
 }
 
 .game-card-cover img {
@@ -1292,8 +1471,13 @@ body.admin-page:has(.admin-app.is-grid-layout) {
   gap: 1rem;
 }
 
+.game-detail[hidden],
+.game-catalog[hidden] {
+  display: none !important;
+}
+
 /* Game detail uses the grid-layout viewport lock; scroll the detail pane. */
-.admin-app.is-game-detail .game-detail {
+.admin-app.is-game-detail .game-detail:not([hidden]) {
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
@@ -1326,6 +1510,263 @@ body.admin-page:has(.admin-app.is-grid-layout) {
   overscroll-behavior: auto;
   /* Don't reserve dual gutters — keeps Status flush in the table corner. */
   scrollbar-gutter: auto;
+}
+
+/* Catalog announcements table: scroll both axes inside the viewport shell. */
+.admin-app.is-catalog-table .report {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.admin-app.is-catalog-table .game-detail:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.admin-app.is-catalog-table .game-detail-header {
+  display: none !important;
+}
+
+.admin-app.is-catalog-table .game-sections.is-catalog-readonly {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  gap: 0;
+}
+
+.admin-app.is-catalog-table .catalog-readonly-wrap {
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  max-height: none;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar) var(--panel-elevated);
+  border: 1px solid var(--border);
+  border-radius: 0.45rem;
+  background: var(--surface);
+  text-align: left;
+}
+
+.catalog-readonly-table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.catalog-readonly-table th,
+.catalog-readonly-table td {
+  border: 1px solid var(--border);
+  padding: 0.4rem 0.55rem;
+  white-space: nowrap;
+  max-width: 22rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: var(--surface);
+}
+
+.catalog-readonly-table th {
+  position: static;
+  background: var(--surface-2);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0;
+}
+
+.catalog-readonly-table th .grid-sort-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  width: 100%;
+  margin: 0;
+  padding: 0.4rem 0.55rem;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.catalog-readonly-table th .grid-sort-btn:hover {
+  background: var(--panel-hover);
+}
+
+.catalog-readonly-table th .grid-sort-marker {
+  opacity: 0.35;
+  font-size: 0.7rem;
+}
+
+.catalog-readonly-table th.is-sort-asc .grid-sort-marker,
+.catalog-readonly-table th.is-sort-desc .grid-sort-marker {
+  opacity: 1;
+}
+
+.catalog-readonly-table tbody tr.catalog-readonly-row {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 2.25rem;
+  cursor: pointer;
+}
+
+.catalog-readonly-table tbody tr.catalog-readonly-row:nth-child(even) td {
+  background: color-mix(in srgb, var(--surface-2) 55%, var(--surface));
+}
+
+.catalog-readonly-table tbody tr.catalog-readonly-row:hover td {
+  background: var(--panel-hover);
+}
+
+.catalog-readonly-table td.col-gameTitle {
+  font-weight: 600;
+}
+
+.catalog-readonly-table td.col-announcementTitle {
+  max-width: 28rem;
+}
+
+.game-loading-screen {
+  position: absolute;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  padding: 1.5rem;
+  background: var(--bg-mid);
+}
+
+.game-loading-screen[hidden] {
+  display: none !important;
+}
+
+.admin-app.is-game-loading .admin-sticky-chrome,
+.admin-app.is-game-loading #workspace-view {
+  pointer-events: none;
+}
+
+.game-loading-inner {
+  display: grid;
+  justify-items: center;
+  gap: 1rem;
+  width: min(28rem, 100%);
+}
+
+.game-loading-art,
+.game-loading-copy {
+  opacity: 0;
+  transform: translateY(1.1rem);
+  animation: game-loading-fade-up 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.game-loading-art {
+  width: min(22rem, 100%);
+  aspect-ratio: 16 / 10;
+  border-radius: 0.85rem;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--cover, var(--panel));
+  display: grid;
+  place-items: center;
+  animation-delay: 0.04s;
+}
+
+.game-loading-art.is-empty {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.game-loading-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.game-loading-copy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  margin: 0;
+  color: var(--text);
+  font-size: 1.05rem;
+  font-weight: 600;
+  text-align: center;
+  animation-delay: 0.14s;
+}
+
+@keyframes game-loading-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(1.1rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes game-loading-fade-up-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-1.15rem);
+  }
+}
+
+.game-loading-screen.is-exiting {
+  transition: opacity 0.28s ease 0.22s;
+  opacity: 0;
+}
+
+.game-loading-screen.is-exiting .game-loading-art,
+.game-loading-screen.is-exiting .game-loading-copy {
+  animation: game-loading-fade-up-out 0.42s cubic-bezier(0.22, 1, 0.36, 1)
+    forwards;
+}
+
+.game-loading-screen.is-exiting .game-loading-art {
+  animation-delay: 0s;
+}
+
+.game-loading-screen.is-exiting .game-loading-copy {
+  animation-delay: 0.06s;
+}
+
+.game-loading-screen.is-exiting .game-loading-spinner {
+  animation: none;
+}
+
+.game-loading-text {
+  min-width: 0;
+}
+
+.game-loading-spinner {
+  flex: 0 0 auto;
+  width: 1.15rem;
+  height: 1.15rem;
+  border: 2px solid color-mix(in srgb, var(--text-muted) 35%, transparent);
+  border-top-color: var(--text);
+  border-radius: 50%;
+  animation: media-coverage-spin 0.7s linear infinite;
 }
 
 .game-detail-delete {
@@ -1486,13 +1927,15 @@ body.admin-page:has(.admin-app.is-grid-layout) {
 .admin-app.is-youtube-test-page #view-mode-control,
 .admin-app.is-youtube-test-page #import-btn,
 .admin-app.is-youtube-test-page #add-row-btn,
-.admin-app.is-youtube-test-page #share-btn {
+.admin-app.is-youtube-test-page #share-btn,
+.admin-app.is-youtube-test-page #catalog-view-toggle {
   display: none !important;
 }
 
 .admin-app.is-game-detail #view-mode-control,
 .admin-app.is-game-detail #import-btn,
 .admin-app.is-game-detail #share-btn,
+.admin-app.is-game-detail #catalog-view-toggle,
 #view-mode-control[hidden] {
   display: none !important;
 }
@@ -1520,6 +1963,7 @@ body.admin-page:has(.admin-app.is-grid-layout) {
 }
 
 .game-detail-art {
+  position: relative;
   aspect-ratio: 16 / 10;
   border-radius: 0.65rem;
   overflow: hidden;
@@ -3403,12 +3847,12 @@ body.admin-page:has(.admin-app.is-grid-layout) {
   border-radius: 0;
   box-shadow: none;
   overflow: hidden;
-  background: #141922;
-  color: #e8eaed;
+  background: var(--bg-mid);
+  color: var(--text);
 }
 
 .media-coverage-dialog.coverage-links-dialog::backdrop {
-  background: #141922;
+  background: var(--bg-mid);
 }
 
 .media-coverage-dialog.coverage-links-dialog[open] {
@@ -3695,6 +4139,7 @@ body.admin-page:has(.admin-app.is-grid-layout) {
 }
 
 .game-image-preview {
+  position: relative;
   width: calc(4.5rem * 920 / 430);
   aspect-ratio: 920 / 430;
   height: auto;
@@ -4163,6 +4608,113 @@ body.admin-page:has(.admin-app.is-grid-layout) {
   background: rgba(0, 0, 0, 0.55);
 }
 
+.compress-key-art-dialog {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  max-width: min(28rem, calc(100vw - 2rem));
+  width: 100%;
+  color: var(--text);
+}
+
+.compress-key-art-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.compress-key-art-dialog-panel {
+  display: grid;
+  gap: 0.85rem;
+  padding: 1rem 1.05rem 1.05rem;
+  border: 1px solid var(--border);
+  border-radius: 0.85rem;
+  background: var(--panel);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
+}
+
+.compress-key-art-dialog-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  text-align: left;
+}
+
+.compress-key-art-dialog-header h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.compress-key-art-dialog-game {
+  margin: 0.25rem 0 0;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.compress-key-art-dialog-body {
+  display: grid;
+  gap: 0.65rem;
+  text-align: left;
+}
+
+.compress-key-art-current {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.compress-key-art-hint,
+.compress-key-art-empty {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.compress-key-art-options {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.compress-key-art-option {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  margin: 0;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0.55rem;
+  background: var(--surface, var(--panel));
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.compress-key-art-option:hover:not(:disabled),
+.compress-key-art-option:focus-visible:not(:disabled) {
+  background: var(--panel-hover, var(--panel));
+  border-color: var(--border-strong, var(--border));
+}
+
+.compress-key-art-option:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.compress-key-art-option-size {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.compress-key-art-option-meta {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
 .cover-preview-dialog-panel {
   display: grid;
   gap: 0.85rem;
@@ -4340,7 +4892,7 @@ body.admin-page:has(.admin-app.is-grid-layout) {
   font: inherit;
   line-height: 1.4;
   text-align: left;
-  color: #e8eaed;
+  color: var(--text);
   background: transparent;
   resize: vertical;
   box-sizing: border-box;
@@ -4353,15 +4905,15 @@ body.admin-page:has(.admin-app.is-grid-layout) {
 }
 
 .admin-app td .cell-input:hover {
-  border-color: rgba(255, 255, 255, 0.14);
-  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--border);
+  background: var(--btn-ghost-hover);
 }
 
 .admin-app td .cell-input:focus {
   outline: none;
-  border-color: #7a8da3;
-  background: #171c24;
-  box-shadow: 0 0 0 2px rgba(122, 141, 163, 0.25);
+  border-color: var(--input-border);
+  background: var(--input-bg);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--text-muted) 35%, transparent);
 }
 
 .edit-hint {
@@ -4398,13 +4950,13 @@ body.admin-page:has(.admin-app.is-grid-layout) {
   width: 2rem;
   height: 2rem;
   padding: 0.2rem;
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  border: 1px solid var(--btn-ghost-border);
   border-radius: 0.45rem;
-  background: #171c24;
+  background: var(--panel-elevated);
   cursor: pointer;
   gap: 0.4rem;
   font: inherit;
-  color: #e8eaed;
+  color: var(--text);
 }
 
 .platform-chip.has-label {
@@ -4440,8 +4992,8 @@ body.admin-page:has(.admin-app.is-grid-layout) {
 }
 
 .platform-chip:hover {
-  border-color: #f5a8a8;
-  background: rgba(155, 28, 28, 0.25);
+  border-color: color-mix(in srgb, var(--error) 70%, transparent);
+  background: color-mix(in srgb, var(--error) 18%, transparent);
 }
 
 .platform-chip:has(img[src*="Xbox"]):not(.has-label):hover,
@@ -4473,20 +5025,20 @@ body.admin-page:has(.admin-app.is-grid-layout) {
 .platform-add-btn {
   margin: 0;
   padding: 0.35rem 0.55rem;
-  border: 1px dashed rgba(255, 255, 255, 0.22);
+  border: 1px dashed var(--border-strong);
   border-radius: 0.45rem;
   font: inherit;
   font-size: 0.8rem;
   font-weight: 600;
-  color: #c5cad3;
-  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-secondary);
+  background: var(--panel-elevated);
   cursor: pointer;
 }
 
 .platform-add-btn:hover {
-  border-color: #9aa8bc;
-  color: #f0f3f7;
-  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--border-strong);
+  color: var(--text);
+  background: var(--panel-hover);
 }
 
 .platform-menu {
@@ -4496,11 +5048,11 @@ body.admin-page:has(.admin-app.is-grid-layout) {
   z-index: 5;
   min-width: 10rem;
   padding: 0.35rem;
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  border: 1px solid var(--border);
   border-radius: 0.55rem;
-  background: #171c24;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
-  color: #e8eaed;
+  background: var(--panel);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  color: var(--text);
 }
 
 .platform-menu.is-fixed {
@@ -4520,13 +5072,13 @@ body.admin-page:has(.admin-app.is-grid-layout) {
   font: inherit;
   font-size: 0.875rem;
   text-align: left;
-  color: #e8eaed;
+  color: var(--text);
   background: transparent;
   cursor: pointer;
 }
 
 .platform-menu-item:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--btn-ghost-hover);
 }
 
 .platform-menu-item img {
@@ -4654,13 +5206,13 @@ body.admin-page:has(.admin-app.is-grid-layout) {
   width: 100%;
   margin: 0;
   padding: 0.4rem 0.55rem;
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1px solid var(--btn-ghost-border);
   border-radius: 0.45rem;
   font: inherit;
   font-size: 0.85rem;
   font-weight: 600;
-  color: #e8eaed;
-  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+  background: var(--panel-elevated);
   cursor: pointer;
   white-space: nowrap;
   text-align: center;
@@ -4669,8 +5221,8 @@ body.admin-page:has(.admin-app.is-grid-layout) {
 
 .coverage-links-count-btn:hover,
 .coverage-links-count-btn:focus-visible {
-  border-color: #9aa8bc;
-  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--border-strong);
+  background: var(--panel-hover);
   outline: none;
 }
 
@@ -4679,11 +5231,11 @@ body.admin-page:has(.admin-app.is-grid-layout) {
   max-height: min(86vh, 48rem);
   margin: auto;
   padding: 0;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid var(--border);
   border-radius: 1rem;
-  background: #141922;
-  color: #e8eaed;
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.2);
 }
 
 .coverage-links-dialog::backdrop {
@@ -4706,7 +5258,7 @@ body.admin-page:has(.admin-app.is-grid-layout) {
 }
 
 .coverage-links-dialog-header {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid var(--border);
 }
 
 .coverage-links-dialog-heading {
@@ -4723,39 +5275,39 @@ body.admin-page:has(.admin-app.is-grid-layout) {
   margin: 0;
   font-size: 0.78rem;
   font-weight: 600;
-  color: #9aa3b2;
+  color: var(--text-muted);
 }
 
 .coverage-links-dialog-title-input {
   width: min(28rem, 100%);
   margin: 0;
   padding: 0.5rem 0.65rem;
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  border: 1px solid var(--input-border);
   border-radius: 0.5rem;
   font: inherit;
   font-size: 1.1rem;
   font-weight: 700;
   letter-spacing: -0.02em;
-  color: #f0f3f7;
-  background: #171c24;
+  color: var(--text);
+  background: var(--input-bg);
   box-sizing: border-box;
 }
 
 .coverage-links-dialog-title-input:focus {
-  outline: 2px solid #9aa8bc;
+  outline: 2px solid var(--text-muted);
   outline-offset: 1px;
 }
 
 .coverage-links-dialog-hint {
   margin: 0;
   font-size: 0.85rem;
-  color: #9aa3b2;
+  color: var(--text-muted);
 }
 
 .coverage-links-dialog-footer {
   justify-content: flex-end;
   flex-wrap: wrap;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid var(--border);
 }
 
 .coverage-links-dialog-clear {
@@ -4826,7 +5378,8 @@ body.admin-page:has(.admin-app.is-grid-layout) {
 .admin-app.is-coverage-links-page #view-mode-control,
 .admin-app.is-coverage-links-page #import-btn,
 .admin-app.is-coverage-links-page #add-row-btn,
-.admin-app.is-coverage-links-page #share-btn {
+.admin-app.is-coverage-links-page #share-btn,
+.admin-app.is-coverage-links-page #catalog-view-toggle {
   display: none !important;
 }
 
@@ -4841,17 +5394,20 @@ body.admin-page:has(.admin-app.is-grid-layout) {
   table-layout: auto;
   border-collapse: separate;
   border-spacing: 0;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: #10141b;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
 }
 
 .coverage-links-dialog-table th,
 .coverage-links-dialog-table td {
   padding: 0;
-  border-right: 1px solid rgba(255, 255, 255, 0.1);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
   text-align: left;
   vertical-align: middle !important;
+  background: var(--surface);
+  color: var(--text);
 }
 
 .coverage-links-dialog-table th {
@@ -4859,18 +5415,18 @@ body.admin-page:has(.admin-app.is-grid-layout) {
   top: 0;
   z-index: 2;
   padding: 0.55rem 0.55rem;
-  background: #1a2030;
+  background: var(--surface-2);
   background-clip: padding-box;
   font-size: 0.72rem;
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: #9aa3b2;
+  color: var(--text-muted);
   white-space: nowrap;
   /* Seal the 1px sticky gap so scrolled rows can't show through above */
   box-shadow:
-    0 -12px 0 0 #1a2030,
-    inset 0 -1px 0 rgba(255, 255, 255, 0.1);
+    0 -12px 0 0 var(--surface-2),
+    inset 0 -1px 0 var(--border);
 }
 
 .coverage-links-dialog-table th.coverage-sortable {
@@ -4897,7 +5453,7 @@ body.admin-page:has(.admin-app.is-grid-layout) {
 }
 
 .coverage-links-dialog-table .coverage-sort-btn:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--btn-ghost-hover);
 }
 
 .coverage-links-dialog-table .coverage-sort-marker {
@@ -4909,7 +5465,7 @@ body.admin-page:has(.admin-app.is-grid-layout) {
 .coverage-links-dialog-table th.is-sort-asc .coverage-sort-marker,
 .coverage-links-dialog-table th.is-sort-desc .coverage-sort-marker {
   opacity: 1;
-  color: #e8eaed;
+  color: var(--text);
 }
 
 .coverage-links-dialog-table th.coverage-link-remove-cell,
@@ -4949,7 +5505,7 @@ body.admin-page:has(.admin-app.is-grid-layout) {
   min-height: calc(1.35em * 2 + 0.8rem);
   line-height: 1.15;
   text-align: left;
-  color: #c5c9d1;
+  color: var(--text-secondary);
   font-variant-numeric: tabular-nums;
   box-sizing: border-box;
   overflow: hidden;
@@ -4966,13 +5522,13 @@ body.admin-page:has(.admin-app.is-grid-layout) {
 
 .coverage-link-date-added-time {
   font-size: 0.72rem;
-  color: #9aa0a6;
+  color: var(--text-muted);
 }
 
 .coverage-link-date-added-date {
   font-size: 0.82rem;
   font-weight: 600;
-  color: #e8eaed;
+  color: var(--text);
 }
 
 .coverage-links-dialog-table th:last-child,
@@ -4994,7 +5550,7 @@ body.admin-page:has(.admin-app.is-grid-layout) {
   font: inherit;
   line-height: 1.35;
   text-align: left;
-  color: #e8eaed;
+  color: var(--text);
   background: transparent;
   box-shadow: none;
   appearance: none;
@@ -5048,7 +5604,7 @@ body.admin-page:has(.admin-app.is-grid-layout) {
 }
 
 .coverage-links-dialog-table .coverage-link-readonly {
-  color: #9aa3b2;
+  color: var(--text-muted);
   cursor: default;
   white-space: nowrap;
 }
@@ -5090,8 +5646,8 @@ body.admin-page:has(.admin-app.is-grid-layout) {
   margin-left: auto;
   width: 1.55rem;
   height: calc(1.55rem * 2 / 3);
-  border-color: rgba(255, 255, 255, 0.14);
-  background: #0b0d11;
+  border-color: var(--border);
+  background: var(--embed);
 }
 
 .coverage-links-dialog-table .coverage-link-country-editor .coverage-link-flag[hidden] {
@@ -5100,27 +5656,27 @@ body.admin-page:has(.admin-app.is-grid-layout) {
 
 .coverage-links-dialog-table .coverage-link-field:hover,
 .coverage-links-dialog-table .cell-input:hover {
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--btn-ghost-hover);
 }
 
 .coverage-links-dialog-table .coverage-link-field:focus,
 .coverage-links-dialog-table .cell-input:focus {
   outline: none;
-  background: rgba(122, 141, 163, 0.12);
-  box-shadow: inset 0 0 0 1px #7a8da3;
+  background: color-mix(in srgb, var(--text-muted) 14%, transparent);
+  box-shadow: inset 0 0 0 1px var(--input-border);
 }
 
 .coverage-links-dialog-table .coverage-link-cover-cell {
   padding: 0.3rem;
-  background: #0d1118;
+  background: var(--panel-elevated);
 }
 
 .coverage-link-cover {
   width: 6.5rem;
   aspect-ratio: 920 / 430;
   border-radius: 0.2rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: #0b0d11;
+  border: 1px solid var(--border);
+  background: var(--embed);
   overflow: hidden;
   display: grid;
   place-items: center;
@@ -5139,7 +5695,7 @@ body.admin-page:has(.admin-app.is-grid-layout) {
 
 .coverage-link-cover-empty {
   font-size: 0.7rem;
-  color: #9aa3b2;
+  color: var(--text-muted);
   text-align: center;
   padding: 0.25rem;
   line-height: 1.2;
@@ -5170,7 +5726,7 @@ body.admin-page:has(.admin-app.is-grid-layout) {
   border: 0;
   border-radius: 0;
   background: transparent;
-  color: #9aa0a6;
+  color: var(--text-muted);
   box-shadow: none;
 }
 
@@ -5178,7 +5734,7 @@ body.admin-page:has(.admin-app.is-grid-layout) {
 .coverage-links-dialog-table .coverage-link-remove:focus-visible {
   border: 0;
   background: transparent;
-  color: #f0a8a8;
+  color: var(--error);
   box-shadow: none;
 }
 
