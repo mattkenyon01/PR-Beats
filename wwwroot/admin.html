@@ -7,7 +7,7 @@
   <link rel="icon" type="image/png" href="images/SilverLiningIcon.png" />
   <link rel="apple-touch-icon" href="images/SilverLiningIcon.png" />
   <script src="js/theme-boot.js"></script>
-  <link rel="stylesheet" href="styles.css?v=add-row-scroll-lock-1" />
+  <link rel="stylesheet" href="styles.css?v=youtube-split-panes-1" />
 </head>
 <body class="admin-page">
   <p class="note" id="loading">Checking sign-in…</p>
@@ -182,9 +182,20 @@
                 Fetch a small batch of videos whose title or description matches this game.
               </p>
             </div>
-            <button type="button" class="btn-primary" id="youtube-test-fetch">
-              Fetch next videos
-            </button>
+            <div class="youtube-test-actions">
+              <input
+                id="youtube-test-csv-input"
+                type="file"
+                accept=".csv,text/csv"
+                hidden
+              />
+              <button type="button" class="btn-ghost" id="youtube-test-import">
+                Import CSV
+              </button>
+              <button type="button" class="btn-primary" id="youtube-test-fetch">
+                Fetch videos
+              </button>
+            </div>
           </div>
           <p class="youtube-test-status" id="youtube-test-status" hidden></p>
           <div class="youtube-test-totals" id="youtube-test-totals" aria-live="polite">
@@ -205,6 +216,19 @@
               <span class="youtube-test-total-value" id="youtube-test-total-subscribers">0</span>
             </div>
           </div>
+          <div
+            class="youtube-test-shared-words"
+            id="youtube-test-shared-words"
+            hidden
+          >
+            <p class="youtube-test-shared-words-label">
+              Words shared across titles
+            </p>
+            <div
+              class="youtube-test-shared-words-list"
+              id="youtube-test-shared-words-list"
+            ></div>
+          </div>
           <div class="table-wrap grid-table-wrap youtube-test-table-wrap">
             <table class="grid-table youtube-test-table">
               <thead>
@@ -222,6 +246,45 @@
               <tbody id="youtube-test-body"></tbody>
             </table>
           </div>
+          <section
+            class="youtube-test-missing"
+            id="youtube-test-missing"
+            hidden
+          >
+            <div class="youtube-test-missing-heading">
+              <h3 class="youtube-test-missing-title">
+                Missing from fetch results
+              </h3>
+              <p class="youtube-test-missing-count" id="youtube-test-missing-count"></p>
+            </div>
+            <p class="youtube-test-missing-hint">
+              CSV rows (YouTube Title + Details URL) that are not in the table above.
+            </p>
+            <div
+              class="youtube-test-shared-words"
+              id="youtube-test-missing-shared-words"
+              hidden
+            >
+              <p class="youtube-test-shared-words-label">
+                Words shared across missing titles
+              </p>
+              <div
+                class="youtube-test-shared-words-list"
+                id="youtube-test-missing-shared-words-list"
+              ></div>
+            </div>
+            <div class="table-wrap grid-table-wrap youtube-test-table-wrap">
+              <table class="grid-table youtube-test-table youtube-test-missing-table">
+                <thead>
+                  <tr>
+                    <th scope="col">YouTube Title</th>
+                    <th scope="col">Details / URL</th>
+                  </tr>
+                </thead>
+                <tbody id="youtube-test-missing-body"></tbody>
+              </table>
+            </div>
+          </section>
         </div>
         <div class="coverage-links-page" id="coverage-links-page" hidden>
           <input
@@ -666,7 +729,9 @@
       linkSectionDef,
       MEDIA_COVERAGE_COLUMNS,
       mediaCoverageColumnsForType,
+      mediaCoverageFromCsv,
       mediaCoverageFromCsvProgressive,
+      mediaCoveragePlatformId,
       mediaCoverageTypeLabel,
       monthFromDate,
       parseCoverageLinksValue,
@@ -739,8 +804,23 @@
     const youtubeTestTitleEl = document.getElementById("youtube-test-title");
     const youtubeTestHintEl = document.getElementById("youtube-test-hint");
     const youtubeTestFetchBtn = document.getElementById("youtube-test-fetch");
+    const youtubeTestImportBtn = document.getElementById("youtube-test-import");
+    const youtubeTestCsvInput = document.getElementById("youtube-test-csv-input");
     const youtubeTestStatusEl = document.getElementById("youtube-test-status");
     const youtubeTestBodyEl = document.getElementById("youtube-test-body");
+    const youtubeTestMissingEl = document.getElementById("youtube-test-missing");
+    const youtubeTestMissingBodyEl = document.getElementById(
+      "youtube-test-missing-body"
+    );
+    const youtubeTestMissingCountEl = document.getElementById(
+      "youtube-test-missing-count"
+    );
+    const youtubeTestMissingSharedWordsEl = document.getElementById(
+      "youtube-test-missing-shared-words"
+    );
+    const youtubeTestMissingSharedWordsListEl = document.getElementById(
+      "youtube-test-missing-shared-words-list"
+    );
     const youtubeTestTotalViewsEl = document.getElementById(
       "youtube-test-total-views"
     );
@@ -753,6 +833,46 @@
     const youtubeTestTotalSubscribersEl = document.getElementById(
       "youtube-test-total-subscribers"
     );
+    const youtubeTestSharedWordsEl = document.getElementById(
+      "youtube-test-shared-words"
+    );
+    const youtubeTestSharedWordsListEl = document.getElementById(
+      "youtube-test-shared-words-list"
+    );
+    const YOUTUBE_TITLE_STOP_WORDS = new Set([
+      "a",
+      "an",
+      "and",
+      "are",
+      "as",
+      "at",
+      "be",
+      "by",
+      "for",
+      "from",
+      "in",
+      "into",
+      "is",
+      "it",
+      "its",
+      "of",
+      "on",
+      "or",
+      "our",
+      "that",
+      "the",
+      "this",
+      "to",
+      "vs",
+      "was",
+      "were",
+      "with",
+      "you",
+      "your",
+      "my",
+      "we",
+      "i",
+    ]);
     const gameDetailHeader = document.getElementById("game-detail-header");
     let youtubeTestPageOpen = false;
     let youtubeTestState = {
@@ -760,8 +880,10 @@
       nextPageToken: "",
       videos: [],
       loading: false,
+      autoFetch: false,
+      csvRows: [],
     };
-    const YOUTUBE_TEST_PAGE_SIZE = 5;
+    const YOUTUBE_TEST_PAGE_SIZE = 50;
     const mediaCoverageViewportHScroll = document.getElementById(
       "media-coverage-viewport-hscroll"
     );
@@ -3052,8 +3174,272 @@
       }
     }
 
+    function youtubeTitleWordTokens(value) {
+      return String(value || "")
+        .toLowerCase()
+        .normalize("NFKD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/['’`´]/g, "")
+        .replace(/[^a-z0-9]+/g, " ")
+        .trim()
+        .split(/\s+/)
+        .filter(
+          (token) =>
+            token.length >= 3 &&
+            !YOUTUBE_TITLE_STOP_WORDS.has(token) &&
+            !/^\d+$/.test(token)
+        );
+    }
+
+    function listYoutubeSharedTitleWords(titles, gameTitle) {
+      const list = (Array.isArray(titles) ? titles : [])
+        .map((entry) => {
+          if (typeof entry === "string") return entry;
+          return String(entry?.title || "");
+        })
+        .filter((title) => Boolean(String(title || "").trim()));
+      const total = list.length;
+      if (total < 2) return [];
+      const gameTokens = new Set(youtubeTitleWordTokens(gameTitle));
+      const docFreq = new Map();
+      list.forEach((title) => {
+        const seen = new Set();
+        youtubeTitleWordTokens(title).forEach((token) => {
+          if (gameTokens.has(token) || seen.has(token)) return;
+          seen.add(token);
+          docFreq.set(token, (docFreq.get(token) || 0) + 1);
+        });
+      });
+      return [...docFreq.entries()]
+        .filter(([, count]) => count >= 2)
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .slice(0, 36)
+        .map(([word, count]) => ({ word, count, total }));
+    }
+
+    function fillYoutubeSharedWordsList(containerEl, listEl, shared) {
+      if (!containerEl || !listEl) return;
+      listEl.innerHTML = "";
+      if (!shared.length) {
+        containerEl.hidden = true;
+        return;
+      }
+      containerEl.hidden = false;
+      shared.forEach(({ word, count, total }) => {
+        const item = document.createElement("span");
+        item.className = "youtube-test-shared-word";
+        item.title = `“${word}” found in ${count} of ${total} titles`;
+        const wordEl = document.createElement("span");
+        wordEl.className = "youtube-test-shared-word-text";
+        wordEl.textContent = word;
+        const countEl = document.createElement("span");
+        countEl.className = "youtube-test-shared-word-count";
+        countEl.textContent = `${count}/${total}`;
+        item.append(wordEl, countEl);
+        listEl.appendChild(item);
+      });
+    }
+
+    function renderYoutubeTestSharedWords() {
+      const gameTitle = String(
+        youtubeTestState.gameTitle || activeGameTitle || ""
+      ).trim();
+      fillYoutubeSharedWordsList(
+        youtubeTestSharedWordsEl,
+        youtubeTestSharedWordsListEl,
+        listYoutubeSharedTitleWords(youtubeTestState.videos, gameTitle)
+      );
+    }
+
+    function renderYoutubeTestMissingSharedWords(missing) {
+      const gameTitle = String(
+        youtubeTestState.gameTitle || activeGameTitle || ""
+      ).trim();
+      fillYoutubeSharedWordsList(
+        youtubeTestMissingSharedWordsEl,
+        youtubeTestMissingSharedWordsListEl,
+        listYoutubeSharedTitleWords(missing, gameTitle)
+      );
+    }
+
+    function youtubeVideoIdFromUrl(value) {
+      const raw = String(value || "").trim();
+      if (!raw) return "";
+      if (/^[\w-]{11}$/.test(raw)) return raw;
+      try {
+        const url = new URL(raw, "https://www.youtube.com");
+        const host = url.hostname.replace(/^www\./, "").toLowerCase();
+        if (host === "youtu.be") {
+          return url.pathname.replace(/^\//, "").split("/")[0] || "";
+        }
+        if (
+          host.endsWith("youtube.com") ||
+          host.endsWith("youtube-nocookie.com")
+        ) {
+          const fromQuery = String(url.searchParams.get("v") || "").trim();
+          if (fromQuery) return fromQuery;
+          const pathMatch = url.pathname.match(
+            /\/(?:shorts|embed|live|v)\/([^/?#]+)/i
+          );
+          if (pathMatch?.[1]) return pathMatch[1];
+        }
+      } catch {
+        // Ignore invalid URLs.
+      }
+      return "";
+    }
+
+    function normalizeYoutubeTitleKey(value) {
+      return String(value || "")
+        .toLowerCase()
+        .normalize("NFKD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/['’`´]/g, "")
+        .replace(/[^a-z0-9]+/g, " ")
+        .trim()
+        .replace(/\s+/g, " ");
+    }
+
+    function youtubeCsvRowFromMediaCoverage(row) {
+      const title = String(row?.youtubeTitle || "").trim();
+      const details = String(row?.details || row?.handleUrl || "").trim();
+      const id = youtubeVideoIdFromUrl(details);
+      const platform = mediaCoveragePlatformId(row?.type);
+      const looksLikeYoutube =
+        platform === "youtube" ||
+        Boolean(id) ||
+        /youtu\.?be|youtube\.com/i.test(details) ||
+        (Boolean(title) && !details);
+      if (!looksLikeYoutube || (!title && !details)) return null;
+      return { title, details, id };
+    }
+
+    function listYoutubeTestMissingFromCsv() {
+      const csvRows = Array.isArray(youtubeTestState.csvRows)
+        ? youtubeTestState.csvRows
+        : [];
+      if (!csvRows.length) return [];
+
+      const fetchedIds = new Set(
+        youtubeTestState.videos
+          .map((video) =>
+            String(
+              video?.id || youtubeVideoIdFromUrl(video?.url) || ""
+            ).trim()
+          )
+          .filter(Boolean)
+      );
+      const fetchedTitles = new Set(
+        youtubeTestState.videos
+          .map((video) => normalizeYoutubeTitleKey(video?.title))
+          .filter(Boolean)
+      );
+
+      const missing = [];
+      const seen = new Set();
+      csvRows.forEach((row) => {
+        const entry = youtubeCsvRowFromMediaCoverage(row);
+        if (!entry) return;
+        const titleKey = normalizeYoutubeTitleKey(entry.title);
+        const dedupeKey = entry.id || titleKey || entry.details.toLowerCase();
+        if (!dedupeKey || seen.has(dedupeKey)) return;
+        seen.add(dedupeKey);
+
+        if (entry.id && fetchedIds.has(entry.id)) return;
+        if (titleKey && fetchedTitles.has(titleKey)) return;
+        missing.push(entry);
+      });
+      return missing;
+    }
+
+    function renderYoutubeTestMissing() {
+      if (!youtubeTestMissingEl || !youtubeTestMissingBodyEl) return;
+      const missing = listYoutubeTestMissingFromCsv();
+      youtubeTestMissingBodyEl.innerHTML = "";
+
+      if (!youtubeTestState.csvRows?.length) {
+        youtubeTestMissingEl.hidden = true;
+        if (youtubeTestMissingCountEl) youtubeTestMissingCountEl.textContent = "";
+        renderYoutubeTestMissingSharedWords([]);
+        return;
+      }
+
+      youtubeTestMissingEl.hidden = false;
+      if (youtubeTestMissingCountEl) {
+        youtubeTestMissingCountEl.textContent = `${missing.length} missing`;
+      }
+      renderYoutubeTestMissingSharedWords(missing);
+
+      if (!missing.length) {
+        const tr = document.createElement("tr");
+        const td = document.createElement("td");
+        td.colSpan = 2;
+        td.className = "empty-filter";
+        td.textContent =
+          "All imported YouTube Title / Details rows are present in the fetch results.";
+        tr.appendChild(td);
+        youtubeTestMissingBodyEl.appendChild(tr);
+        return;
+      }
+
+      missing.forEach((entry) => {
+        const tr = document.createElement("tr");
+        const titleTd = document.createElement("td");
+        titleTd.textContent = entry.title || "—";
+        const urlTd = document.createElement("td");
+        if (entry.details) {
+          const a = document.createElement("a");
+          a.href = entry.details;
+          a.target = "_blank";
+          a.rel = "noopener noreferrer";
+          a.textContent = entry.details;
+          urlTd.appendChild(a);
+        } else {
+          urlTd.textContent = "—";
+        }
+        tr.appendChild(titleTd);
+        tr.appendChild(urlTd);
+        youtubeTestMissingBodyEl.appendChild(tr);
+      });
+    }
+
+    function importYoutubeTestCsvFile(file) {
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const rows = mediaCoverageFromCsv(String(reader.result || ""));
+          const youtubeRows = rows.filter((row) =>
+            youtubeCsvRowFromMediaCoverage(row)
+          );
+          if (!youtubeRows.length) {
+            throw new Error(
+              "No YouTube rows found. Need “Youtube Title” and/or “Details, e.g. an url” columns."
+            );
+          }
+          youtubeTestState.csvRows = youtubeRows;
+          renderYoutubeTestMissing();
+          const missing = listYoutubeTestMissingFromCsv();
+          setYoutubeTestStatus(
+            `Imported ${youtubeRows.length} YouTube CSV row${
+              youtubeRows.length === 1 ? "" : "s"
+            } · ${missing.length} missing from fetch results.`
+          );
+        } catch (err) {
+          setYoutubeTestStatus(
+            err instanceof Error ? err.message : "Could not import that CSV.",
+            { error: true }
+          );
+        }
+      };
+      reader.onerror = () =>
+        setYoutubeTestStatus("Could not read that CSV file.", { error: true });
+      reader.readAsText(file);
+    }
+
     function renderYoutubeTestRows() {
       renderYoutubeTestTotals();
+      renderYoutubeTestSharedWords();
       if (!youtubeTestBodyEl) return;
       youtubeTestBodyEl.innerHTML = "";
       if (!youtubeTestState.videos.length) {
@@ -3061,9 +3447,10 @@
         const td = document.createElement("td");
         td.colSpan = 8;
         td.className = "empty-filter";
-        td.textContent = "No videos fetched yet. Press Fetch next videos.";
+        td.textContent = "No videos fetched yet. Press Fetch videos.";
         tr.appendChild(td);
         youtubeTestBodyEl.appendChild(tr);
+        renderYoutubeTestMissing();
         return;
       }
 
@@ -3099,6 +3486,7 @@
         tr.appendChild(urlTd);
         youtubeTestBodyEl.appendChild(tr);
       });
+      renderYoutubeTestMissing();
     }
 
     function syncYoutubeTestFetchButton() {
@@ -3106,14 +3494,27 @@
       const hasMore =
         !youtubeTestState.videos.length ||
         Boolean(youtubeTestState.nextPageToken);
+      if (youtubeTestState.autoFetch) {
+        youtubeTestFetchBtn.disabled = false;
+        youtubeTestFetchBtn.textContent = "Stop";
+        youtubeTestFetchBtn.setAttribute("aria-pressed", "true");
+        youtubeTestFetchBtn.classList.add("is-stop");
+        return;
+      }
+      youtubeTestFetchBtn.classList.remove("is-stop");
+      youtubeTestFetchBtn.setAttribute("aria-pressed", "false");
       youtubeTestFetchBtn.disabled = youtubeTestState.loading || !hasMore;
       youtubeTestFetchBtn.textContent = youtubeTestState.loading
         ? "Fetching…"
-        : youtubeTestState.videos.length
-          ? hasMore
-            ? "Fetch next videos"
-            : "No more results"
-          : "Fetch next videos";
+        : hasMore
+          ? "Fetch videos"
+          : "No more results";
+    }
+
+    function stopYoutubeTestAutoFetch(statusMessage = "") {
+      youtubeTestState.autoFetch = false;
+      if (statusMessage) setYoutubeTestStatus(statusMessage);
+      syncYoutubeTestFetchButton();
     }
 
     function openYoutubeTestPage() {
@@ -3128,12 +3529,14 @@
         nextPageToken: "",
         videos: [],
         loading: false,
+        autoFetch: false,
+        csvRows: [],
       };
       if (youtubeTestTitleEl) {
         youtubeTestTitleEl.textContent = `YouTube test — ${gameTitle}`;
       }
       if (youtubeTestHintEl) {
-        youtubeTestHintEl.textContent = `Each click loads up to ${YOUTUBE_TEST_PAGE_SIZE} videos matching “${gameTitle}” in the title or description.`;
+        youtubeTestHintEl.textContent = `Press Fetch to keep loading batches of up to ${YOUTUBE_TEST_PAGE_SIZE}. Searches several title variants (exact phrase, without “The”, shorter forms) by views, date, and relevance. Keeps videos that mention “${gameTitle}” in the title, description, or timestamp/chapter lines. Press Stop to pause.`;
       }
       setYoutubeTestStatus("");
       renderYoutubeTestRows();
@@ -3151,6 +3554,7 @@
     function closeYoutubeTestPage({ restoreDetail = true } = {}) {
       if (!youtubeTestPageOpen && youtubeTestPageEl?.hidden !== false) return;
       youtubeTestPageOpen = false;
+      youtubeTestState.autoFetch = false;
       youtubeTestState.loading = false;
       if (youtubeTestPageEl) youtubeTestPageEl.hidden = true;
       panel?.classList.remove("is-youtube-test-page");
@@ -3167,22 +3571,24 @@
       const gameTitle = String(
         youtubeTestState.gameTitle || activeGameTitle || ""
       ).trim();
-      if (!gameTitle || youtubeTestState.loading) return;
+      if (!gameTitle || youtubeTestState.loading) return false;
       if (
         youtubeTestState.videos.length &&
         !youtubeTestState.nextPageToken
       ) {
         setYoutubeTestStatus("No more YouTube results for this search.");
-        syncYoutubeTestFetchButton();
-        return;
+        stopYoutubeTestAutoFetch();
+        return false;
       }
 
       youtubeTestState.loading = true;
       syncYoutubeTestFetchButton();
       setYoutubeTestStatus(
-        youtubeTestState.videos.length
-          ? "Fetching next batch…"
-          : "Searching YouTube…"
+        youtubeTestState.autoFetch
+          ? `Fetching… (${youtubeTestState.videos.length} loaded so far)`
+          : youtubeTestState.videos.length
+            ? "Fetching next batch…"
+            : "Searching YouTube…"
       );
 
       try {
@@ -3205,22 +3611,85 @@
         const totalHint = Number(data?.totalResults)
           ? ` · ~${Number(data.totalResults).toLocaleString("en-US")} estimated matches`
           : "";
-        setYoutubeTestStatus(
-          batch.length
-            ? `Loaded ${batch.length} video${batch.length === 1 ? "" : "s"} (${youtubeTestState.videos.length} total)${totalHint}.`
-            : youtubeTestState.nextPageToken
-              ? "This page had no matching videos. Try Fetch next videos again."
-              : "No matching videos found."
-        );
+        const queryHint = Array.isArray(data?.searchQueries) && data.searchQueries.length
+          ? ` · ${data.searchQueries.length} search lanes`
+          : "";
+        if (youtubeTestState.autoFetch && youtubeTestState.nextPageToken) {
+          setYoutubeTestStatus(
+            `Loaded ${youtubeTestState.videos.length} video${
+              youtubeTestState.videos.length === 1 ? "" : "s"
+            }… fetching more${totalHint}${queryHint}.`
+          );
+        } else {
+          setYoutubeTestStatus(
+            batch.length
+              ? `Loaded ${batch.length} video${batch.length === 1 ? "" : "s"} (${youtubeTestState.videos.length} total)${totalHint}${queryHint}.`
+              : youtubeTestState.nextPageToken
+                ? "This page had no matching videos. Continuing…"
+                : "No matching videos found."
+          );
+        }
+        return Boolean(youtubeTestState.nextPageToken);
       } catch (err) {
+        stopYoutubeTestAutoFetch();
         setYoutubeTestStatus(
           err instanceof Error ? err.message : "YouTube search failed.",
           { error: true }
         );
+        return false;
       } finally {
         youtubeTestState.loading = false;
         syncYoutubeTestFetchButton();
       }
+    }
+
+    async function runYoutubeTestAutoFetch() {
+      if (youtubeTestState.autoFetch || youtubeTestState.loading) return;
+      const hasMore =
+        !youtubeTestState.videos.length ||
+        Boolean(youtubeTestState.nextPageToken);
+      if (!hasMore) {
+        setYoutubeTestStatus("No more YouTube results for this search.");
+        syncYoutubeTestFetchButton();
+        return;
+      }
+
+      youtubeTestState.autoFetch = true;
+      syncYoutubeTestFetchButton();
+
+      while (youtubeTestState.autoFetch && youtubeTestPageOpen) {
+        const hasNext = await fetchYoutubeTestPage();
+        if (!youtubeTestState.autoFetch || !youtubeTestPageOpen) break;
+        if (!hasNext) {
+          stopYoutubeTestAutoFetch(
+            youtubeTestState.videos.length
+              ? `Finished — ${youtubeTestState.videos.length} video${
+                  youtubeTestState.videos.length === 1 ? "" : "s"
+                } loaded.`
+              : "No matching videos found."
+          );
+          break;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 200));
+      }
+
+      if (!youtubeTestState.autoFetch) {
+        syncYoutubeTestFetchButton();
+      }
+    }
+
+    function toggleYoutubeTestFetch() {
+      if (youtubeTestState.autoFetch) {
+        stopYoutubeTestAutoFetch(
+          youtubeTestState.loading
+            ? "Stopping after this batch…"
+            : `Stopped — ${youtubeTestState.videos.length} video${
+                youtubeTestState.videos.length === 1 ? "" : "s"
+              } loaded.`
+        );
+        return;
+      }
+      void runYoutubeTestAutoFetch();
     }
 
 
@@ -7897,7 +8366,15 @@
       openYoutubeTestPage();
     });
     youtubeTestFetchBtn?.addEventListener("click", () => {
-      void fetchYoutubeTestPage();
+      toggleYoutubeTestFetch();
+    });
+    youtubeTestImportBtn?.addEventListener("click", () => {
+      youtubeTestCsvInput?.click();
+    });
+    youtubeTestCsvInput?.addEventListener("change", () => {
+      const file = youtubeTestCsvInput.files?.[0];
+      youtubeTestCsvInput.value = "";
+      if (file) importYoutubeTestCsvFile(file);
     });
     adminHomeBtn?.addEventListener("click", () => {
       if (coverageLinksPageOpen) {

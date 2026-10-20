@@ -442,11 +442,11 @@ export function isPersistedCoverUrl(url) {
  */
 export function searchYouTubeVideos(
   token,
-  { query, pageToken = "", maxResults = 5 } = {}
+  { query, pageToken = "", maxResults = 50 } = {}
 ) {
   const params = new URLSearchParams({
     q: String(query || "").trim(),
-    maxResults: String(maxResults || 5),
+    maxResults: String(maxResults || 50),
   });
   const tokenValue = String(pageToken || "").trim();
   if (tokenValue) params.set("pageToken", tokenValue);

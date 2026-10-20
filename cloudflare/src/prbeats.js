@@ -152,7 +152,7 @@ async function handleApi(request, env, url) {
             deleteRow: "DELETE /api/announcements/:id",
             mediaCoverage: "GET /api/media-coverage?game=",
             youtubeSearch:
-              "GET /api/youtube-search?q=&pageToken=&maxResults=5",
+              "GET /api/youtube-search?q=&pageToken=&maxResults=50 (multi-query)",
             presence: "POST /api/presence",
             uploadImage: "POST /api/game-images",
             getImage: "GET /api/game-images/:ownerUid/:fileName",
@@ -2912,7 +2912,20 @@ async function listActiveEditors(db) {
 
 const YOUTUBE_API_BASE = "https://www.googleapis.com/youtube/v3";
 const YOUTUBE_SEARCH_DEFAULT_PAGE = 5;
-const YOUTUBE_SEARCH_MAX_PAGE = 10;
+const YOUTUBE_SEARCH_MAX_PAGE = 50;
+const YOUTUBE_PAGE_STATE_PREFIX = "pb1.";
+const YOUTUBE_SEARCH_STOP_WORDS = new Set([
+  "the",
+  "and",
+  "for",
+  "with",
+  "from",
+  "game",
+  "games",
+  "demo",
+  "official",
+  "trailer",
+]);
 
 function normalizeYouTubeQuery(value) {
   return String(value || "").trim();
@@ -2945,6 +2958,23 @@ async function youtubeApiGet(path, params, apiKey) {
   return data;
 }
 
+function base64UrlEncodeUtf8(value) {
+  const bytes = new TextEncoder().encode(String(value || ""));
+  let binary = "";
+  bytes.forEach((byte) => {
+    binary += String.fromCharCode(byte);
+  });
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+function base64UrlDecodeUtf8(value) {
+  const trimmed = String(value || "").trim();
+  const padded = trimmed + "=".repeat((4 - (trimmed.length % 4 || 4)) % 4);
+  const binary = atob(padded.replace(/-/g, "+").replace(/_/g, "/"));
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
+
 /** Fold punctuation so "Witch's" and "Witchs" compare the same. */
 function normalizeYouTubeMatchText(value) {
   return String(value || "")
@@ -2957,13 +2987,200 @@ function normalizeYouTubeMatchText(value) {
     .replace(/\s+/g, " ");
 }
 
+/** Search strings that cast a wider net than a single folded title. */
+function buildYouTubeSearchQueries(query) {
+  const raw = normalizeYouTubeQuery(query).replace(/"/g, "").trim();
+  const folded = normalizeYouTubeMatchText(raw);
+  const queries = [];
+  const add = (value) => {
+    const next = String(value || "").trim();
+    if (!next) return;
+    if (queries.some((entry) => entry.toLowerCase() === next.toLowerCase())) {
+      return;
+    }
+    queries.push(next);
+  };
+
+  add(folded || raw);
+  if (raw) add(`"${raw}"`);
+
+  const noArticle = (folded || raw).replace(/^(the|a|an)\s+/i, "").trim();
+  add(noArticle);
+
+  // Broader token query: drop stop words / trailing marketing words.
+  const core = normalizeYouTubeMatchText(noArticle)
+    .split(" ")
+    .filter((token) => token && !YOUTUBE_SEARCH_STOP_WORDS.has(token))
+    .join(" ");
+  add(core);
+
+  // Singular-ish variant helps "Witch Bakery" vs "Witch's Bakery".
+  if (core) {
+    add(
+      core
+        .split(" ")
+        .map((token) =>
+          token.length > 4 && token.endsWith("s") ? token.slice(0, -1) : token
+        )
+        .join(" ")
+    );
+  }
+
+  return queries;
+}
+
+/**
+ * Parallel search lanes: primary query by views + date, then phrase / shorter
+ * variants by relevance. Page state is encoded so Fetch can continue all lanes.
+ */
+function buildYouTubeSearchLanes(query) {
+  const queries = buildYouTubeSearchQueries(query);
+  const lanes = [];
+  const primary = queries[0] || normalizeYouTubeQuery(query);
+  if (primary) {
+    lanes.push({ q: primary, order: "viewCount", pageToken: "" });
+    lanes.push({ q: primary, order: "date", pageToken: "" });
+  }
+  for (let i = 1; i < queries.length && lanes.length < 6; i += 1) {
+    lanes.push({ q: queries[i], order: "relevance", pageToken: "" });
+  }
+  return lanes;
+}
+
+function encodeYouTubePageState(lanes) {
+  const active = (lanes || [])
+    .filter((lane) => lane && lane.q && lane.pageToken !== null)
+    .map((lane) => ({
+      q: String(lane.q || ""),
+      o: String(lane.order || "relevance"),
+      t: lane.pageToken === "" ? "" : String(lane.pageToken || ""),
+    }));
+  if (!active.length) return "";
+  return `${YOUTUBE_PAGE_STATE_PREFIX}${base64UrlEncodeUtf8(
+    JSON.stringify({ v: 1, lanes: active })
+  )}`;
+}
+
+function decodeYouTubePageState(pageToken, query) {
+  const token = String(pageToken || "").trim();
+  if (!token) return buildYouTubeSearchLanes(query);
+
+  if (!token.startsWith(YOUTUBE_PAGE_STATE_PREFIX)) {
+    // Legacy single-lane YouTube token from older clients.
+    const primary =
+      normalizeYouTubeMatchText(query) || normalizeYouTubeQuery(query);
+    return [{ q: primary, order: "viewCount", pageToken: token }];
+  }
+
+  try {
+    const parsed = JSON.parse(
+      base64UrlDecodeUtf8(token.slice(YOUTUBE_PAGE_STATE_PREFIX.length))
+    );
+    const lanes = Array.isArray(parsed?.lanes) ? parsed.lanes : [];
+    const restored = lanes
+      .map((lane) => ({
+        q: String(lane?.q || "").trim(),
+        order: String(lane?.o || lane?.order || "relevance").trim() || "relevance",
+        pageToken:
+          lane?.t == null && lane?.pageToken == null
+            ? ""
+            : String(lane?.t ?? lane?.pageToken ?? ""),
+      }))
+      .filter((lane) => lane.q);
+    return restored.length ? restored : buildYouTubeSearchLanes(query);
+  } catch {
+    return buildYouTubeSearchLanes(query);
+  }
+}
+
+/** True when description has chapter-style timestamps (e.g. 0:00, 1:23, 1:02:03). */
+function descriptionHasTimestamps(description) {
+  const text = String(description || "");
+  if (!text.trim()) return false;
+  const matches = text.match(/(?:^|\n)\s*(?:\d{1,2}:)?\d{1,2}:\d{2}\b/g);
+  return Boolean(matches && matches.length >= 2);
+}
+
+function significantYouTubeQueryTokens(query) {
+  return normalizeYouTubeMatchText(query)
+    .split(" ")
+    .filter((token) => token.length >= 3 && !YOUTUBE_SEARCH_STOP_WORDS.has(token));
+}
+
+/** Match token with simple singular/plural tolerance (witchs ↔ witch). */
+function haystackHasToken(haystack, token) {
+  if (!token) return false;
+  if (haystack.includes(token)) return true;
+  if (token.length > 3 && token.endsWith("s")) {
+    if (haystack.includes(token.slice(0, -1))) return true;
+  } else if (!token.endsWith("s") && haystack.includes(`${token}s`)) {
+    return true;
+  }
+  return false;
+}
+
+function haystackHasAllTokens(haystack, tokens) {
+  if (!tokens.length) return false;
+  return tokens.every((token) => haystackHasToken(haystack, token));
+}
+
+function textMatchesYouTubeQuery(text, query) {
+  const needle = normalizeYouTubeMatchText(query);
+  if (!needle) return true;
+  const haystack = normalizeYouTubeMatchText(text);
+  if (haystack.includes(needle)) return true;
+
+  const noArticleNeedle = needle.replace(/^(the|a|an)\s+/, "").trim();
+  if (noArticleNeedle && haystack.includes(noArticleNeedle)) return true;
+
+  const tokens = significantYouTubeQueryTokens(query);
+  if (tokens.length >= 2 && haystackHasAllTokens(haystack, tokens)) return true;
+  return false;
+}
+
+/**
+ * Keep videos where the game name appears in the title, the description,
+ * or on a timestamp/chapter line (chapter lines are part of the description).
+ */
 function videoMatchesQuery(video, query) {
   const needle = normalizeYouTubeMatchText(query);
   if (!needle) return true;
-  const haystack = normalizeYouTubeMatchText(
-    `${video.title || ""} ${video.description || ""}`
-  );
-  return haystack.includes(needle);
+
+  if (textMatchesYouTubeQuery(video?.title || "", query)) return true;
+
+  const descriptionRaw = String(video?.description || "");
+  if (textMatchesYouTubeQuery(descriptionRaw, query)) return true;
+
+  // Explicit chapter-line check: "0:00 The Witch's Bakery" etc.
+  if (descriptionHasTimestamps(descriptionRaw)) {
+    const chapterLines = descriptionRaw.split(/\r?\n/);
+    for (const line of chapterLines) {
+      if (!/(?:^|\s)(?:\d{1,2}:)?\d{1,2}:\d{2}\b/.test(line)) continue;
+      if (textMatchesYouTubeQuery(line, query)) return true;
+    }
+  }
+
+  return false;
+}
+
+async function youtubeVideosByIds(apiKey, ids) {
+  const detailsById = new Map();
+  const uniqueIds = [...new Set((ids || []).filter(Boolean))];
+  for (let i = 0; i < uniqueIds.length; i += 50) {
+    const chunk = uniqueIds.slice(i, i + 50);
+    const videoData = await youtubeApiGet(
+      "videos",
+      {
+        part: "snippet,statistics,contentDetails",
+        id: chunk.join(","),
+      },
+      apiKey
+    );
+    (videoData.items || []).forEach((item) => {
+      if (item?.id) detailsById.set(item.id, item);
+    });
+  }
+  return detailsById;
 }
 
 async function searchYouTubeVideosPage(env, options = {}) {
@@ -2986,45 +3203,61 @@ async function searchYouTubeVideosPage(env, options = {}) {
       Number(options.maxResults) || YOUTUBE_SEARCH_DEFAULT_PAGE
     )
   );
-  const pageToken = String(options.pageToken || "").trim();
-  // Unquoted + punctuation-folded so "Witch's" / "Witchs" both hit the index.
-  // videoMatchesQuery still requires the phrase in title/description.
-  const searchQuery =
-    normalizeYouTubeMatchText(query) || query.replace(/"/g, "").trim();
-
-  const searchData = await youtubeApiGet(
-    "search",
-    {
-      part: "snippet",
-      type: "video",
-      q: searchQuery,
-      order: "viewCount",
-      maxResults: String(maxResults),
-      pageToken: pageToken || undefined,
-    },
-    apiKey
-  );
-
-  const ids = (searchData.items || [])
-    .map((item) => item?.id?.videoId)
-    .filter((id) => Boolean(id));
-
-  let detailsById = new Map();
-  if (ids.length) {
-    const videoData = await youtubeApiGet(
-      "videos",
-      {
-        part: "snippet,statistics,contentDetails",
-        id: ids.join(","),
-      },
-      apiKey
-    );
-    detailsById = new Map(
-      (videoData.items || []).map((item) => [item.id, item])
-    );
+  const lanes = decodeYouTubePageState(options.pageToken, query);
+  if (!lanes.length) {
+    return {
+      query,
+      maxResults,
+      nextPageToken: "",
+      prevPageToken: "",
+      totalResults: 0,
+      resultsPerPage: 0,
+      searchQueries: [],
+      videos: [],
+    };
   }
 
-  const videos = ids
+  // Fan out across query/order lanes, then merge + post-filter.
+  const laneResults = await Promise.all(
+    lanes.map(async (lane) => {
+      const searchData = await youtubeApiGet(
+        "search",
+        {
+          part: "snippet",
+          type: "video",
+          q: lane.q,
+          order: lane.order || "relevance",
+          maxResults: String(maxResults),
+          pageToken: lane.pageToken || undefined,
+        },
+        apiKey
+      );
+      const ids = (searchData.items || [])
+        .map((item) => item?.id?.videoId)
+        .filter((id) => Boolean(id));
+      const next = String(searchData.nextPageToken || "");
+      return {
+        lane,
+        ids,
+        nextPageToken: next,
+        totalResults: Number(searchData.pageInfo?.totalResults) || 0,
+      };
+    })
+  );
+
+  const idOrder = [];
+  const seenIds = new Set();
+  laneResults.forEach((result) => {
+    result.ids.forEach((id) => {
+      if (seenIds.has(id)) return;
+      seenIds.add(id);
+      idOrder.push(id);
+    });
+  });
+
+  const detailsById = await youtubeVideosByIds(apiKey, idOrder);
+
+  const videos = idOrder
     .map((id) => {
       const detail = detailsById.get(id);
       const snippet = detail?.snippet || {};
@@ -3055,34 +3288,56 @@ async function searchYouTubeVideosPage(env, options = {}) {
   ];
   const subscriberByChannel = new Map();
   if (channelIds.length) {
-    const channelData = await youtubeApiGet(
-      "channels",
-      {
-        part: "statistics",
-        id: channelIds.join(","),
-      },
-      apiKey
-    );
-    (channelData.items || []).forEach((item) => {
-      const id = String(item?.id || "").trim();
-      if (!id) return;
-      subscriberByChannel.set(
-        id,
-        String(item?.statistics?.subscriberCount || "0")
+    for (let i = 0; i < channelIds.length; i += 50) {
+      const chunk = channelIds.slice(i, i + 50);
+      const channelData = await youtubeApiGet(
+        "channels",
+        {
+          part: "statistics",
+          id: chunk.join(","),
+        },
+        apiKey
       );
-    });
+      (channelData.items || []).forEach((item) => {
+        const id = String(item?.id || "").trim();
+        if (!id) return;
+        subscriberByChannel.set(
+          id,
+          String(item?.statistics?.subscriberCount || "0")
+        );
+      });
+    }
     videos.forEach((video) => {
       video.subscriberCount = subscriberByChannel.get(video.channelId) || "0";
     });
   }
 
+  const nextLanes = laneResults
+    .map((result) =>
+      result.nextPageToken
+        ? {
+            q: result.lane.q,
+            order: result.lane.order,
+            pageToken: result.nextPageToken,
+          }
+        : null
+    )
+    .filter(Boolean);
+
+  const totalResults = laneResults.reduce(
+    (sum, result) => sum + (result.totalResults || 0),
+    0
+  );
+
   return {
     query,
     maxResults,
-    nextPageToken: String(searchData.nextPageToken || ""),
-    prevPageToken: String(searchData.prevPageToken || ""),
-    totalResults: Number(searchData.pageInfo?.totalResults) || 0,
-    resultsPerPage: Number(searchData.pageInfo?.resultsPerPage) || videos.length,
+    nextPageToken: encodeYouTubePageState(nextLanes),
+    prevPageToken: "",
+    totalResults,
+    resultsPerPage: videos.length,
+    searchQueries: lanes.map((lane) => `${lane.q} (${lane.order})`),
     videos,
   };
 }
+
