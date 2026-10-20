@@ -1540,18 +1540,27 @@ body.admin-page:has(.admin-app.is-grid-layout) {
 .admin-app.is-catalog-table .catalog-readonly-wrap {
   flex: 0 0 auto;
   width: 100%;
-  height: auto;
-  max-height: none;
+  height: auto !important;
+  max-height: none !important;
   min-height: 0;
-  /* Wide tables scroll sideways; vertical scroll stays on the page. */
+  /* overflow-x:auto forces overflow-y to auto in browsers — use clip so
+     vertical wheel still scrolls the page (same trick as game-detail tables). */
   overflow-x: auto;
-  overflow-y: visible;
+  overflow-y: clip;
+  overscroll-behavior: auto;
   overscroll-behavior-x: contain;
-  scrollbar-gutter: auto;
+  /* Native H bar is replaced by the fixed catalog-viewport-hscroll. */
+  scrollbar-width: none;
   border: 1px solid var(--border);
   border-radius: 0.45rem;
   background: var(--surface);
   text-align: left;
+}
+
+.admin-app.is-catalog-table .catalog-readonly-wrap::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
 }
 
 /* Home table view reuses the editable grid; keep cells interactive. */
@@ -1563,9 +1572,9 @@ body.admin-page:has(.admin-app.is-grid-layout) {
   white-space: nowrap;
 }
 
-.admin-app.is-catalog-table .catalog-readonly-wrap .grid-add-row-bar {
-  position: static;
-  background: var(--surface);
+/* Leave space so the fixed H scrollbar doesn't cover the last rows. */
+.admin-app.is-catalog-table .catalog-readonly-wrap {
+  margin-bottom: 1.75rem;
 }
 
 .catalog-readonly-table {
@@ -2318,7 +2327,8 @@ body.admin-page:has(.admin-app.is-grid-layout) {
   min-width: 100%;
 }
 
-.media-coverage-viewport-hscroll {
+.media-coverage-viewport-hscroll,
+.catalog-viewport-hscroll {
   position: fixed;
   z-index: 35;
   height: 14px;
@@ -2332,28 +2342,33 @@ body.admin-page:has(.admin-app.is-grid-layout) {
   scrollbar-color: var(--scrollbar) var(--panel-elevated);
 }
 
-.media-coverage-viewport-hscroll[hidden] {
+.media-coverage-viewport-hscroll[hidden],
+.catalog-viewport-hscroll[hidden] {
   display: none !important;
 }
 
-.media-coverage-viewport-hscroll::-webkit-scrollbar {
+.media-coverage-viewport-hscroll::-webkit-scrollbar,
+.catalog-viewport-hscroll::-webkit-scrollbar {
   width: 12px;
   height: 12px;
   display: block;
 }
 
-.media-coverage-viewport-hscroll::-webkit-scrollbar-track {
+.media-coverage-viewport-hscroll::-webkit-scrollbar-track,
+.catalog-viewport-hscroll::-webkit-scrollbar-track {
   background: var(--panel-elevated);
 }
 
-.media-coverage-viewport-hscroll::-webkit-scrollbar-thumb {
+.media-coverage-viewport-hscroll::-webkit-scrollbar-thumb,
+.catalog-viewport-hscroll::-webkit-scrollbar-thumb {
   background: var(--scrollbar);
   border-radius: 999px;
   border: 2px solid var(--panel-elevated);
   background-clip: padding-box;
 }
 
-.media-coverage-viewport-hscroll-spacer {
+.media-coverage-viewport-hscroll-spacer,
+.catalog-viewport-hscroll-spacer {
   height: 1px;
   pointer-events: none;
 }
@@ -4645,8 +4660,8 @@ body.admin-page:has(.admin-app.is-grid-layout) {
 
 .admin-app .col-pressReleasePdf,
 .admin-app td.press-release-col {
-  width: 12rem;
-  min-width: 12rem;
+  width: 7.5rem;
+  min-width: 7.5rem;
   white-space: nowrap;
   vertical-align: middle;
 }
@@ -4654,31 +4669,9 @@ body.admin-page:has(.admin-app.is-grid-layout) {
 .press-release-cell {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.4rem;
+  justify-content: flex-start;
+  gap: 0.25rem;
   min-width: 0;
-}
-
-.press-release-status {
-  min-width: 0;
-  flex: 1 1 auto;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 0.88rem;
-  font-weight: 500;
-  color: var(--text-muted);
-  text-decoration: none;
-}
-
-.press-release-status.has-file {
-  color: var(--text);
-  text-decoration: underline;
-  text-underline-offset: 0.12em;
-}
-
-.press-release-status.has-file:hover {
-  color: var(--text-secondary);
 }
 
 .press-release-actions {
@@ -4686,6 +4679,14 @@ body.admin-page:has(.admin-app.is-grid-layout) {
   align-items: center;
   gap: 0.2rem;
   flex: 0 0 auto;
+}
+
+.press-release-open {
+  color: var(--text);
+}
+
+.press-release-cell.has-file .press-release-open:hover {
+  color: var(--text-secondary);
 }
 
 .admin-app .col-status,

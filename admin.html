@@ -311,6 +311,17 @@
       >
         <div class="media-coverage-viewport-hscroll-spacer" id="media-coverage-viewport-hscroll-spacer"></div>
       </div>
+      <div
+        class="catalog-viewport-hscroll"
+        id="catalog-viewport-hscroll"
+        hidden
+        aria-label="Catalog table horizontal scroll"
+      >
+        <div
+          class="catalog-viewport-hscroll-spacer"
+          id="catalog-viewport-hscroll-spacer"
+        ></div>
+      </div>
     </div>
 
     <dialog class="add-row-dialog" id="add-game-dialog" aria-labelledby="add-game-dialog-title">
@@ -890,6 +901,15 @@
     const mediaCoverageViewportHScrollSpacer = document.getElementById(
       "media-coverage-viewport-hscroll-spacer"
     );
+    const catalogViewportHScroll = document.getElementById(
+      "catalog-viewport-hscroll"
+    );
+    const catalogViewportHScrollSpacer = document.getElementById(
+      "catalog-viewport-hscroll-spacer"
+    );
+    let catalogHScrollActiveWrap = null;
+    let catalogHScrollSyncing = false;
+    let catalogHScrollBound = false;
     const addRowDialog = document.getElementById("add-row-dialog");
     const addRowForm = document.getElementById("add-row-form");
     const addRowDialogClose = document.getElementById("add-row-dialog-close");
@@ -1605,8 +1625,12 @@
           platforms: serializePlatforms(selectedPlatforms),
           trailer: addRowTrailer.value.trim(),
           pressReleasePdf,
-          estimatedReach: addRowEstimatedReach.value.trim(),
-          totalWishlists: addRowTotalWishlists.value.trim(),
+          estimatedReach: formatCoverageStat(
+            addRowEstimatedReach.value.trim()
+          ),
+          totalWishlists: formatCoverageStat(
+            addRowTotalWishlists.value.trim()
+          ),
           highlights: addRowHighlights.value.trim(),
           gameImage,
         };
@@ -6564,28 +6588,9 @@
       }
     }
 
-    function pressReleaseFileLabel(url) {
-      const src = String(url || "").trim();
-      if (!src) return "";
-      try {
-        const name = decodeURIComponent(
-          new URL(src, window.location.origin).pathname.split("/").pop() || ""
-        );
-        if (!name) return "PDF uploaded";
-        return name.replace(/-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i, "") || "PDF uploaded";
-      } catch {
-        return "PDF uploaded";
-      }
-    }
-
     function createPressReleasePdfCell(row, getRowIndex, onChanged) {
       const wrap = document.createElement("div");
       wrap.className = "press-release-cell";
-
-      const status = document.createElement("a");
-      status.className = "press-release-status";
-      status.target = "_blank";
-      status.rel = "noopener noreferrer";
 
       const actions = document.createElement("div");
       actions.className = "press-release-actions";
@@ -6594,6 +6599,18 @@
       fileInput.type = "file";
       fileInput.accept = "application/pdf,.pdf";
       fileInput.hidden = true;
+
+      let currentPdfUrl = String(row.pressReleasePdf || "").trim();
+
+      const openBtn = createIconButton(
+        "press-release-open",
+        "Open PDF",
+        `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><line x1="10" x2="8" y1="9" y2="9"/></svg>`
+      );
+      openBtn.addEventListener("click", () => {
+        if (!currentPdfUrl) return;
+        window.open(currentPdfUrl, "_blank", "noopener,noreferrer");
+      });
 
       const uploadBtn = createIconButton(
         "press-release-upload",
@@ -6609,19 +6626,15 @@
       );
 
       function refresh(url) {
-        const src = String(url || "").trim();
-        if (src) {
-          status.textContent = pressReleaseFileLabel(src);
-          status.href = src;
-          status.classList.add("has-file");
-          status.removeAttribute("aria-disabled");
+        currentPdfUrl = String(url || "").trim();
+        if (currentPdfUrl) {
+          openBtn.hidden = false;
           clearBtn.hidden = false;
+          wrap.classList.add("has-file");
         } else {
-          status.textContent = "No PDF";
-          status.removeAttribute("href");
-          status.classList.remove("has-file");
-          status.setAttribute("aria-disabled", "true");
+          openBtn.hidden = true;
           clearBtn.hidden = true;
+          wrap.classList.remove("has-file");
         }
       }
 
@@ -6664,10 +6677,10 @@
         }
       });
 
+      actions.appendChild(openBtn);
       actions.appendChild(uploadBtn);
       actions.appendChild(clearBtn);
       actions.appendChild(fileInput);
-      wrap.appendChild(status);
       wrap.appendChild(actions);
       refresh(row.pressReleasePdf);
       return wrap;
@@ -6787,8 +6800,13 @@
           const input = document.createElement(
             column.key === "highlights" ? "textarea" : "input"
           );
+          const isCountField =
+            column.key === "estimatedReach" ||
+            column.key === "totalWishlists";
           input.className = "cell-input";
-          input.value = row[column.key] || "";
+          input.value = isCountField
+            ? formatCoverageStat(row[column.key] || "")
+            : row[column.key] || "";
           input.setAttribute(
             "aria-label",
             `${column.label}, row ${rowIndex + 1}`
@@ -6797,6 +6815,9 @@
             input.rows = 2;
           } else {
             input.type = "text";
+          }
+          if (isCountField) {
+            input.inputMode = "numeric";
           }
 
           input.dataset.column = column.key;
@@ -6819,8 +6840,13 @@
           });
 
           input.addEventListener("change", () => {
-            row[column.key] = input.value;
-            currentTable.rows[rowIndex][column.key] = input.value;
+            let value = input.value;
+            if (isCountField) {
+              value = formatCoverageStat(value);
+              input.value = value;
+            }
+            row[column.key] = value;
+            currentTable.rows[rowIndex][column.key] = value;
             refreshStatus();
             if (column.key === "date") {
               populateMonthFilter(currentTable);
@@ -6832,6 +6858,18 @@
             }
             commitFieldSave(row);
           });
+
+          if (isCountField) {
+            input.addEventListener("blur", () => {
+              const formatted = formatCoverageStat(input.value);
+              input.value = formatted;
+              if (String(row[column.key] || "") === formatted) return;
+              row[column.key] = formatted;
+              currentTable.rows[rowIndex][column.key] = formatted;
+              refreshStatus();
+              commitFieldSave(row);
+            });
+          }
 
           if (input.tagName !== "TEXTAREA") {
             input.addEventListener("keydown", (event) => {
@@ -7549,16 +7587,6 @@
       void renderGameDetailMediaCoverage(activeGameTitle);
     }
 
-    const CATALOG_TABLE_COLUMNS = [
-      { key: "gameTitle", label: "Game" },
-      { key: "announcementTitle", label: "Announcement" },
-      { key: "date", label: "Date" },
-      { key: "month", label: "Month" },
-      { key: "platforms", label: "Platforms" },
-      { key: "estimatedReach", label: "Est. reach" },
-      { key: "totalWishlists", label: "Wishlists" },
-    ];
-
     function renderCatalogAnnouncementsTable(visible, columns) {
       if (gameCatalogEl) gameCatalogEl.hidden = true;
       // game-sections lives inside game-detail — keep the shell visible.
@@ -7590,6 +7618,118 @@
       renderGridView(visible, columns);
       const wrap = gameSections.querySelector(".grid-table-wrap");
       wrap?.classList.add("catalog-readonly-wrap");
+      bindCatalogGridPageWheel(wrap);
+      bindCatalogViewportHScroll(wrap);
+      requestAnimationFrame(() => updateCatalogViewportHScroll());
+    }
+
+    function hideCatalogViewportHScroll() {
+      catalogHScrollActiveWrap = null;
+      if (catalogViewportHScroll) catalogViewportHScroll.hidden = true;
+    }
+
+    function updateCatalogViewportHScroll() {
+      if (
+        !catalogViewportHScroll ||
+        !catalogViewportHScrollSpacer ||
+        !panel?.classList.contains("is-catalog-table")
+      ) {
+        hideCatalogViewportHScroll();
+        return;
+      }
+      const wrap =
+        catalogHScrollActiveWrap ||
+        gameSections?.querySelector(".catalog-readonly-wrap");
+      if (!(wrap instanceof HTMLElement)) {
+        hideCatalogViewportHScroll();
+        return;
+      }
+      const wrapRect = wrap.getBoundingClientRect();
+      if (wrapRect.width <= 0) {
+        hideCatalogViewportHScroll();
+        return;
+      }
+      catalogHScrollActiveWrap = wrap;
+      catalogViewportHScroll.hidden = false;
+      catalogViewportHScroll.style.left = `${Math.round(wrapRect.left)}px`;
+      catalogViewportHScroll.style.width = `${Math.round(wrapRect.width)}px`;
+      catalogViewportHScroll.style.bottom = "10px";
+      catalogViewportHScrollSpacer.style.width = `${Math.max(
+        wrap.scrollWidth,
+        wrap.clientWidth
+      )}px`;
+      if (!catalogHScrollSyncing) {
+        catalogHScrollSyncing = true;
+        catalogViewportHScroll.scrollLeft = wrap.scrollLeft;
+        catalogHScrollSyncing = false;
+      }
+    }
+
+    function bindCatalogViewportHScroll(wrap) {
+      if (!(wrap instanceof HTMLElement)) return;
+      catalogHScrollActiveWrap = wrap;
+      if (!catalogHScrollBound && catalogViewportHScroll) {
+        catalogHScrollBound = true;
+        catalogViewportHScroll.addEventListener("scroll", () => {
+          if (catalogHScrollSyncing || !catalogHScrollActiveWrap) return;
+          catalogHScrollSyncing = true;
+          catalogHScrollActiveWrap.scrollLeft =
+            catalogViewportHScroll.scrollLeft;
+          catalogHScrollSyncing = false;
+        });
+        window.addEventListener(
+          "resize",
+          () => updateCatalogViewportHScroll(),
+          { passive: true }
+        );
+        window.addEventListener(
+          "scroll",
+          () => updateCatalogViewportHScroll(),
+          { passive: true }
+        );
+      }
+      if (wrap.dataset.catalogHScrollBound === "1") {
+        updateCatalogViewportHScroll();
+        return;
+      }
+      wrap.dataset.catalogHScrollBound = "1";
+      wrap.addEventListener("scroll", () => {
+        if (
+          catalogHScrollSyncing ||
+          wrap !== catalogHScrollActiveWrap ||
+          !catalogViewportHScroll
+        ) {
+          return;
+        }
+        catalogHScrollSyncing = true;
+        catalogViewportHScroll.scrollLeft = wrap.scrollLeft;
+        catalogHScrollSyncing = false;
+      });
+      if (typeof ResizeObserver !== "undefined") {
+        const ro = new ResizeObserver(() => updateCatalogViewportHScroll());
+        ro.observe(wrap);
+        if (wrap.firstElementChild) ro.observe(wrap.firstElementChild);
+      }
+    }
+
+    /** When the pointer is over the home grid, vertical wheel scrolls the page. */
+    function bindCatalogGridPageWheel(wrap) {
+      if (!(wrap instanceof HTMLElement) || wrap.dataset.catalogPageWheel === "1") {
+        return;
+      }
+      wrap.dataset.catalogPageWheel = "1";
+      wrap.addEventListener(
+        "wheel",
+        (event) => {
+          if (event.ctrlKey) return;
+          if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+          const scroller =
+            document.scrollingElement || document.documentElement;
+          scroller.scrollTop += event.deltaY;
+          event.preventDefault();
+        },
+        { passive: false }
+      );
     }
 
     function renderFormattedView(visible, columns) {
@@ -7603,6 +7743,7 @@
       }
       gameSections.classList.remove("is-grid-view", "is-catalog-readonly");
       panel.classList.remove("is-grid-layout", "is-catalog-table");
+      hideCatalogViewportHScroll();
       if (gameDetailHeader) gameDetailHeader.hidden = false;
       renderGameCatalog();
     }
@@ -7739,17 +7880,6 @@
       tableEl.appendChild(thead);
       tableEl.appendChild(tbody);
       wrap.appendChild(tableEl);
-
-      const addRowBar = document.createElement("div");
-      addRowBar.className = "grid-add-row-bar";
-      const addRowUnder = document.createElement("button");
-      addRowUnder.type = "button";
-      addRowUnder.className = "btn-ghost grid-add-row-btn";
-      addRowUnder.textContent = "+ Add row";
-      addRowUnder.addEventListener("click", () => addGridRow());
-      addRowBar.appendChild(addRowUnder);
-      wrap.appendChild(addRowBar);
-
       gameSections.appendChild(wrap);
     }
 
@@ -7811,6 +7941,7 @@
         if (coverageLinksPageEl) coverageLinksPageEl.hidden = true;
         if (youtubeTestPageEl) youtubeTestPageEl.hidden = false;
         panel?.classList.add("is-youtube-test-page");
+        hideCatalogViewportHScroll();
         return;
       }
 
@@ -7819,12 +7950,17 @@
         gameSections.classList.add("is-grid-view");
         gameSections.classList.remove("is-catalog-readonly");
         panel.classList.add("is-grid-layout");
+        hideCatalogViewportHScroll();
         renderGameDetailPage(visible, columns);
       } else {
         renderFormattedView(visible, columns);
+        if (!isCatalogTable) hideCatalogViewportHScroll();
       }
 
       fitTableColumns();
+      if (isCatalogTable) {
+        requestAnimationFrame(() => updateCatalogViewportHScroll());
+      }
 
       if (restorePlatformMenuRowId) {
         openPlatformMenuForRow(restorePlatformMenuRowId);
@@ -8260,6 +8396,13 @@
       }
       setAddRowPressReleaseFile(file);
       showAddRowError("");
+    });
+    [addRowEstimatedReach, addRowTotalWishlists].forEach((input) => {
+      if (!input) return;
+      input.inputMode = "numeric";
+      input.addEventListener("blur", () => {
+        input.value = formatCoverageStat(input.value);
+      });
     });
     addRowForm.addEventListener("submit", submitAddRowDialog);
     settingsBtn.addEventListener("click", () => setView("settings"));
