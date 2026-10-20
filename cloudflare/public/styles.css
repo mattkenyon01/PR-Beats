@@ -2,6 +2,11 @@
   box-sizing: border-box;
 }
 
+/* Keep layout width stable when dialogs hide overflow (avoids “zoom out” jump). */
+html {
+  scrollbar-gutter: stable;
+}
+
 :root,
 html[data-theme="light"] {
   color-scheme: light;
@@ -738,18 +743,12 @@ body.is-add-row-dialog-open {
   overscroll-behavior: none;
 }
 
-body.is-share-dialog-open .admin-app,
-body.is-share-dialog-open .game-sections,
-body.is-share-dialog-open .table-wrap,
+/* Don't lock overflow on .admin-app — it breaks sticky header negative margins
+   and shoves the top chrome downward when a dialog opens. */
 body.is-media-coverage-open .admin-app,
 body.is-media-coverage-open .game-sections,
 body.is-media-coverage-open .table-wrap,
-body.is-media-coverage-open .grid-table-wrap,
-body.is-add-row-dialog-open .admin-app,
-body.is-add-row-dialog-open .game-sections,
-body.is-add-row-dialog-open .game-detail,
-body.is-add-row-dialog-open .table-wrap,
-body.is-add-row-dialog-open .game-catalog {
+body.is-media-coverage-open .grid-table-wrap {
   overflow: hidden !important;
   overscroll-behavior: none;
 }
