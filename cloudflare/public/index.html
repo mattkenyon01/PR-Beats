@@ -97,6 +97,11 @@
           </div>
         </section>
 
+        <section class="coverage-links-section media-coverage-summary-section-public" id="media-coverage-summary-card" aria-labelledby="media-coverage-summary-heading" hidden>
+          <h3 class="detail-card-label coverage-links-heading" id="media-coverage-summary-heading">Summary</h3>
+          <div class="media-coverage-summary-public-wrap" id="media-coverage-summary-tables"></div>
+        </section>
+
         <section class="coverage-links-section media-coverage-section-public" id="media-coverage-card" aria-labelledby="media-coverage-heading" hidden>
           <h3 class="detail-card-label coverage-links-heading" id="media-coverage-heading">Media Coverage</h3>
           <div class="media-coverage-public-tables" id="media-coverage-public-tables"></div>
@@ -139,6 +144,7 @@
       parseCoverageLinksValue,
       parseCoverageSectionTitle,
       parseMediaCoverageValue,
+      mediaCoverageSummaryGroups,
     } from "./js/csv.js";
 
     initThemeToggle();
@@ -176,6 +182,12 @@
     const totalWishlistsCardEl = document.getElementById("total-wishlists-card");
     const coverageLinksGridEl = document.getElementById("coverage-links-grid");
     const coverageLinksHeadingEl = document.getElementById("coverage-links-heading");
+    const mediaCoverageSummaryCardEl = document.getElementById(
+      "media-coverage-summary-card"
+    );
+    const mediaCoverageSummaryTablesEl = document.getElementById(
+      "media-coverage-summary-tables"
+    );
     const mediaCoverageCardEl = document.getElementById("media-coverage-card");
     const mediaCoverageHeadingEl = document.getElementById("media-coverage-heading");
     const mediaCoveragePublicTablesEl = document.getElementById(
@@ -841,9 +853,52 @@
       if (mediaCoverageCardEl) {
         mediaCoverageCardEl.hidden = rows.length === 0;
       }
+      if (mediaCoverageSummaryCardEl) {
+        mediaCoverageSummaryCardEl.hidden = rows.length === 0;
+      }
+      if (mediaCoverageSummaryTablesEl) {
+        mediaCoverageSummaryTablesEl.innerHTML = "";
+      }
       if (!mediaCoveragePublicTablesEl) return;
       mediaCoveragePublicTablesEl.innerHTML = "";
       if (!rows.length) return;
+
+      if (mediaCoverageSummaryTablesEl) {
+        const groupsEl = document.createElement("div");
+        groupsEl.className = "media-coverage-summary-groups";
+        mediaCoverageSummaryGroups(rows).forEach((group) => {
+          const block = document.createElement("div");
+          block.className = "media-coverage-summary-group";
+          block.dataset.summaryGroup = group.id;
+
+          const groupTitle = document.createElement("h4");
+          groupTitle.className = "media-coverage-summary-group-title";
+          groupTitle.textContent = group.title;
+          block.appendChild(groupTitle);
+
+          const wrap = document.createElement("div");
+          wrap.className = "media-coverage-summary-wrap";
+          const table = document.createElement("table");
+          table.className = "grid-table media-coverage-summary-table";
+          const tbody = document.createElement("tbody");
+          group.metrics.forEach((metric) => {
+            const tr = document.createElement("tr");
+            const th = document.createElement("th");
+            th.scope = "row";
+            th.textContent = metric.label;
+            const td = document.createElement("td");
+            td.textContent = metric.value;
+            tr.appendChild(th);
+            tr.appendChild(td);
+            tbody.appendChild(tr);
+          });
+          table.appendChild(tbody);
+          wrap.appendChild(table);
+          block.appendChild(wrap);
+          groupsEl.appendChild(block);
+        });
+        mediaCoverageSummaryTablesEl.appendChild(groupsEl);
+      }
 
       // Useful public columns, further narrowed per Type section.
       const publicKeys = new Set([

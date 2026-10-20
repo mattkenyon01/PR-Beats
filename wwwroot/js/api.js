@@ -273,6 +273,23 @@ export function isPersistedCoverUrl(url) {
   return /\/api\/(?:game-images|coverage-covers)\//i.test(String(url || "").trim());
 }
 
+/**
+ * Fetch one small page of YouTube search results + video stats.
+ * Pass pageToken from a previous response to continue.
+ */
+export function searchYouTubeVideos(
+  token,
+  { query, pageToken = "", maxResults = 5 } = {}
+) {
+  const params = new URLSearchParams({
+    q: String(query || "").trim(),
+    maxResults: String(maxResults || 5),
+  });
+  const tokenValue = String(pageToken || "").trim();
+  if (tokenValue) params.set("pageToken", tokenValue);
+  return api(`/api/youtube-search?${params.toString()}`, { token });
+}
+
 /** Fetch a remote cover image into R2 and return the stable Worker URL. */
 export async function storeCoverageCover(token, imageUrl, pageUrl = "") {
   const src = String(imageUrl || "").trim();

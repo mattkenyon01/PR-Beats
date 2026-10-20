@@ -259,6 +259,11 @@ export const MEDIA_COVERAGE_COLUMNS = [
     aliases: ["tiktok views", "tik tok views", "tt views"],
   },
   {
+    key: "tiktokLikes",
+    label: "TikTok Likes",
+    aliases: ["tiktok likes", "tik tok likes", "tt likes"],
+  },
+  {
     key: "tiktokFollower",
     label: "TikTok Follower",
     aliases: [
@@ -624,7 +629,7 @@ const MEDIA_COVERAGE_PLATFORM_KEYS = {
     "twitchStreamDuration",
     "twitchStreamDurationMinutes",
   ]),
-  tiktok: new Set(["tiktokViews", "tiktokFollower"]),
+  tiktok: new Set(["tiktokViews", "tiktokLikes", "tiktokFollower"]),
   instagram: new Set([
     "instagramViews",
     "instagramLikes",
@@ -705,6 +710,218 @@ export function groupMediaCoverageRowsByType(rows) {
     if (rank !== 0) return rank;
     return a.label.localeCompare(b.label, undefined, { sensitivity: "base" });
   });
+}
+
+/** Stable identity for a creator across multiple coverage rows. */
+function mediaCoverageCreatorIdentity(row) {
+  const handleId = String(row?.handleId || "").trim().toLowerCase();
+  if (handleId) return `id:${handleId}`;
+  const channel = String(row?.youtubeChannelTitle || "").trim().toLowerCase();
+  if (channel) return `ch:${channel}`;
+  const twitch = String(row?.twitchAccount || "").trim().toLowerCase();
+  if (twitch) return `tw:${twitch}`;
+  const name = String(row?.customName || "").trim().toLowerCase();
+  if (name) return `name:${name}`;
+  const url = String(row?.handleUrl || "").trim().toLowerCase();
+  if (url) return `url:${url}`;
+  return "";
+}
+
+function mediaCoverageMetricNumber(value) {
+  const cleaned = String(value ?? "")
+    .trim()
+    .replace(/,/g, "");
+  if (!cleaned) return 0;
+  const match = cleaned.match(/-?\d+(?:\.\d+)?/);
+  if (!match) return 0;
+  const n = Number(match[0]);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function mediaCoverageRowsForPlatform(rows, platform) {
+  return (Array.isArray(rows) ? rows : []).filter(
+    (row) => mediaCoveragePlatformId(row?.type) === platform
+  );
+}
+
+function mediaCoveragePodcastRows(rows) {
+  return (Array.isArray(rows) ? rows : []).filter((row) => {
+    const key = mediaCoverageTypeKey(row?.type);
+    return key === "podcast" || key === "podcasts" || /\bpodcasts?\b/.test(key);
+  });
+}
+
+function countMediaCoverageCreators(rows) {
+  const ids = new Set();
+  let anonymous = 0;
+  rows.forEach((row) => {
+    const identity = mediaCoverageCreatorIdentity(row);
+    if (identity) ids.add(identity);
+    else anonymous += 1;
+  });
+  return ids.size + anonymous;
+}
+
+function sumMediaCoverageField(rows, key) {
+  return rows.reduce(
+    (total, row) => total + mediaCoverageMetricNumber(row?.[key]),
+    0
+  );
+}
+
+/**
+ * Aggregate media coverage metrics used by the Summary table.
+ * YouTube audience sums each distinct creator's subscriber count once (max seen).
+ */
+export function summarizeMediaCoverage(rows) {
+  const youtubeRows = mediaCoverageRowsForPlatform(rows, "youtube");
+  const tiktokRows = mediaCoverageRowsForPlatform(rows, "tiktok");
+  const bilibiliRows = mediaCoverageRowsForPlatform(rows, "bilibili");
+  const instagramRows = mediaCoverageRowsForPlatform(rows, "instagram");
+  const podcastRows = mediaCoveragePodcastRows(rows);
+
+  const creatorSubs = new Map();
+  let anonymousAudience = 0;
+  youtubeRows.forEach((row) => {
+    const identity = mediaCoverageCreatorIdentity(row);
+    const subs = mediaCoverageMetricNumber(row?.youtubeSubs);
+    if (identity) {
+      const prev = creatorSubs.get(identity);
+      if (prev == null || subs > prev) creatorSubs.set(identity, subs);
+    } else {
+      anonymousAudience += subs;
+    }
+  });
+  let youtubeAudience = anonymousAudience;
+  for (const subs of creatorSubs.values()) youtubeAudience += subs;
+
+  return {
+    youtube: {
+      audience: youtubeAudience,
+      coverages: youtubeRows.length,
+      creators: countMediaCoverageCreators(youtubeRows),
+      views: sumMediaCoverageField(youtubeRows, "youtubeViews"),
+      likes: sumMediaCoverageField(youtubeRows, "youtubeLikes"),
+      comments: sumMediaCoverageField(youtubeRows, "youtubeComments"),
+    },
+    podcasts: {
+      count: podcastRows.length,
+    },
+    tiktok: {
+      videos: tiktokRows.length,
+      creators: countMediaCoverageCreators(tiktokRows),
+      views: sumMediaCoverageField(tiktokRows, "tiktokViews"),
+      likes: sumMediaCoverageField(tiktokRows, "tiktokLikes"),
+    },
+    bilibili: {
+      videos: bilibiliRows.length,
+      creators: countMediaCoverageCreators(bilibiliRows),
+      views: sumMediaCoverageField(bilibiliRows, "bilibiliViews"),
+      likes: sumMediaCoverageField(bilibiliRows, "bilibiliLikes"),
+      comments: sumMediaCoverageField(bilibiliRows, "bilibiliComments"),
+    },
+    instagram: {
+      reels: instagramRows.length,
+      creators: countMediaCoverageCreators(instagramRows),
+      views: sumMediaCoverageField(instagramRows, "instagramViews"),
+      likes: sumMediaCoverageField(instagramRows, "instagramLikes"),
+      comments: sumMediaCoverageField(instagramRows, "instagramComments"),
+    },
+  };
+}
+
+/** @deprecated Prefer summarizeMediaCoverage; kept for callers expecting the flat YouTube shape. */
+export function summarizeMediaCoverageYouTube(rows) {
+  const { youtube } = summarizeMediaCoverage(rows);
+  return youtube;
+}
+
+/** Platform-grouped label/value rows for the Media Coverage Summary. */
+export function mediaCoverageSummaryGroups(rows) {
+  const summary = summarizeMediaCoverage(rows);
+  const format = (value) => Number(value || 0).toLocaleString("en-US");
+  return [
+    {
+      id: "youtube",
+      title: "YouTube",
+      metrics: [
+        {
+          label: "Audience on YouTube",
+          value: format(summary.youtube.audience),
+        },
+        {
+          label: "Media coverages YouTube",
+          value: format(summary.youtube.coverages),
+        },
+        {
+          label: "Individual influencer contribution YouTube",
+          value: format(summary.youtube.creators),
+        },
+        { label: "YouTube Views", value: format(summary.youtube.views) },
+        { label: "YouTube Likes", value: format(summary.youtube.likes) },
+        { label: "YouTube Comments", value: format(summary.youtube.comments) },
+      ],
+    },
+    {
+      id: "podcasts",
+      title: "Podcasts",
+      metrics: [
+        { label: "Podcasts", value: format(summary.podcasts.count) },
+      ],
+    },
+    {
+      id: "tiktok",
+      title: "TikTok",
+      metrics: [
+        { label: "TikTok Videos", value: format(summary.tiktok.videos) },
+        {
+          label: "Individual Influencer Contribution TikTok",
+          value: format(summary.tiktok.creators),
+        },
+        { label: "TikTok Views", value: format(summary.tiktok.views) },
+        { label: "TikTok Likes", value: format(summary.tiktok.likes) },
+      ],
+    },
+    {
+      id: "bilibili",
+      title: "BiliBili",
+      metrics: [
+        { label: "BiliBili Videos", value: format(summary.bilibili.videos) },
+        {
+          label: "Individual Influencer Contribution BiliBili",
+          value: format(summary.bilibili.creators),
+        },
+        { label: "BiliBili Views", value: format(summary.bilibili.views) },
+        { label: "BiliBili Likes", value: format(summary.bilibili.likes) },
+        {
+          label: "BiliBili Comments",
+          value: format(summary.bilibili.comments),
+        },
+      ],
+    },
+    {
+      id: "instagram",
+      title: "Instagram",
+      metrics: [
+        { label: "Instagram Reels", value: format(summary.instagram.reels) },
+        {
+          label: "Individual Influencer Contribution Instagram",
+          value: format(summary.instagram.creators),
+        },
+        { label: "Instagram Views", value: format(summary.instagram.views) },
+        { label: "Instagram Likes", value: format(summary.instagram.likes) },
+        {
+          label: "Instagram Comments",
+          value: format(summary.instagram.comments),
+        },
+      ],
+    },
+  ];
+}
+
+/** Flat label/value rows (all platforms combined). */
+export function mediaCoverageSummaryMetrics(rows) {
+  return mediaCoverageSummaryGroups(rows).flatMap((group) => group.metrics);
 }
 
 export function isLinkSectionKey(key) {
@@ -1069,6 +1286,19 @@ export function displayNameFromEmail(email) {
 
 export const COVERAGE_LINK_COLUMNS = [
   {
+    key: "dateAdded",
+    label: "Date added",
+    readOnly: true,
+    aliases: [
+      "date added",
+      "added",
+      "added at",
+      "added date",
+      "created at",
+      "created",
+    ],
+  },
+  {
     key: "outletName",
     label: "Outlet name",
     aliases: ["outlet name", "outlet", "publication", "source", "media outlet"],
@@ -1086,6 +1316,7 @@ export const COVERAGE_LINK_COLUMNS = [
   {
     key: "date",
     label: "Date",
+    hiddenInEditor: true,
     aliases: [
       "date",
       "published",
@@ -1158,6 +1389,11 @@ export function emptyCoverageLink() {
     ),
     coverImage: "",
   };
+}
+
+/** ISO timestamp for when a coverage link row was added. */
+export function coverageDateAddedNow() {
+  return new Date().toISOString();
 }
 
 /** Map common country names / codes → ISO 3166-1 alpha-2 for flag images. */
@@ -1261,6 +1497,9 @@ const COUNTRY_FLAG_CODES = {
   türkiye: "tr",
   ru: "ru",
   russia: "ru",
+  "russian federation": "ru",
+  "russian fed": "ru",
+  "russian fed.": "ru",
   cz: "cz",
   "czech republic": "cz",
   czechia: "cz",
@@ -1285,6 +1524,8 @@ export function countryFlagCode(value) {
     const code = raw.toLowerCase();
     return code === "uk" ? "gb" : code;
   }
+  // Cyrillic short forms that would otherwise be stripped by ASCII normalization.
+  if (/^(рф|россия)$/i.test(raw)) return "ru";
   const key = raw
     .toLowerCase()
     .normalize("NFKD")
@@ -1303,7 +1544,8 @@ export function countryFlagUrl(value) {
 
 function coverageRowHasContent(row) {
   return COVERAGE_LINK_COLUMNS.some(
-    (column) => String(row?.[column.key] || "").trim() !== ""
+    (column) =>
+      !column.readOnly && String(row?.[column.key] || "").trim() !== ""
   );
 }
 

@@ -7,7 +7,7 @@
   <link rel="icon" type="image/png" href="images/SilverLiningIcon.png" />
   <link rel="apple-touch-icon" href="images/SilverLiningIcon.png" />
   <script src="js/theme-boot.js"></script>
-  <link rel="stylesheet" href="styles.css?v=mc-hscroll-excel-1" />
+  <link rel="stylesheet" href="styles.css?v=coverage-sort-date-first-1" />
 </head>
 <body class="admin-page">
   <p class="note" id="loading">Checking sign-in…</p>
@@ -30,12 +30,9 @@
         </div>
         <div class="admin-header-actions">
           <span class="save-status" id="save-status" hidden></span>
-          <label class="header-month-filter" id="month-filter-control" hidden>
-            <span class="visually-hidden">Month</span>
-            <select id="month-filter" aria-label="Month" title="Month">
-              <option value="">All months</option>
-            </select>
-          </label>
+          <select id="month-filter" hidden aria-hidden="true" tabindex="-1">
+            <option value="">All months</option>
+          </select>
           <label class="header-view-filter" id="view-mode-control" hidden>
             <span class="visually-hidden">View</span>
             <select id="view-mode" aria-label="View" title="View">
@@ -43,9 +40,6 @@
               <option value="grid">Grid view</option>
             </select>
           </label>
-          <button type="button" class="theme-toggle" data-theme-toggle>
-            <span data-theme-label>Dark</span>
-          </button>
           <button id="import-btn" type="button" class="btn-icon" aria-label="Import CSV" title="Import CSV">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -68,11 +62,52 @@
               <line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/>
             </svg>
           </button>
+          <div class="coverage-header-actions" id="coverage-header-actions" hidden>
+            <input id="coverage-links-csv-input" type="file" accept=".csv,text/csv" hidden />
+            <button type="button" class="btn-ghost coverage-links-dialog-clear" id="coverage-links-dialog-clear">
+              Clear all
+            </button>
+            <button
+              type="button"
+              class="btn-icon"
+              id="coverage-links-dialog-import"
+              aria-label="Import CSV"
+              title="Import CSV"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" x2="12" y1="3" y2="15"/>
+              </svg>
+            </button>
+            <button
+              type="button"
+              class="btn-icon"
+              id="coverage-links-page-add"
+              aria-label="Add coverage link"
+              title="Add coverage link"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 5v14"/>
+                <path d="M5 12h14"/>
+              </svg>
+            </button>
+          </div>
           <button id="settings-btn" type="button" class="btn-icon" aria-label="Settings" title="Settings">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
               <circle cx="12" cy="12" r="3"/>
             </svg>
+          </button>
+          <button
+            type="button"
+            class="btn-icon game-youtube-test-btn"
+            id="game-youtube-test-btn"
+            aria-label="YouTube test space"
+            title="YouTube test space"
+            hidden
+          >
+            !
           </button>
           <button type="button" class="btn-icon game-detail-delete" id="game-detail-delete" aria-label="Delete game" title="Delete game" hidden>
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -122,6 +157,71 @@
         <div class="game-detail" id="game-detail" hidden>
           <header class="game-detail-header" id="game-detail-header"></header>
           <div class="game-sections" id="game-sections"></div>
+        </div>
+        <div class="youtube-test-page" id="youtube-test-page" hidden>
+          <div class="youtube-test-toolbar">
+            <div class="youtube-test-copy">
+              <h2 class="youtube-test-title" id="youtube-test-title">YouTube test</h2>
+              <p class="youtube-test-hint" id="youtube-test-hint">
+                Fetch a small batch of videos whose title or description matches this game.
+              </p>
+            </div>
+            <button type="button" class="btn-primary" id="youtube-test-fetch">
+              Fetch next videos
+            </button>
+          </div>
+          <p class="youtube-test-status" id="youtube-test-status" hidden></p>
+          <div class="youtube-test-totals" id="youtube-test-totals" aria-live="polite">
+            <div class="youtube-test-total">
+              <span class="youtube-test-total-label">Overall views</span>
+              <span class="youtube-test-total-value" id="youtube-test-total-views">0</span>
+            </div>
+            <div class="youtube-test-total">
+              <span class="youtube-test-total-label">Overall likes</span>
+              <span class="youtube-test-total-value" id="youtube-test-total-likes">0</span>
+            </div>
+            <div class="youtube-test-total">
+              <span class="youtube-test-total-label">Overall comments</span>
+              <span class="youtube-test-total-value" id="youtube-test-total-comments">0</span>
+            </div>
+            <div class="youtube-test-total">
+              <span class="youtube-test-total-label">Overall subscribers</span>
+              <span class="youtube-test-total-value" id="youtube-test-total-subscribers">0</span>
+            </div>
+          </div>
+          <div class="table-wrap grid-table-wrap youtube-test-table-wrap">
+            <table class="grid-table youtube-test-table">
+              <thead>
+                <tr>
+                  <th scope="col">Title</th>
+                  <th scope="col">Channel</th>
+                  <th scope="col">Subscribers</th>
+                  <th scope="col">Published</th>
+                  <th scope="col">Views</th>
+                  <th scope="col">Likes</th>
+                  <th scope="col">Comments</th>
+                  <th scope="col">URL</th>
+                </tr>
+              </thead>
+              <tbody id="youtube-test-body"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="coverage-links-page" id="coverage-links-page" hidden>
+          <input
+            id="coverage-links-dialog-title"
+            type="hidden"
+            value="Campaign Coverage"
+            maxlength="80"
+          />
+          <div class="coverage-links-dialog-table-wrap" id="coverage-links-table-wrap">
+            <table class="coverage-links-dialog-table">
+              <thead>
+                <tr id="coverage-links-dialog-head"></tr>
+              </thead>
+              <tbody id="coverage-links-dialog-body"></tbody>
+            </table>
+          </div>
         </div>
       </section>
       <div
@@ -212,8 +312,16 @@
 
       <div class="settings-card">
         <h2>Settings</h2>
-        <p class="settings-intro">Change your account password.</p>
+        <p class="settings-intro">Appearance and account.</p>
 
+        <div class="settings-appearance">
+          <h3 class="settings-section-title">Appearance</h3>
+          <button type="button" class="theme-toggle settings-theme-toggle" data-theme-toggle>
+            <span data-theme-label>Dark</span>
+          </button>
+        </div>
+
+        <h3 class="settings-section-title">Password</h3>
         <form id="password-form" class="settings-form">
           <label>
             Current password
@@ -250,52 +358,15 @@
     <form class="add-row-dialog-panel" id="add-row-form" method="dialog">
       <header class="add-row-dialog-header">
         <h2 id="add-row-dialog-title">Add announcement</h2>
-        <button type="button" class="btn-ghost" id="add-row-dialog-close">Close</button>
+        <button type="button" class="btn-icon dialog-close-btn" id="add-row-dialog-close" aria-label="Close" title="Close">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M18 6 6 18"/>
+            <path d="m6 6 12 12"/>
+          </svg>
+        </button>
       </header>
 
       <div class="add-row-dialog-body">
-        <div class="add-row-game-title-fields">
-          <label>
-            Game title
-            <select id="add-row-game-title-select" required>
-              <option value="">Select a game…</option>
-              <option value="__new__">Add new…</option>
-            </select>
-          </label>
-          <div id="add-row-game-title-new-wrap" class="add-row-new-game" hidden>
-            <label>
-              New game title
-              <input id="add-row-game-title" type="text" autocomplete="off" placeholder="Enter game title" />
-            </label>
-            <div class="add-row-cover">
-              <div class="add-row-cover-preview" id="add-row-cover-preview">
-                <img id="add-row-cover-image" alt="" hidden />
-                <span class="add-row-cover-placeholder" id="add-row-cover-placeholder">
-                  Cover image required
-                </span>
-              </div>
-              <div class="add-row-cover-actions">
-                <input id="add-row-cover-input" type="file" accept="image/*" hidden />
-                <button type="button" class="btn-icon" id="add-row-cover-upload" aria-label="Upload cover" title="Upload cover">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                    <polyline points="17 8 12 3 7 8"/>
-                    <line x1="12" x2="12" y1="3" y2="15"/>
-                  </svg>
-                </button>
-                <button type="button" class="btn-icon" id="add-row-cover-clear" aria-label="Remove cover" title="Remove cover" hidden>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <path d="M3 6h18"/>
-                    <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
-                    <line x1="10" x2="10" y1="11" y2="17"/>
-                    <line x1="14" x2="14" y1="11" y2="17"/>
-                  </svg>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
         <label>
           Announcement title
           <input id="add-row-announcement-title" type="text" autocomplete="off" required />
@@ -406,47 +477,23 @@
     </div>
   </dialog>
 
-  <dialog class="coverage-links-dialog" id="coverage-links-dialog" aria-labelledby="coverage-links-dialog-title">
-    <div class="coverage-links-dialog-panel">
-      <header class="coverage-links-dialog-header">
-        <div class="coverage-links-dialog-heading">
-          <label class="coverage-links-dialog-title-label" for="coverage-links-dialog-title">
-            Section name
-            <input
-              id="coverage-links-dialog-title"
-              class="coverage-links-dialog-title-input"
-              type="text"
-              value="Campaign Coverage"
-              autocomplete="off"
-              maxlength="80"
-            />
-          </label>
-          <p class="coverage-links-dialog-hint" id="coverage-links-dialog-hint">
-            Add rows manually or import a coverage CSV.
-          </p>
-        </div>
-        <button type="button" class="btn-ghost coverage-links-dialog-close" id="coverage-links-dialog-close">
-          Close
+  <dialog class="add-row-dialog" id="add-coverage-link-dialog" aria-labelledby="add-coverage-link-dialog-title">
+    <form class="add-row-dialog-panel" id="add-coverage-link-form" method="dialog">
+      <header class="add-row-dialog-header">
+        <h2 id="add-coverage-link-dialog-title">Add coverage link</h2>
+        <button type="button" class="btn-icon dialog-close-btn" id="add-coverage-link-dialog-close" aria-label="Close" title="Close">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M18 6 6 18"/>
+            <path d="m6 6 12 12"/>
+          </svg>
         </button>
       </header>
-      <div class="coverage-links-dialog-table-wrap">
-        <table class="coverage-links-dialog-table">
-          <thead>
-            <tr id="coverage-links-dialog-head"></tr>
-          </thead>
-          <tbody id="coverage-links-dialog-body"></tbody>
-        </table>
-      </div>
-      <footer class="coverage-links-dialog-footer">
-        <input id="coverage-links-csv-input" type="file" accept=".csv,text/csv" hidden />
-        <button type="button" class="btn-ghost coverage-links-dialog-clear" id="coverage-links-dialog-clear">
-          Clear all
-        </button>
-        <button type="button" class="btn-ghost" id="coverage-links-dialog-import">Import CSV</button>
-        <button type="button" class="btn-ghost" id="coverage-links-dialog-add">Add link</button>
-        <button type="button" class="btn-primary" id="coverage-links-dialog-done">Done</button>
+      <div class="add-row-dialog-body" id="add-coverage-link-fields"></div>
+      <footer class="add-row-dialog-footer">
+        <p class="add-row-dialog-error" id="add-coverage-link-dialog-error" hidden></p>
+        <button type="submit" class="btn-primary" id="add-coverage-link-submit">Add entry</button>
       </footer>
-    </div>
+    </form>
   </dialog>
 
   <dialog class="coverage-links-dialog media-coverage-dialog" id="media-coverage-dialog" aria-labelledby="media-coverage-dialog-title">
@@ -537,8 +584,10 @@
     import {
       DISPLAY_COLUMNS,
       COVERAGE_LINK_COLUMNS,
+      coverageDateAddedNow,
       coverageLinkDisplayLabel,
       coverageLinksFromCsv,
+      countryFlagUrl,
       csvToTable,
       dateSortValue,
       DEFAULT_COVERAGE_SECTION_TITLE,
@@ -549,6 +598,7 @@
       groupMediaCoverageRowsByType,
       isLinkSectionKey,
       linkSectionDef,
+      MEDIA_COVERAGE_COLUMNS,
       mediaCoverageColumnsForType,
       mediaCoverageFromCsvProgressive,
       mediaCoverageTypeLabel,
@@ -558,6 +608,7 @@
       parseMediaCoverageValue,
       serializeCoverageLinksValue,
       serializeMediaCoverageValue,
+      mediaCoverageSummaryGroups,
     } from "./js/csv.js";
     import {
       loadAnnouncements,
@@ -578,6 +629,7 @@
       linkPreviewImageUrl,
       isPersistedCoverUrl,
       storeCoverageCover,
+      searchYouTubeVideos,
     } from "./js/api.js";
 
     const panel = document.getElementById("panel");
@@ -609,7 +661,34 @@
     const gameCatalogEl = document.getElementById("game-catalog");
     const gameDetailEl = document.getElementById("game-detail");
     const gameDetailDelete = document.getElementById("game-detail-delete");
+    const gameYoutubeTestBtn = document.getElementById("game-youtube-test-btn");
+    const youtubeTestPageEl = document.getElementById("youtube-test-page");
+    const youtubeTestTitleEl = document.getElementById("youtube-test-title");
+    const youtubeTestHintEl = document.getElementById("youtube-test-hint");
+    const youtubeTestFetchBtn = document.getElementById("youtube-test-fetch");
+    const youtubeTestStatusEl = document.getElementById("youtube-test-status");
+    const youtubeTestBodyEl = document.getElementById("youtube-test-body");
+    const youtubeTestTotalViewsEl = document.getElementById(
+      "youtube-test-total-views"
+    );
+    const youtubeTestTotalLikesEl = document.getElementById(
+      "youtube-test-total-likes"
+    );
+    const youtubeTestTotalCommentsEl = document.getElementById(
+      "youtube-test-total-comments"
+    );
+    const youtubeTestTotalSubscribersEl = document.getElementById(
+      "youtube-test-total-subscribers"
+    );
     const gameDetailHeader = document.getElementById("game-detail-header");
+    let youtubeTestPageOpen = false;
+    let youtubeTestState = {
+      gameTitle: "",
+      nextPageToken: "",
+      videos: [],
+      loading: false,
+    };
+    const YOUTUBE_TEST_PAGE_SIZE = 5;
     const mediaCoverageViewportHScroll = document.getElementById(
       "media-coverage-viewport-hscroll"
     );
@@ -621,14 +700,6 @@
     const addRowDialogClose = document.getElementById("add-row-dialog-close");
     const addRowDialogError = document.getElementById("add-row-dialog-error");
     const addRowPlatforms = document.getElementById("add-row-platforms");
-    const addRowGameTitleSelect = document.getElementById("add-row-game-title-select");
-    const addRowGameTitleNewWrap = document.getElementById("add-row-game-title-new-wrap");
-    const addRowGameTitle = document.getElementById("add-row-game-title");
-    const addRowCoverInput = document.getElementById("add-row-cover-input");
-    const addRowCoverUpload = document.getElementById("add-row-cover-upload");
-    const addRowCoverClear = document.getElementById("add-row-cover-clear");
-    const addRowCoverImage = document.getElementById("add-row-cover-image");
-    const addRowCoverPlaceholder = document.getElementById("add-row-cover-placeholder");
     const addRowAnnouncementTitle = document.getElementById("add-row-announcement-title");
     const addRowDate = document.getElementById("add-row-date");
     const addRowTrailer = document.getElementById("add-row-trailer");
@@ -660,7 +731,6 @@
       gameSearchBar.hidden =
         report.hidden || !settingsView.hidden || Boolean(activeGameTitle);
     }
-    const monthFilterControl = document.getElementById("month-filter-control");
     const monthFilter = document.getElementById("month-filter");
     const viewModeControl = document.getElementById("view-mode-control");
     const viewModeSelect = document.getElementById("view-mode");
@@ -683,17 +753,37 @@
     const passwordSubmit = document.getElementById("password-submit");
     const passwordError = document.getElementById("password-error");
     const passwordSuccess = document.getElementById("password-success");
-    const coverageDialog = document.getElementById("coverage-links-dialog");
+    const coverageLinksPageEl = document.getElementById("coverage-links-page");
+    const coverageHeaderActions = document.getElementById("coverage-header-actions");
     const coverageDialogHead = document.getElementById("coverage-links-dialog-head");
     const coverageDialogBody = document.getElementById("coverage-links-dialog-body");
     const coverageDialogTitleInput = document.getElementById("coverage-links-dialog-title");
     const coverageDialogHint = document.getElementById("coverage-links-dialog-hint");
-    const coverageDialogAdd = document.getElementById("coverage-links-dialog-add");
+    const coverageLinksPageAdd = document.getElementById("coverage-links-page-add");
     const coverageDialogClear = document.getElementById("coverage-links-dialog-clear");
     const coverageDialogImport = document.getElementById("coverage-links-dialog-import");
-    const coverageDialogDone = document.getElementById("coverage-links-dialog-done");
-    const coverageDialogClose = document.getElementById("coverage-links-dialog-close");
     const coverageCsvInput = document.getElementById("coverage-links-csv-input");
+    let coverageLinksHydrating = false;
+    let coverageSaveTimer = 0;
+
+    function setCoverageHeaderActionsVisible(visible) {
+      if (coverageHeaderActions) coverageHeaderActions.hidden = !visible;
+    }
+    const addCoverageLinkDialog = document.getElementById("add-coverage-link-dialog");
+    const addCoverageLinkForm = document.getElementById("add-coverage-link-form");
+    const addCoverageLinkDialogClose = document.getElementById(
+      "add-coverage-link-dialog-close"
+    );
+    const addCoverageLinkDialogError = document.getElementById(
+      "add-coverage-link-dialog-error"
+    );
+    const addCoverageLinkFields = document.getElementById(
+      "add-coverage-link-fields"
+    );
+    const addCoverageLinkSubmit = document.getElementById(
+      "add-coverage-link-submit"
+    );
+    let coverageLinksPageOpen = false;
     const mediaCoverageDialog = document.getElementById("media-coverage-dialog");
     const mediaCoverageTypeTablesEl = document.getElementById(
       "media-coverage-type-tables"
@@ -723,6 +813,7 @@
     const MEDIA_COVERAGE_PAGE_SIZE = 50;
     let mediaCoverageEdit = null;
     let mediaCoverageImporting = false;
+
     const coverPreviewDialog = document.getElementById("cover-preview-dialog");
     const coverPreviewDialogTitle = document.getElementById("cover-preview-dialog-title");
     const coverPreviewDialogGame = document.getElementById("cover-preview-dialog-game");
@@ -758,9 +849,8 @@
     let persistQueued = false;
     let persistQueuedMode = "dirty";
     let coverageEdit = null;
-    let addRowCoverFile = null;
-    let addRowCoverPreviewUrl = "";
     let addRowPressReleaseFile = null;
+    let addRowGameTitleLocked = "";
     let addGameKeyArtFile = null;
     let addGameKeyArtPreviewUrl = "";
     let addGamePressKitFile = null;
@@ -774,6 +864,20 @@
     const shareSelectedMonths = new Set();
     const coveragePreviewCache = new Map();
 
+    // Only close when press + release both happen on the backdrop.
+    // Prevents "drag text inside, release outside" from counting as a dismiss.
+    function bindDialogBackdropClose(dialog, onClose) {
+      if (!dialog || typeof onClose !== "function") return;
+      let pointerDownOnBackdrop = false;
+      dialog.addEventListener("pointerdown", (event) => {
+        pointerDownOnBackdrop = event.target === dialog;
+      });
+      dialog.addEventListener("click", (event) => {
+        if (event.target === dialog && pointerDownOnBackdrop) onClose(event);
+        pointerDownOnBackdrop = false;
+      });
+    }
+
     function viewModeFromUrl() {
       const view = new URL(window.location.href).searchParams.get("view");
       return view === "grid" ? "grid" : "formatted";
@@ -785,10 +889,15 @@
       ).trim();
     }
 
-    function syncViewModeToUrl(mode) {
+    function coverageRowIdFromUrl() {
+      return String(
+        new URL(window.location.href).searchParams.get("coverage") || ""
+      ).trim();
+    }
+
+    function replaceUrlSearch(mutate) {
       const url = new URL(window.location.href);
-      if (mode === "grid") url.searchParams.set("view", "grid");
-      else url.searchParams.delete("view");
+      mutate(url.searchParams);
       const next = `${url.pathname}${url.search}${url.hash}`;
       const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
       if (next !== current) {
@@ -796,16 +905,30 @@
       }
     }
 
+    function syncViewModeToUrl(mode) {
+      replaceUrlSearch((params) => {
+        if (mode === "grid") params.set("view", "grid");
+        else params.delete("view");
+      });
+    }
+
     function syncGameToUrl(gameTitle) {
-      const url = new URL(window.location.href);
-      const title = String(gameTitle || "").trim();
-      if (title) url.searchParams.set("game", title);
-      else url.searchParams.delete("game");
-      const next = `${url.pathname}${url.search}${url.hash}`;
-      const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-      if (next !== current) {
-        window.history.replaceState(window.history.state, "", next);
-      }
+      replaceUrlSearch((params) => {
+        const title = String(gameTitle || "").trim();
+        if (title) params.set("game", title);
+        else {
+          params.delete("game");
+          params.delete("coverage");
+        }
+      });
+    }
+
+    function syncCoverageToUrl(rowId) {
+      replaceUrlSearch((params) => {
+        const id = String(rowId || "").trim();
+        if (id) params.set("coverage", id);
+        else params.delete("coverage");
+      });
     }
 
     function syncAddRowButtonVisibility() {
@@ -1144,70 +1267,9 @@
     }
 
     function closeAddRowDialog() {
-      if (addRowGameTitleSelect) addRowGameTitleSelect.disabled = false;
+      addRowGameTitleLocked = "";
       if (typeof addRowDialog.close === "function") addRowDialog.close();
       else addRowDialog.removeAttribute("open");
-    }
-
-    function populateAddRowGameTitleSelect({ lockTitle = "" } = {}) {
-      const fromRows = currentTable ? listGameTitles(currentTable) : [];
-      const fromCatalog = gamesCatalog.map((game) => game.title);
-      const titles = [
-        ...new Set([...fromCatalog, ...fromRows].filter(Boolean)),
-      ].sort((a, b) =>
-        a.localeCompare(b, undefined, { sensitivity: "base", numeric: true })
-      );
-      addRowGameTitleSelect.innerHTML = "";
-
-      const locked = String(lockTitle || "").trim();
-      if (locked) {
-        const option = document.createElement("option");
-        option.value = locked;
-        option.textContent = locked;
-        addRowGameTitleSelect.appendChild(option);
-        addRowGameTitleSelect.value = locked;
-        addRowGameTitleSelect.disabled = true;
-        return;
-      }
-
-      addRowGameTitleSelect.disabled = false;
-      const placeholder = document.createElement("option");
-      placeholder.value = "";
-      placeholder.textContent = titles.length
-        ? "Select a game…"
-        : "No games yet — add a game first";
-      addRowGameTitleSelect.appendChild(placeholder);
-
-      titles.forEach((title) => {
-        const option = document.createElement("option");
-        option.value = title;
-        option.textContent = title;
-        addRowGameTitleSelect.appendChild(option);
-      });
-    }
-
-    function clearAddRowCover() {
-      if (addRowCoverPreviewUrl) {
-        URL.revokeObjectURL(addRowCoverPreviewUrl);
-        addRowCoverPreviewUrl = "";
-      }
-      addRowCoverFile = null;
-      addRowCoverInput.value = "";
-      addRowCoverImage.removeAttribute("src");
-      addRowCoverImage.hidden = true;
-      addRowCoverPlaceholder.hidden = false;
-      addRowCoverClear.hidden = true;
-    }
-
-    function setAddRowCoverFile(file) {
-      clearAddRowCover();
-      if (!file) return;
-      addRowCoverFile = file;
-      addRowCoverPreviewUrl = URL.createObjectURL(file);
-      addRowCoverImage.src = addRowCoverPreviewUrl;
-      addRowCoverImage.hidden = false;
-      addRowCoverPlaceholder.hidden = true;
-      addRowCoverClear.hidden = false;
     }
 
     function clearAddRowPressRelease() {
@@ -1227,50 +1289,24 @@
       addRowPressReleaseClear.hidden = false;
     }
 
-    function syncAddRowGameTitleMode() {
-      const isNew = addRowGameTitleSelect.value === "__new__";
-      addRowGameTitleNewWrap.hidden = !isNew;
-      addRowGameTitle.required = isNew;
-      if (isNew) {
-        requestAnimationFrame(() => addRowGameTitle.focus());
-      } else {
-        addRowGameTitle.value = "";
-        addRowGameTitle.required = false;
-        clearAddRowCover();
-      }
-    }
-
     function selectedAddRowGameTitle() {
-      const selected = addRowGameTitleSelect.value;
-      if (selected === "__new__") return addRowGameTitle.value.trim();
-      return selected.trim();
+      return String(addRowGameTitleLocked || activeGameTitle || "").trim();
     }
 
     function openAddRowDialog(preferredGameTitle = "") {
       showAddRowError("");
       addRowForm.reset();
-      clearAddRowCover();
       clearAddRowPressRelease();
-      const preferred = String(preferredGameTitle || activeGameTitle || "").trim();
-      populateAddRowGameTitleSelect({ lockTitle: preferred });
-      if (
-        preferred &&
-        !addRowGameTitleSelect.disabled &&
-        [...addRowGameTitleSelect.options].some((option) => option.value === preferred)
-      ) {
-        addRowGameTitleSelect.value = preferred;
-      }
-      syncAddRowGameTitleMode();
+      addRowGameTitleLocked = String(
+        preferredGameTitle || activeGameTitle || ""
+      ).trim();
       renderAddRowPlatformOptions();
       if (typeof addRowDialog.showModal === "function") {
         addRowDialog.showModal();
       } else {
         addRowDialog.setAttribute("open", "");
       }
-      requestAnimationFrame(() => {
-        if (preferred) addRowAnnouncementTitle.focus();
-        else addRowGameTitleSelect.focus();
-      });
+      requestAnimationFrame(() => addRowAnnouncementTitle.focus());
     }
 
     async function submitAddRowDialog(event) {
@@ -1280,7 +1316,11 @@
       const gameTitle = selectedAddRowGameTitle();
       const announcementTitle = addRowAnnouncementTitle.value.trim();
       if (!gameTitle || !announcementTitle) {
-        showAddRowError("Pick a game and enter an announcement title.");
+        showAddRowError(
+          gameTitle
+            ? "Enter an announcement title."
+            : "Open a game first, then add an announcement."
+        );
         return;
       }
 
@@ -1848,6 +1888,7 @@
       });
     }
 
+
     function mediaCoverageDataRows() {
       return [
         ...(mediaCoverageTypeTablesEl?.querySelectorAll(
@@ -2402,6 +2443,7 @@
       closeMediaCoverageDialog();
     }
 
+
     function editorInitials(editor) {
       const provided = String(editor?.initials || "").trim();
       if (provided) return provided.slice(0, 2).toUpperCase();
@@ -2527,13 +2569,260 @@
     }
 
     function closeGameDetail({ updateUrl = true } = {}) {
+      if (coverageLinksPageOpen) {
+        closeCoverageLinksDialog({ updateUrl: false });
+      }
+      if (youtubeTestPageOpen) {
+        closeYoutubeTestPage({ restoreDetail: false });
+      }
       activeGameTitle = "";
       setAppTitle(APP_TITLE_DEFAULT);
       hideMediaCoverageViewportHScroll();
       if (updateUrl) syncGameToUrl("");
+      else syncCoverageToUrl("");
       if (currentTable) renderTable(currentTable, currentFileName);
       else renderEmptyCatalog();
     }
+
+    function formatYoutubeCount(value) {
+      const n = Number(String(value || "").replace(/,/g, ""));
+      if (!Number.isFinite(n)) return "0";
+      return n.toLocaleString("en-US");
+    }
+
+    function formatYoutubeDate(value) {
+      const raw = String(value || "").trim();
+      if (!raw) return "—";
+      const date = new Date(raw);
+      if (Number.isNaN(date.getTime())) return raw;
+      return date.toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      });
+    }
+
+    function setYoutubeTestStatus(message, { error = false } = {}) {
+      if (!youtubeTestStatusEl) return;
+      const text = String(message || "").trim();
+      youtubeTestStatusEl.hidden = !text;
+      youtubeTestStatusEl.textContent = text;
+      youtubeTestStatusEl.classList.toggle("is-error", Boolean(error && text));
+    }
+
+    function youtubeTestCountValue(value) {
+      const n = Number(String(value || "").replace(/,/g, ""));
+      return Number.isFinite(n) ? n : 0;
+    }
+
+    function renderYoutubeTestTotals() {
+      let views = 0;
+      let likes = 0;
+      let comments = 0;
+      const channelSubs = new Map();
+      youtubeTestState.videos.forEach((video) => {
+        views += youtubeTestCountValue(video.viewCount);
+        likes += youtubeTestCountValue(video.likeCount);
+        comments += youtubeTestCountValue(video.commentCount);
+        const channelId = String(video.channelId || "").trim();
+        const channelKey = channelId || `name:${video.channelTitle || ""}`;
+        if (!channelKey || channelKey === "name:") return;
+        if (!channelSubs.has(channelKey)) {
+          channelSubs.set(
+            channelKey,
+            youtubeTestCountValue(video.subscriberCount)
+          );
+        }
+      });
+      let subscribers = 0;
+      for (const count of channelSubs.values()) subscribers += count;
+      if (youtubeTestTotalViewsEl) {
+        youtubeTestTotalViewsEl.textContent = views.toLocaleString("en-US");
+      }
+      if (youtubeTestTotalLikesEl) {
+        youtubeTestTotalLikesEl.textContent = likes.toLocaleString("en-US");
+      }
+      if (youtubeTestTotalCommentsEl) {
+        youtubeTestTotalCommentsEl.textContent =
+          comments.toLocaleString("en-US");
+      }
+      if (youtubeTestTotalSubscribersEl) {
+        youtubeTestTotalSubscribersEl.textContent =
+          subscribers.toLocaleString("en-US");
+      }
+    }
+
+    function renderYoutubeTestRows() {
+      renderYoutubeTestTotals();
+      if (!youtubeTestBodyEl) return;
+      youtubeTestBodyEl.innerHTML = "";
+      if (!youtubeTestState.videos.length) {
+        const tr = document.createElement("tr");
+        const td = document.createElement("td");
+        td.colSpan = 8;
+        td.className = "empty-filter";
+        td.textContent = "No videos fetched yet. Press Fetch next videos.";
+        tr.appendChild(td);
+        youtubeTestBodyEl.appendChild(tr);
+        return;
+      }
+
+      youtubeTestState.videos.forEach((video) => {
+        const tr = document.createElement("tr");
+        const cells = [
+          video.title || "Untitled",
+          video.channelTitle || "—",
+          formatYoutubeCount(video.subscriberCount),
+          formatYoutubeDate(video.publishedAt),
+          formatYoutubeCount(video.viewCount),
+          formatYoutubeCount(video.likeCount),
+          formatYoutubeCount(video.commentCount),
+        ];
+        cells.forEach((text, index) => {
+          const td = document.createElement("td");
+          td.textContent = text;
+          if (index === 2 || index >= 4) td.className = "youtube-test-num";
+          tr.appendChild(td);
+        });
+        const urlTd = document.createElement("td");
+        const url = String(video.url || "").trim();
+        if (url) {
+          const a = document.createElement("a");
+          a.href = url;
+          a.target = "_blank";
+          a.rel = "noopener noreferrer";
+          a.textContent = url;
+          urlTd.appendChild(a);
+        } else {
+          urlTd.textContent = "—";
+        }
+        tr.appendChild(urlTd);
+        youtubeTestBodyEl.appendChild(tr);
+      });
+    }
+
+    function syncYoutubeTestFetchButton() {
+      if (!youtubeTestFetchBtn) return;
+      const hasMore =
+        !youtubeTestState.videos.length ||
+        Boolean(youtubeTestState.nextPageToken);
+      youtubeTestFetchBtn.disabled = youtubeTestState.loading || !hasMore;
+      youtubeTestFetchBtn.textContent = youtubeTestState.loading
+        ? "Fetching…"
+        : youtubeTestState.videos.length
+          ? hasMore
+            ? "Fetch next videos"
+            : "No more results"
+          : "Fetch next videos";
+    }
+
+    function openYoutubeTestPage() {
+      const gameTitle = String(activeGameTitle || "").trim();
+      if (!gameTitle) return;
+      if (coverageLinksPageOpen) {
+        closeCoverageLinksDialog({ updateUrl: false });
+      }
+      youtubeTestPageOpen = true;
+      youtubeTestState = {
+        gameTitle,
+        nextPageToken: "",
+        videos: [],
+        loading: false,
+      };
+      if (youtubeTestTitleEl) {
+        youtubeTestTitleEl.textContent = `YouTube test — ${gameTitle}`;
+      }
+      if (youtubeTestHintEl) {
+        youtubeTestHintEl.textContent = `Each click loads up to ${YOUTUBE_TEST_PAGE_SIZE} videos matching “${gameTitle}” in the title or description.`;
+      }
+      setYoutubeTestStatus("");
+      renderYoutubeTestRows();
+      syncYoutubeTestFetchButton();
+      if (gameCatalogEl) gameCatalogEl.hidden = true;
+      if (gameDetailEl) gameDetailEl.hidden = true;
+      if (coverageLinksPageEl) coverageLinksPageEl.hidden = true;
+      if (youtubeTestPageEl) youtubeTestPageEl.hidden = false;
+      panel?.classList.add("is-youtube-test-page");
+      setAppTitle(gameTitle);
+      if (gameYoutubeTestBtn) gameYoutubeTestBtn.classList.add("is-active");
+      hideMediaCoverageViewportHScroll();
+    }
+
+    function closeYoutubeTestPage({ restoreDetail = true } = {}) {
+      if (!youtubeTestPageOpen && youtubeTestPageEl?.hidden !== false) return;
+      youtubeTestPageOpen = false;
+      youtubeTestState.loading = false;
+      if (youtubeTestPageEl) youtubeTestPageEl.hidden = true;
+      panel?.classList.remove("is-youtube-test-page");
+      if (gameYoutubeTestBtn) gameYoutubeTestBtn.classList.remove("is-active");
+      setYoutubeTestStatus("");
+      if (restoreDetail && activeGameTitle) {
+        if (gameDetailEl) gameDetailEl.hidden = false;
+        if (gameCatalogEl) gameCatalogEl.hidden = true;
+        setAppTitle(activeGameTitle);
+      }
+    }
+
+    async function fetchYoutubeTestPage() {
+      const gameTitle = String(
+        youtubeTestState.gameTitle || activeGameTitle || ""
+      ).trim();
+      if (!gameTitle || youtubeTestState.loading) return;
+      if (
+        youtubeTestState.videos.length &&
+        !youtubeTestState.nextPageToken
+      ) {
+        setYoutubeTestStatus("No more YouTube results for this search.");
+        syncYoutubeTestFetchButton();
+        return;
+      }
+
+      youtubeTestState.loading = true;
+      syncYoutubeTestFetchButton();
+      setYoutubeTestStatus(
+        youtubeTestState.videos.length
+          ? "Fetching next batch…"
+          : "Searching YouTube…"
+      );
+
+      try {
+        const token = await getIdToken();
+        const data = await searchYouTubeVideos(token, {
+          query: gameTitle,
+          pageToken: youtubeTestState.nextPageToken,
+          maxResults: YOUTUBE_TEST_PAGE_SIZE,
+        });
+        const batch = Array.isArray(data?.videos) ? data.videos : [];
+        const seen = new Set(youtubeTestState.videos.map((v) => v.id));
+        batch.forEach((video) => {
+          const id = String(video?.id || "").trim();
+          if (!id || seen.has(id)) return;
+          seen.add(id);
+          youtubeTestState.videos.push(video);
+        });
+        youtubeTestState.nextPageToken = String(data?.nextPageToken || "");
+        renderYoutubeTestRows();
+        const totalHint = Number(data?.totalResults)
+          ? ` · ~${Number(data.totalResults).toLocaleString("en-US")} estimated matches`
+          : "";
+        setYoutubeTestStatus(
+          batch.length
+            ? `Loaded ${batch.length} video${batch.length === 1 ? "" : "s"} (${youtubeTestState.videos.length} total)${totalHint}.`
+            : youtubeTestState.nextPageToken
+              ? "This page had no matching videos. Try Fetch next videos again."
+              : "No matching videos found."
+        );
+      } catch (err) {
+        setYoutubeTestStatus(
+          err instanceof Error ? err.message : "YouTube search failed.",
+          { error: true }
+        );
+      } finally {
+        youtubeTestState.loading = false;
+        syncYoutubeTestFetchButton();
+      }
+    }
+
 
     function rememberDatasetRevision(revision, etag = "") {
       datasetRevision = String(revision ?? "");
@@ -2563,8 +2852,18 @@
       }
       gamesCatalog = normalizeGamesCatalog(data?.games, rows);
       const fromUrl = gameTitleFromUrl();
+      const coverageFromUrl = coverageRowIdFromUrl();
       if (fromUrl && findGameByTitle(fromUrl)) {
         activeGameTitle = findGameByTitle(fromUrl).title;
+      } else if (coverageFromUrl) {
+        const coverageRow = rows.find(
+          (row) => String(row?.id || "").trim() === coverageFromUrl
+        );
+        if (coverageRow) {
+          activeGameTitle =
+            String(coverageRow.gameTitle || "").trim() || "Untitled";
+          syncGameToUrl(activeGameTitle);
+        }
       } else if (
         activeGameTitle &&
         !findGameByTitle(activeGameTitle) &&
@@ -2581,6 +2880,7 @@
         const table = tableFromRows(rows, name);
         populateMonthFilter(table);
         renderTable(table, name);
+        restoreCoverageFromUrl();
         setSaveStatus("");
         return true;
       }
@@ -2604,7 +2904,6 @@
       syncAddRowButtonVisibility();
       if (settingsView.hidden) {
         shareBtn.hidden = false;
-        monthFilterControl.hidden = true;
         viewModeControl.hidden = true;
       }
     }
@@ -2625,8 +2924,8 @@
     }
 
     function uiBlocksRemoteRender() {
-      // Platform menu re-opens after render; only coverage dialog blocks paint.
-      return coverageEdit != null;
+      // Platform menu re-opens after render; coverage links page blocks paint.
+      return coverageLinksPageOpen || coverageEdit != null;
     }
 
     function flushPendingRemoteRender() {
@@ -3197,8 +3496,9 @@
     }
 
     function setCoverageDialogHint(message) {
+      if (!coverageDialogHint) return;
       coverageDialogHint.textContent =
-        message || "Add rows manually or import a coverage CSV.";
+        message || "Add rows with +, import a CSV, then press Save.";
     }
 
     function coverageSectionTitleFromName(value) {
@@ -3212,21 +3512,181 @@
       }
       return title
         .replace(/[\s-_]+$/g, "")
-        .slice(0, coverageDialogTitleInput.maxLength || 80);
+        .slice(0, coverageDialogTitleInput?.maxLength || 80);
+    }
+
+    function coverageEditorColumns() {
+      return COVERAGE_LINK_COLUMNS.filter((column) => !column.hiddenInEditor);
+    }
+
+    function coverageColumnsBeforeCover() {
+      return coverageEditorColumns().filter((column) => column.key === "dateAdded");
+    }
+
+    function coverageColumnsAfterCover() {
+      return coverageEditorColumns().filter((column) => column.key !== "dateAdded");
+    }
+
+    let coverageSortKey = "";
+    let coverageSortDirection = "asc";
+
+    function coverageSortValue(row, key) {
+      if (key === "cover") {
+        return String(row?.coverImage || "").trim() ? 0 : 1;
+      }
+      if (key === "dateAdded") {
+        const time = Date.parse(String(row?.dateAdded || "").trim());
+        return Number.isNaN(time) ? 0 : time;
+      }
+      const raw = String(row?.[key] || "").trim();
+      if (
+        key === "outletStats" ||
+        key === "globalDomain" ||
+        key === "countryDomain"
+      ) {
+        const numeric = Number(raw.replace(/[^0-9.-]/g, ""));
+        if (raw && Number.isFinite(numeric)) return numeric;
+      }
+      return raw.toLowerCase();
+    }
+
+    function updateCoverageSortHeaders() {
+      coverageDialogHead?.querySelectorAll("th[data-coverage-sort-key]").forEach((th) => {
+        const key = th.dataset.coverageSortKey || "";
+        th.classList.toggle("is-sort-asc", key === coverageSortKey && coverageSortDirection === "asc");
+        th.classList.toggle("is-sort-desc", key === coverageSortKey && coverageSortDirection === "desc");
+        const marker = th.querySelector(".coverage-sort-marker");
+        if (marker) {
+          marker.textContent =
+            key === coverageSortKey
+              ? coverageSortDirection === "asc"
+                ? "▲"
+                : "▼"
+              : "↕";
+        }
+        const btn = th.querySelector(".coverage-sort-btn");
+        if (btn) {
+          btn.setAttribute(
+            "aria-sort",
+            key === coverageSortKey
+              ? coverageSortDirection === "asc"
+                ? "ascending"
+                : "descending"
+              : "none"
+          );
+        }
+      });
+    }
+
+    function compareCoverageRows(a, b, key = coverageSortKey, direction = coverageSortDirection) {
+      if (!key) return 0;
+      const dir = direction === "desc" ? -1 : 1;
+      const aValue = coverageSortValue(a, key);
+      const bValue = coverageSortValue(b, key);
+      if (typeof aValue === "number" && typeof bValue === "number") {
+        return (aValue - bValue) * dir;
+      }
+      return (
+        String(aValue).localeCompare(String(bValue), undefined, {
+          numeric: true,
+          sensitivity: "base",
+        }) * dir
+      );
+    }
+
+    function preserveCoverageTableScroll(run) {
+      const wrap = document.getElementById("coverage-links-table-wrap");
+      const top = wrap?.scrollTop ?? 0;
+      const left = wrap?.scrollLeft ?? 0;
+      run();
+      if (wrap) {
+        wrap.scrollTop = top;
+        wrap.scrollLeft = left;
+      }
+    }
+
+    function insertCoverageDialogRow(row) {
+      const tr = createCoverageDialogRow(row);
+      if (!coverageDialogBody) return tr;
+      if (!coverageSortKey) {
+        coverageDialogBody.appendChild(tr);
+        return tr;
+      }
+      const existingRows = collectCoverageDialogRows();
+      let insertAt = existingRows.length;
+      for (let i = 0; i < existingRows.length; i++) {
+        if (compareCoverageRows(row, existingRows[i]) < 0) {
+          insertAt = i;
+          break;
+        }
+      }
+      const ref = coverageDialogBody.children[insertAt];
+      if (ref) coverageDialogBody.insertBefore(tr, ref);
+      else coverageDialogBody.appendChild(tr);
+      return tr;
+    }
+
+    function sortCoverageDialogBy(key) {
+      if (!key || !coverageDialogBody) return;
+      if (coverageSortKey === key) {
+        coverageSortDirection = coverageSortDirection === "asc" ? "desc" : "asc";
+      } else {
+        coverageSortKey = key;
+        coverageSortDirection = "asc";
+      }
+      const rows = collectCoverageDialogRows();
+      rows.sort((a, b) => compareCoverageRows(a, b));
+      preserveCoverageTableScroll(() => {
+        renderCoverageDialogRows(rows, { preserveSort: true });
+      });
+      scheduleCoverageLinksSave();
+    }
+
+    function makeCoverageSortHeader(key, label) {
+      const th = document.createElement("th");
+      th.scope = "col";
+      th.className = "coverage-sortable";
+      th.dataset.coverageSortKey = key;
+      if (key !== "cover") th.dataset.coverageKey = key;
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "coverage-sort-btn";
+      btn.dataset.coverageSortKey = key;
+      const text = document.createElement("span");
+      text.textContent = label;
+      const marker = document.createElement("span");
+      marker.className = "coverage-sort-marker";
+      marker.setAttribute("aria-hidden", "true");
+      marker.textContent = "↕";
+      btn.appendChild(text);
+      btn.appendChild(marker);
+      btn.addEventListener("click", () => sortCoverageDialogBy(key));
+      th.appendChild(btn);
+      return th;
     }
 
     function ensureCoverageDialogHead() {
-      if (coverageDialogHead.childElementCount) return;
-      const coverTh = document.createElement("th");
-      coverTh.scope = "col";
-      coverTh.textContent = "Cover";
-      coverageDialogHead.appendChild(coverTh);
-
-      COVERAGE_LINK_COLUMNS.forEach((column) => {
-        const th = document.createElement("th");
-        th.scope = "col";
-        th.textContent = column.label;
-        coverageDialogHead.appendChild(th);
+      const beforeCover = coverageColumnsBeforeCover();
+      const afterCover = coverageColumnsAfterCover();
+      const expectedCols = beforeCover.length + 1 + afterCover.length + 1;
+      if (
+        coverageDialogHead.childElementCount === expectedCols &&
+        coverageDialogHead.querySelector(".coverage-sort-btn")
+      ) {
+        updateCoverageSortHeaders();
+        return;
+      }
+      coverageDialogHead.innerHTML = "";
+      beforeCover.forEach((column) => {
+        coverageDialogHead.appendChild(
+          makeCoverageSortHeader(column.key, column.label)
+        );
+      });
+      coverageDialogHead.appendChild(makeCoverageSortHeader("cover", "Cover"));
+      afterCover.forEach((column) => {
+        coverageDialogHead.appendChild(
+          makeCoverageSortHeader(column.key, column.label)
+        );
       });
 
       const removeTh = document.createElement("th");
@@ -3236,15 +3696,43 @@
       sr.textContent = "Remove";
       removeTh.appendChild(sr);
       coverageDialogHead.appendChild(removeTh);
+      updateCoverageSortHeaders();
+    }
+
+    function formatCoverageDateAdded(value) {
+      const raw = String(value || "").trim();
+      if (!raw) return "";
+      const date = new Date(raw);
+      if (Number.isNaN(date.getTime())) return raw;
+      return date.toLocaleString(undefined, {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
     }
 
     function collectCoverageDialogRows() {
       return [...coverageDialogBody.querySelectorAll("tr")].map((tr) => {
         const row = emptyCoverageLink();
         COVERAGE_LINK_COLUMNS.forEach((column) => {
+          if (column.hiddenInEditor) {
+            row[column.key] = String(
+              tr.dataset[`coverage_${column.key}`] || ""
+            ).trim();
+            return;
+          }
           const input = tr.querySelector(`[data-coverage-key="${column.key}"]`);
-          let value = String(input?.value || "").trim();
-          if (column.key === "url") value = normalizeCoverageUrl(value);
+          let value = "";
+          if (column.key === "dateAdded") {
+            value = String(
+              input?.dataset?.iso || input?.value || ""
+            ).trim();
+          } else {
+            value = String(input?.value || "").trim();
+            if (column.key === "url") value = normalizeCoverageUrl(value);
+          }
           row[column.key] = value;
         });
         row.coverImage = String(tr.dataset.coverImage || "").trim();
@@ -3270,7 +3758,9 @@
         img.hidden = true;
         img.removeAttribute("src");
         placeholder.hidden = false;
+        const hadCover = Boolean(String(tr?.dataset.coverImage || "").trim());
         setRowCoverImage(tr, "");
+        if (hadCover) scheduleCoverageLinksSave();
       };
 
       const showImage = (src, { tryProxy = false } = {}) => {
@@ -3287,6 +3777,7 @@
           const existing = String(tr?.dataset.coverImage || "").trim();
           if (!isPersistedCoverUrl(existing)) {
             setRowCoverImage(tr, src);
+            scheduleCoverageLinksSave();
           }
           if (tr) tr.dataset.coverSource = src;
         };
@@ -3335,9 +3826,123 @@
       }
     }
 
+    function appendCoverageDialogFieldCell(tr, column, row, cover) {
+      if (column.hiddenInEditor) {
+        tr.dataset[`coverage_${column.key}`] = String(
+          row[column.key] || ""
+        ).trim();
+        return;
+      }
+      const td = document.createElement("td");
+      if (column.key === "dateAdded" || column.readOnly) {
+        const input = document.createElement("input");
+        input.type = "text";
+        input.readOnly = true;
+        input.tabIndex = -1;
+        input.className =
+          "cell-input coverage-link-field coverage-link-readonly";
+        input.dataset.coverageKey = column.key;
+        const iso = String(row[column.key] || "").trim();
+        input.dataset.iso = iso;
+        input.value = formatCoverageDateAdded(iso);
+        input.setAttribute("aria-label", column.label);
+        input.title = iso ? formatCoverageDateAdded(iso) : "";
+        td.appendChild(input);
+        tr.appendChild(td);
+        return;
+      }
+      const isTitle = column.key === "title";
+      const input = document.createElement(isTitle ? "textarea" : "input");
+      if (!isTitle) input.type = "text";
+      input.className = isTitle
+        ? "cell-input coverage-link-field coverage-link-title-field"
+        : "cell-input coverage-link-field";
+      input.dataset.coverageKey = column.key;
+      input.value = row[column.key] || "";
+      input.setAttribute("aria-label", column.label);
+      if (isTitle) {
+        input.rows = 2;
+        input.wrap = "soft";
+        input.style.resize = "none";
+      }
+      if (column.key === "url") {
+        input.classList.add("coverage-link-url");
+        input.placeholder = "https://…";
+        input.inputMode = "url";
+        input.autocomplete = "url";
+        input.addEventListener("change", () => {
+          input.value = normalizeCoverageUrl(input.value);
+          loadCoveragePreview(cover, input.value, tr);
+        });
+        input.addEventListener("input", () => {
+          const value = input.value.trim();
+          if (/^https?:\/\//i.test(value)) {
+            loadCoveragePreview(cover, value, tr);
+          }
+        });
+      }
+      if (column.key === "outletCountry") {
+        td.className = "coverage-link-country-cell";
+        const wrap = document.createElement("div");
+        wrap.className = "coverage-link-country-editor";
+        const flag = document.createElement("div");
+        flag.className = "coverage-link-flag";
+        flag.hidden = true;
+        const flagImg = document.createElement("img");
+        flagImg.alt = "";
+        flagImg.loading = "lazy";
+        flagImg.referrerPolicy = "no-referrer";
+        flag.appendChild(flagImg);
+
+        function syncCountryFlag() {
+          const country = String(input.value || "").trim();
+          const src = countryFlagUrl(country);
+          if (src) {
+            flagImg.src = src;
+            flagImg.alt = country;
+            flag.title = country;
+            flag.hidden = false;
+          } else {
+            flagImg.removeAttribute("src");
+            flagImg.alt = "";
+            flag.title = "";
+            flag.hidden = true;
+          }
+        }
+
+        input.addEventListener("input", () => {
+          syncCountryFlag();
+          scheduleFitCoverageDialogColumns();
+        });
+        input.addEventListener("change", syncCountryFlag);
+        wrap.appendChild(input);
+        wrap.appendChild(flag);
+        td.appendChild(wrap);
+        syncCountryFlag();
+        tr.appendChild(td);
+        return;
+      }
+      td.appendChild(input);
+      tr.appendChild(td);
+    }
+
     function createCoverageDialogRow(item = null) {
       const row = { ...emptyCoverageLink(), ...(item || {}) };
       const tr = document.createElement("tr");
+
+      // Hidden fields first (kept off-screen for collect/save).
+      COVERAGE_LINK_COLUMNS.forEach((column) => {
+        if (column.hiddenInEditor) {
+          tr.dataset[`coverage_${column.key}`] = String(
+            row[column.key] || ""
+          ).trim();
+        }
+      });
+
+      // Date added comes before Cover.
+      coverageColumnsBeforeCover().forEach((column) => {
+        appendCoverageDialogFieldCell(tr, column, row, null);
+      });
 
       const coverTd = document.createElement("td");
       coverTd.className = "coverage-link-cover-cell";
@@ -3355,32 +3960,8 @@
       coverTd.appendChild(cover);
       tr.appendChild(coverTd);
 
-      COVERAGE_LINK_COLUMNS.forEach((column) => {
-        const td = document.createElement("td");
-        const input = document.createElement("input");
-        input.type = "text";
-        input.className = "cell-input coverage-link-field";
-        input.dataset.coverageKey = column.key;
-        input.value = row[column.key] || "";
-        input.setAttribute("aria-label", column.label);
-        if (column.key === "url") {
-          input.classList.add("coverage-link-url");
-          input.placeholder = "https://…";
-          input.inputMode = "url";
-          input.autocomplete = "url";
-          input.addEventListener("change", () => {
-            input.value = normalizeCoverageUrl(input.value);
-            loadCoveragePreview(cover, input.value, tr);
-          });
-          input.addEventListener("input", () => {
-            const value = input.value.trim();
-            if (/^https?:\/\//i.test(value)) {
-              loadCoveragePreview(cover, value, tr);
-            }
-          });
-        }
-        td.appendChild(input);
-        tr.appendChild(td);
+      coverageColumnsAfterCover().forEach((column) => {
+        appendCoverageDialogFieldCell(tr, column, row, cover);
       });
 
       const actionTd = document.createElement("td");
@@ -3398,6 +3979,7 @@
           coverageDialogBody.appendChild(createCoverageDialogRow());
         }
         fitCoverageDialogColumns();
+        scheduleCoverageLinksSave();
       });
       actionTd.appendChild(removeBtn);
       tr.appendChild(actionTd);
@@ -3432,10 +4014,34 @@
       fitCoverageColumnsTimer = setTimeout(fitCoverageDialogColumns, 40);
     }
 
+    function fitCoverageTitleField(el) {
+      if (!(el instanceof HTMLTextAreaElement)) return;
+      if (!el.classList.contains("coverage-link-title-field")) return;
+      const styles = getComputedStyle(el);
+      const lineHeight = parseFloat(styles.lineHeight) || 18;
+      const sidePad = 0.4 * 16; // matches 0.4rem padding
+      const boxHeight = lineHeight * 2 + sidePad * 2;
+      el.style.height = `${boxHeight}px`;
+      el.style.paddingTop = `${sidePad}px`;
+      el.style.paddingBottom = `${sidePad}px`;
+      // Measure with normal padding, then vertically center when only one line.
+      const contentHeight = el.scrollHeight - sidePad * 2;
+      if (contentHeight <= lineHeight * 1.35) {
+        const pad = Math.max(sidePad, (boxHeight - lineHeight) / 2);
+        el.style.paddingTop = `${pad}px`;
+        el.style.paddingBottom = `${pad}px`;
+      }
+    }
+
+    function fitCoverageTitleFields() {
+      coverageDialogBody
+        ?.querySelectorAll(".coverage-link-title-field")
+        .forEach((el) => fitCoverageTitleField(el));
+    }
+
     function fitCoverageDialogColumns() {
       ensureCoverageDialogHead();
-      const headers = [...coverageDialogHead.querySelectorAll("th")];
-      if (!headers.length) return;
+      if (!coverageDialogHead?.childElementCount) return;
 
       const probe = document.createElement("span");
       probe.setAttribute("aria-hidden", "true");
@@ -3453,11 +4059,11 @@
         return Math.ceil(probe.getBoundingClientRect().width);
       };
 
-      // Size Outlet name, Title, URL, Result type, and every other data column
-      // to the longest string currently in that column.
-      COVERAGE_LINK_COLUMNS.forEach((column, index) => {
-        const thIndex = index + 1; // cover column is first
-        const th = headers[thIndex];
+      // Size each visible data column to its longest value (Date added / fields).
+      coverageEditorColumns().forEach((column) => {
+        const th = coverageDialogHead.querySelector(
+          `th[data-coverage-key="${CSS.escape(column.key)}"]`
+        );
         if (!th) return;
 
         const inputs = [
@@ -3478,41 +4084,67 @@
               })()
             : 28;
 
-        let maxPx = measureText(th, column.label || " ") + 28;
+        const labelPx = measureText(th, column.label || " ") + 36;
+        let contentPx = 0;
         inputs.forEach((input) => {
-          maxPx = Math.max(
-            maxPx,
+          contentPx = Math.max(
+            contentPx,
             measureText(sample, String(input.value || "")) + pad
           );
         });
+        // Title wraps to 2 lines → column width is half the longest single-line width.
+        // All coverage columns are locked (min = max) so they are not flexible.
+        let maxPx =
+          column.key === "title"
+            ? Math.max(Math.ceil(Math.max(contentPx, labelPx) / 2), labelPx)
+            : Math.max(labelPx, contentPx);
         maxPx = Math.max(maxPx, Math.ceil(4.5 * 16));
+        // Room for the flag on the right of Outlet country.
+        if (column.key === "outletCountry") {
+          maxPx += Math.ceil(1.55 * 16 + 0.45 * 16 + 0.45 * 16);
+        }
 
         const width = `${maxPx}px`;
         th.style.width = width;
         th.style.minWidth = width;
-        th.style.maxWidth = "none";
+        th.style.maxWidth = width;
         coverageDialogBody.querySelectorAll("tr").forEach((tr) => {
-          const td = tr.children[thIndex];
-          if (td) {
-            td.style.width = width;
-            td.style.minWidth = width;
-            td.style.maxWidth = "none";
-          }
           const input = tr.querySelector(
             `[data-coverage-key="${CSS.escape(column.key)}"]`
           );
-          if (input) {
-            input.style.width = width;
-            input.style.minWidth = width;
-            input.style.maxWidth = "none";
+          const td = input?.closest("td");
+          if (td) {
+            td.style.width = width;
+            td.style.minWidth = width;
+            td.style.maxWidth = width;
           }
+          if (!input) return;
+          // Outlet country keeps the flag inside the cell: size the cell, not the input.
+          if (column.key === "outletCountry") {
+            input.style.width = "auto";
+            input.style.minWidth = "0";
+            input.style.maxWidth = "100%";
+            return;
+          }
+          input.style.width = width;
+          input.style.minWidth = width;
+          input.style.maxWidth = width;
         });
       });
 
       probe.remove();
+      fitCoverageTitleFields();
+      updateCoverageSortHeaders();
     }
 
-    function renderCoverageDialogRows(rows, { focusLast = false } = {}) {
+    function renderCoverageDialogRows(
+      rows,
+      { focusLast = false, preserveSort = false } = {}
+    ) {
+      if (!preserveSort) {
+        coverageSortKey = "";
+        coverageSortDirection = "asc";
+      }
       ensureCoverageDialogHead();
       coverageDialogBody.innerHTML = "";
       const list = rows.length ? rows : [emptyCoverageLink()];
@@ -3528,12 +4160,134 @@
       }
     }
 
-    function closeCoverageLinksDialog() {
-      if (coverageDialog.open) coverageDialog.close();
+    function closeCoverageLinksDialog({ updateUrl = true } = {}) {
+      clearTimeout(coverageSaveTimer);
+      if (coverageEdit && currentTable && !coverageLinksHydrating) {
+        const collected = collectCoverageDialogRows();
+        applyCoverageLinksFromDialog(collected);
+      }
+      coverageLinksPageOpen = false;
       coverageEdit = null;
       setCoverageDialogHint("");
-      coverageCsvInput.value = "";
+      if (coverageCsvInput) coverageCsvInput.value = "";
+      if (coverageLinksPageEl) coverageLinksPageEl.hidden = true;
+      setCoverageHeaderActionsVisible(false);
+      panel?.classList.remove("is-coverage-links-page");
+      if (updateUrl) syncCoverageToUrl("");
+      if (gameDetailEl && activeGameTitle) gameDetailEl.hidden = false;
+      if (activeGameTitle) setAppTitle(activeGameTitle);
       flushPendingRemoteRender();
+      if (currentTable && activeGameTitle) {
+        renderTable(currentTable, currentFileName);
+      }
+    }
+
+    function restoreCoverageFromUrl() {
+      if (!currentTable) return;
+      const id = coverageRowIdFromUrl();
+      if (!id) return;
+      if (coverageLinksPageOpen && coverageEdit != null) {
+        const openRow = currentTable.rows[coverageEdit.rowIndex];
+        if (openRow && ensureRowId(openRow) === id) return;
+      }
+      const index = currentTable.rows.findIndex(
+        (row) => String(row?.id || "").trim() === id
+      );
+      if (index < 0) {
+        syncCoverageToUrl("");
+        return;
+      }
+      const row = currentTable.rows[index];
+      const gameTitle = String(row.gameTitle || "").trim() || "Untitled";
+      if (activeGameTitle !== gameTitle) {
+        activeGameTitle = gameTitle;
+        setAppTitle(activeGameTitle);
+        syncGameToUrl(activeGameTitle);
+      }
+      openCoverageLinksDialog(index, null, {
+        fieldKey: "coverageLinks",
+        updateUrl: false,
+      });
+    }
+
+    function showAddCoverageLinkError(message) {
+      if (!addCoverageLinkDialogError) return;
+      addCoverageLinkDialogError.textContent = message || "";
+      addCoverageLinkDialogError.hidden = !message;
+    }
+
+    function closeAddCoverageLinkDialog() {
+      if (!addCoverageLinkDialog) return;
+      if (typeof addCoverageLinkDialog.close === "function") {
+        addCoverageLinkDialog.close();
+      } else {
+        addCoverageLinkDialog.removeAttribute("open");
+      }
+    }
+
+    function renderAddCoverageLinkFields() {
+      if (!addCoverageLinkFields) return;
+      addCoverageLinkFields.innerHTML = "";
+      COVERAGE_LINK_COLUMNS.forEach((column) => {
+        if (column.readOnly || column.hiddenInEditor) return;
+        const label = document.createElement("label");
+        label.textContent = column.label;
+        const input = document.createElement("input");
+        input.type = column.key === "url" ? "url" : "text";
+        input.dataset.coverageKey = column.key;
+        input.autocomplete = "off";
+        if (column.key === "url") input.placeholder = "https://…";
+        label.appendChild(input);
+        addCoverageLinkFields.appendChild(label);
+      });
+    }
+
+    function openAddCoverageLinkDialog() {
+      if (!coverageLinksPageOpen || !coverageEdit) return;
+      showAddCoverageLinkError("");
+      addCoverageLinkForm?.reset();
+      renderAddCoverageLinkFields();
+      if (typeof addCoverageLinkDialog.showModal === "function") {
+        addCoverageLinkDialog.showModal();
+      } else {
+        addCoverageLinkDialog.setAttribute("open", "");
+      }
+      requestAnimationFrame(() => {
+        addCoverageLinkFields?.querySelector("input")?.focus?.();
+      });
+    }
+
+    function submitAddCoverageLinkDialog(event) {
+      event.preventDefault();
+      showAddCoverageLinkError("");
+      if (!coverageEdit || !coverageDialogBody) return;
+
+      const row = emptyCoverageLink();
+      addCoverageLinkFields
+        ?.querySelectorAll("[data-coverage-key]")
+        .forEach((input) => {
+          const key = input.dataset.coverageKey;
+          if (!key) return;
+          let value = String(input.value || "").trim();
+          if (key === "url") value = normalizeCoverageUrl(value);
+          row[key] = value;
+        });
+
+      const hasContent = COVERAGE_LINK_COLUMNS.some(
+        (column) => !column.readOnly && String(row[column.key] || "").trim()
+      );
+      if (!hasContent) {
+        showAddCoverageLinkError("Fill in at least one field.");
+        return;
+      }
+
+      row.dateAdded = coverageDateAddedNow();
+      preserveCoverageTableScroll(() => {
+        insertCoverageDialogRow(row);
+        fitCoverageDialogColumns();
+      });
+      closeAddCoverageLinkDialog();
+      scheduleCoverageLinksSave();
     }
 
     function coverageCoverNeedsUpload(row, baselineByUrl) {
@@ -3584,75 +4338,66 @@
       return out;
     }
 
-    async function commitCoverageLinksDialog() {
-      if (!coverageEdit || !currentTable) {
-        closeCoverageLinksDialog();
-        return;
-      }
-
-      const fieldKey = coverageEdit.fieldKey || "coverageLinks";
+    function coverageSectionTitleForSave() {
+      const fieldKey = coverageEdit?.fieldKey || "coverageLinks";
       const sectionDef = linkSectionDef(fieldKey);
       const defaultTitle =
         sectionDef?.defaultTitle || DEFAULT_COVERAGE_SECTION_TITLE;
-      const doneLabel = coverageDialogDone.textContent;
+      return coverageDialogTitleInput?.value.trim() || defaultTitle;
+    }
+
+    function applyCoverageLinksFromDialog(rows) {
+      if (!coverageEdit || !currentTable) return false;
+      const fieldKey = coverageEdit.fieldKey || "coverageLinks";
+      const targetRow = currentTable.rows[coverageEdit.rowIndex];
+      if (!targetRow) return false;
+      const nextValue = serializeCoverageLinksValue(
+        rows,
+        coverageSectionTitleForSave()
+      );
+      if (nextValue === (coverageEdit.baselineSerialized || "")) return false;
+      targetRow[fieldKey] = nextValue;
+      coverageEdit.baselineSerialized = nextValue;
+      coverageEdit.baselineRows = rows.map((row) => ({ ...row }));
+      coverageEdit.refresh?.();
+      scheduleSave(targetRow);
+      return true;
+    }
+
+    async function flushCoverageLinksToRow() {
+      if (!coverageEdit || !currentTable || coverageLinksHydrating) return;
       const collected = collectCoverageDialogRows();
-      const sectionTitle =
-        coverageDialogTitleInput.value.trim() || defaultTitle;
       const baselineRows = coverageEdit.baselineRows || [];
-      const baselineByUrl = new Map();
-      for (const row of baselineRows) {
-        const pageUrl = String(row?.url || "").trim().toLowerCase();
-        if (pageUrl) baselineByUrl.set(pageUrl, row);
-      }
-      const coverUploads = collected.filter((row) =>
-        coverageCoverNeedsUpload(row, baselineByUrl)
-      ).length;
-
-      coverageDialogDone.disabled = true;
-      if (coverUploads > 0) {
-        coverageDialogDone.textContent = "Saving covers…";
-        setCoverageDialogHint(
-          coverUploads === 1
-            ? "Saving 1 new cover image…"
-            : `Saving ${coverUploads} new cover images…`
-        );
-      } else {
-        coverageDialogDone.textContent = "Saving…";
-        setCoverageDialogHint("");
-      }
-
       try {
         const rows = await persistCoverageCovers(collected, baselineRows);
+        if (!coverageEdit) return;
         [...coverageDialogBody.querySelectorAll("tr")].forEach((tr, index) => {
           const cover = String(rows[index]?.coverImage || "").trim();
           if (cover) setRowCoverImage(tr, cover);
         });
-
-        const nextValue = serializeCoverageLinksValue(rows, sectionTitle);
-        if (nextValue === (coverageEdit.baselineSerialized || "")) {
-          closeCoverageLinksDialog();
-          return;
-        }
-
-        const targetRow = currentTable.rows[coverageEdit.rowIndex];
-        targetRow[fieldKey] = nextValue;
-        scheduleSave(targetRow);
-        coverageEdit.refresh();
-        closeCoverageLinksDialog();
+        applyCoverageLinksFromDialog(rows);
       } catch (error) {
-        setCoverageDialogHint(
-          error instanceof Error ? error.message : "Could not save covers."
+        // Still persist link fields even if a cover upload fails.
+        applyCoverageLinksFromDialog(collected);
+        setSaveStatus(
+          error instanceof Error ? error.message : "Cover save failed",
+          "error"
         );
-      } finally {
-        coverageDialogDone.disabled = false;
-        coverageDialogDone.textContent = doneLabel || "Done";
       }
+    }
+
+    function scheduleCoverageLinksSave() {
+      if (!coverageEdit || coverageLinksHydrating) return;
+      clearTimeout(coverageSaveTimer);
+      coverageSaveTimer = setTimeout(() => {
+        void flushCoverageLinksToRow();
+      }, 400);
     }
 
     function openCoverageLinksDialog(
       rowIndex,
       refresh,
-      { addBlank = false, fieldKey = "coverageLinks" } = {}
+      { addBlank = false, fieldKey = "coverageLinks", updateUrl = true } = {}
     ) {
       if (!currentTable) return;
       closePlatformMenu();
@@ -3661,9 +4406,16 @@
       const key = sectionDef.key;
       const defaultTitle =
         sectionDef.defaultTitle || DEFAULT_COVERAGE_SECTION_TITLE;
-      const rawValue = currentTable.rows[rowIndex][key] || "";
+      const targetRow = currentTable.rows[rowIndex];
+      if (!targetRow) return;
+      const announcement =
+        targetRow.announcementTitle ||
+        targetRow.gameTitle ||
+        "Announcement";
+      const rawValue = targetRow[key] || "";
       const existing = parseCoverageLinksValue(rawValue);
       const rows = addBlank ? [...existing, emptyCoverageLink()] : existing;
+      const rowId = ensureRowId(targetRow);
 
       coverageEdit = {
         rowIndex,
@@ -3672,23 +4424,25 @@
         baselineRows: existing.map((row) => ({ ...row })),
         baselineSerialized: String(rawValue || ""),
       };
-      setCoverageDialogHint("Add rows manually or import a coverage CSV.");
-      coverageDialogTitleInput.value =
-        coverageSectionTitleFromName(parseCoverageSectionTitle(rawValue)) ||
-        defaultTitle;
+      coverageLinksPageOpen = true;
+      if (gameDetailEl) gameDetailEl.hidden = true;
+      if (coverageLinksPageEl) coverageLinksPageEl.hidden = false;
+      setCoverageHeaderActionsVisible(true);
+      panel?.classList.add("is-coverage-links-page");
+      if (updateUrl) syncCoverageToUrl(rowId);
+      setAppTitle(String(announcement).trim() || activeGameTitle || APP_TITLE_DEFAULT);
+      if (coverageDialogTitleInput) {
+        coverageDialogTitleInput.value =
+          coverageSectionTitleFromName(parseCoverageSectionTitle(rawValue)) ||
+          defaultTitle;
+      }
+      coverageLinksHydrating = true;
       renderCoverageDialogRows(rows, {
         focusLast: addBlank || !existing.length,
       });
-      if (typeof coverageDialog.showModal === "function") {
-        coverageDialog.showModal();
-      } else {
-        coverageDialog.setAttribute("open", "");
-      }
       requestAnimationFrame(() => {
         fitCoverageDialogColumns();
-        if (!(addBlank || !existing.length)) {
-          coverageDialogTitleInput.focus();
-        }
+        coverageLinksHydrating = false;
       });
     }
 
@@ -3721,19 +4475,13 @@
 
       openBtn.addEventListener("click", () => {
         const index = getRowIndex();
-        const count = parseCoverageLinksValue(
-          currentTable.rows[index][key] || ""
-        ).length;
         openCoverageLinksDialog(
           index,
           () => {
             row[key] = currentTable.rows[index][key];
             refresh();
           },
-          {
-            addBlank: count === 0,
-            fieldKey: key,
-          }
+          { fieldKey: key }
         );
       });
 
@@ -3743,20 +4491,26 @@
       return cell;
     }
 
-    coverageDialogAdd.addEventListener("click", () => {
-      coverageDialogBody.appendChild(createCoverageDialogRow());
-      fitCoverageDialogColumns();
-      const last = coverageDialogBody.querySelector(
-        "tr:last-child .coverage-link-url"
-      );
-      last?.focus();
+    coverageLinksPageAdd?.addEventListener("click", () => {
+      openAddCoverageLinkDialog();
     });
-    coverageDialogBody.addEventListener("input", (event) => {
-      if (!(event.target instanceof HTMLInputElement)) return;
+    coverageDialogBody?.addEventListener("input", (event) => {
+      if (
+        !(
+          event.target instanceof HTMLInputElement ||
+          event.target instanceof HTMLTextAreaElement
+        )
+      ) {
+        return;
+      }
       if (!event.target.classList.contains("coverage-link-field")) return;
+      if (event.target.classList.contains("coverage-link-title-field")) {
+        fitCoverageTitleField(event.target);
+      }
       scheduleFitCoverageDialogColumns();
+      scheduleCoverageLinksSave();
     });
-    coverageDialogClear.addEventListener("click", () => {
+    coverageDialogClear?.addEventListener("click", () => {
       const count = coverageDialogBody.querySelectorAll("tr").length;
       const hasContent = collectCoverageDialogRows().some((row) =>
         Object.values(row).some((value) => String(value || "").trim())
@@ -3772,12 +4526,12 @@
         return;
       }
       renderCoverageDialogRows([]);
-      setCoverageDialogHint("Cleared all coverage rows for this announcement.");
+      scheduleCoverageLinksSave();
     });
-    coverageDialogImport.addEventListener("click", () => {
+    coverageDialogImport?.addEventListener("click", () => {
       coverageCsvInput.click();
     });
-    coverageCsvInput.addEventListener("change", () => {
+    coverageCsvInput?.addEventListener("change", () => {
       const file = coverageCsvInput.files?.[0];
       coverageCsvInput.value = "";
       if (!file) return;
@@ -3789,34 +4543,35 @@
           const rows = coverageLinksFromCsv(String(reader.result ?? ""), {
             sectionKey: fieldKey,
           });
+          const importedAt = coverageDateAddedNow();
+          rows.forEach((row) => {
+            row.dateAdded = importedAt;
+          });
           const titleFromFile = coverageSectionTitleFromName(file.name);
-          if (titleFromFile) {
+          if (titleFromFile && coverageDialogTitleInput) {
             coverageDialogTitleInput.value = titleFromFile;
           }
           renderCoverageDialogRows(rows);
-          setCoverageDialogHint(
-            `Imported ${rows.length} coverage row${rows.length === 1 ? "" : "s"} from ${file.name}.`
-          );
+          scheduleCoverageLinksSave();
         } catch (err) {
-          setCoverageDialogHint(
-            err instanceof Error ? err.message : "Could not read that CSV."
+          setSaveStatus(
+            err instanceof Error ? err.message : "Could not read that CSV.",
+            "error"
           );
         }
       };
       reader.onerror = () => {
-        setCoverageDialogHint("Could not read that file.");
+        setSaveStatus("Could not read that file.", "error");
       };
       reader.readAsText(file);
     });
-    coverageDialogDone.addEventListener("click", commitCoverageLinksDialog);
-    coverageDialogClose.addEventListener("click", closeCoverageLinksDialog);
-    coverageDialog.addEventListener("cancel", (event) => {
-      event.preventDefault();
-      closeCoverageLinksDialog();
-    });
-    coverageDialog.addEventListener("click", (event) => {
-      if (event.target === coverageDialog) closeCoverageLinksDialog();
-    });
+    addCoverageLinkDialogClose?.addEventListener("click", () =>
+      closeAddCoverageLinkDialog()
+    );
+    bindDialogBackdropClose(addCoverageLinkDialog, () =>
+      closeAddCoverageLinkDialog()
+    );
+    addCoverageLinkForm?.addEventListener("submit", submitAddCoverageLinkDialog);
 
     mediaCoverageDialogClear.addEventListener("click", () => {
       const rows = collectMediaCoverageDialogRows();
@@ -3918,9 +4673,9 @@
       event.preventDefault();
       requestCloseMediaCoverageDialog();
     });
-    mediaCoverageDialog.addEventListener("click", (event) => {
-      if (event.target === mediaCoverageDialog) requestCloseMediaCoverageDialog();
-    });
+    bindDialogBackdropClose(mediaCoverageDialog, () =>
+      requestCloseMediaCoverageDialog()
+    );
     mediaCoverageTypeTablesEl?.addEventListener("click", (event) => {
       const removeBtn = event.target?.closest?.(".coverage-link-remove");
       if (!removeBtn) return;
@@ -3940,9 +4695,7 @@
       event.preventDefault();
       closeCoverPreviewDialog();
     });
-    coverPreviewDialog.addEventListener("click", (event) => {
-      if (event.target === coverPreviewDialog) closeCoverPreviewDialog();
-    });
+    bindDialogBackdropClose(coverPreviewDialog, () => closeCoverPreviewDialog());
     coverPreviewDialogReplace.addEventListener("click", () => {
       coverPreviewDialogInput.click();
     });
@@ -4004,18 +4757,24 @@
 
     function setView(view) {
       const settings = view === "settings";
+      if (settings && youtubeTestPageOpen) {
+        closeYoutubeTestPage({ restoreDetail: false });
+      }
       workspaceView.hidden = settings;
       settingsView.hidden = !settings;
       importBtn.hidden = settings || Boolean(activeGameTitle);
       shareBtn.hidden = settings || !hasTable || Boolean(activeGameTitle);
-      monthFilterControl.hidden = settings || !hasTable || Boolean(activeGameTitle);
       // View mode dropdown is unused in the game-centric catalog/detail UI.
       viewModeControl.hidden = true;
       settingsBtn.hidden = settings;
+      if (gameYoutubeTestBtn) {
+        gameYoutubeTestBtn.hidden = settings || !activeGameTitle;
+      }
       pageLede.textContent = settings ? "Manage your account." : "";
       pageLede.hidden = !settings;
       if (!settings && activeGameTitle) setAppTitle(activeGameTitle);
       else if (!settings) setAppTitle(APP_TITLE_DEFAULT);
+      setCoverageHeaderActionsVisible(!settings && coverageLinksPageOpen);
       syncAddRowButtonVisibility();
       syncGameSearchBarVisibility();
       if (settings) {
@@ -4036,7 +4795,6 @@
       currentTable = null;
       currentFileName = "";
       shareBtn.hidden = true;
-      monthFilterControl.hidden = true;
       viewModeControl.hidden = true;
       csvInput.value = "";
       gameSearchInput.value = "";
@@ -5221,14 +5979,6 @@
     function addAnnouncementFromGameDetail() {
       if (!activeGameTitle) return;
       openAddRowDialog(activeGameTitle);
-      if (
-        [...addRowGameTitleSelect.options].some(
-          (option) => option.value === activeGameTitle
-        )
-      ) {
-        addRowGameTitleSelect.value = activeGameTitle;
-        syncAddRowGameTitleMode();
-      }
     }
 
     async function openMediaCoverageFromGameDetail() {
@@ -5251,6 +6001,7 @@
         if (currentTable) renderTable(currentTable, currentFileName);
       });
     }
+
 
     function createGameDetailSectionAddButton(label, onClick) {
       const button = createIconButton(
@@ -5448,10 +6199,69 @@
       }
     }
 
+    function renderGameDetailMediaCoverageSummary(rows) {
+      const section = document.createElement("section");
+      section.className =
+        "game-section game-section-detail game-section-media-coverage-summary";
+
+      const heading = document.createElement("div");
+      heading.className = "game-detail-section-heading";
+      const title = document.createElement("h3");
+      title.className = "game-detail-section-title";
+      title.textContent = "Summary";
+      heading.appendChild(title);
+      section.appendChild(heading);
+
+      const groupsEl = document.createElement("div");
+      groupsEl.className = "media-coverage-summary-groups";
+
+      mediaCoverageSummaryGroups(rows).forEach((group) => {
+        const block = document.createElement("div");
+        block.className = "media-coverage-summary-group";
+        block.dataset.summaryGroup = group.id;
+
+        const groupTitle = document.createElement("h4");
+        groupTitle.className = "media-coverage-summary-group-title";
+        groupTitle.textContent = group.title;
+        block.appendChild(groupTitle);
+
+        const wrap = document.createElement("div");
+        wrap.className = "table-wrap grid-table-wrap media-coverage-summary-wrap";
+
+        const table = document.createElement("table");
+        table.className = "grid-table media-coverage-summary-table";
+
+        const tbody = document.createElement("tbody");
+        group.metrics.forEach((metric) => {
+          const tr = document.createElement("tr");
+          const th = document.createElement("th");
+          th.scope = "row";
+          th.textContent = metric.label;
+          const td = document.createElement("td");
+          td.textContent = metric.value;
+          tr.appendChild(th);
+          tr.appendChild(td);
+          tbody.appendChild(tr);
+        });
+
+        table.appendChild(tbody);
+        wrap.appendChild(table);
+        block.appendChild(wrap);
+        groupsEl.appendChild(block);
+      });
+
+      section.appendChild(groupsEl);
+      return section;
+    }
+
     async function renderGameDetailMediaCoverage(gameTitle) {
       if (!gameTitle || !gameSections) return;
       bindMediaCoverageViewportHScroll();
       hideMediaCoverageViewportHScroll();
+
+      const summaryMount = document.createElement("div");
+      summaryMount.className = "media-coverage-summary-mount";
+      gameSections.appendChild(summaryMount);
 
       const section = document.createElement("section");
       section.className =
@@ -5492,12 +6302,15 @@
       loading.remove();
 
       if (!rows.length) {
+        summaryMount.remove();
         const empty = document.createElement("p");
         empty.className = "empty-filter";
         empty.textContent = "No media coverage yet.";
         section.appendChild(empty);
         return;
       }
+
+      summaryMount.replaceWith(renderGameDetailMediaCoverageSummary(rows));
 
       const groups = groupMediaCoverageRowsByType(rows);
       groups.forEach((group) => {
@@ -5569,6 +6382,29 @@
 
     function renderGameDetailPage(visible, columns) {
       if (gameCatalogEl) gameCatalogEl.hidden = true;
+      if (coverageLinksPageOpen) {
+        if (gameDetailEl) gameDetailEl.hidden = true;
+        if (youtubeTestPageEl) youtubeTestPageEl.hidden = true;
+        if (coverageLinksPageEl) coverageLinksPageEl.hidden = false;
+        setCoverageHeaderActionsVisible(true);
+        panel?.classList.add("is-coverage-links-page");
+        panel?.classList.remove("is-youtube-test-page");
+        return;
+      }
+      if (youtubeTestPageOpen) {
+        if (gameDetailEl) gameDetailEl.hidden = true;
+        if (coverageLinksPageEl) coverageLinksPageEl.hidden = true;
+        if (youtubeTestPageEl) youtubeTestPageEl.hidden = false;
+        setCoverageHeaderActionsVisible(false);
+        panel?.classList.remove("is-coverage-links-page");
+        panel?.classList.add("is-youtube-test-page");
+        return;
+      }
+      if (coverageLinksPageEl) coverageLinksPageEl.hidden = true;
+      if (youtubeTestPageEl) youtubeTestPageEl.hidden = true;
+      setCoverageHeaderActionsVisible(false);
+      panel?.classList.remove("is-coverage-links-page");
+      panel?.classList.remove("is-youtube-test-page");
       if (gameDetailEl) gameDetailEl.hidden = false;
       renderGameDetailHeader(activeGameTitle);
       renderGameDetailAnnouncements(visible, columns);
@@ -5759,7 +6595,22 @@
       gameSections.classList.toggle("is-grid-view", isGrid);
       panel.classList.toggle("is-grid-layout", isGrid);
       panel.classList.toggle("is-game-detail", Boolean(activeGameTitle));
-      if (gameDetailDelete) gameDetailDelete.hidden = !activeGameTitle;
+      if (gameDetailDelete) {
+        gameDetailDelete.hidden = !activeGameTitle || youtubeTestPageOpen;
+      }
+      if (gameYoutubeTestBtn) {
+        gameYoutubeTestBtn.hidden = !activeGameTitle;
+        gameYoutubeTestBtn.classList.toggle("is-active", youtubeTestPageOpen);
+      }
+
+      if (youtubeTestPageOpen) {
+        if (gameCatalogEl) gameCatalogEl.hidden = true;
+        if (gameDetailEl) gameDetailEl.hidden = true;
+        if (coverageLinksPageEl) coverageLinksPageEl.hidden = true;
+        if (youtubeTestPageEl) youtubeTestPageEl.hidden = false;
+        panel?.classList.add("is-youtube-test-page");
+        return;
+      }
 
       if (activeGameTitle) {
         // Game detail always uses the announcement + media coverage layout.
@@ -5796,7 +6647,6 @@
         const inGame = Boolean(activeGameTitle);
         importBtn.hidden = inGame;
         shareBtn.hidden = inGame;
-        monthFilterControl.hidden = inGame;
         viewModeControl.hidden = true;
       }
       syncAddRowButtonVisibility();
@@ -5889,9 +6739,7 @@
 
     shareBtn.addEventListener("click", () => openShareDialog());
     shareDialogClose.addEventListener("click", () => closeShareDialog());
-    shareDialog.addEventListener("click", (event) => {
-      if (event.target === shareDialog) closeShareDialog();
-    });
+    bindDialogBackdropClose(shareDialog, () => closeShareDialog());
     shareDialog.addEventListener("close", () => setShareDialogScrollLock(false));
     shareDialog.addEventListener("cancel", () => setShareDialogScrollLock(false));
     shareGamesSelectAll.addEventListener("click", () => selectAllShareGames());
@@ -6118,9 +6966,7 @@
     importBtn.addEventListener("click", () => csvInput.click());
     addRowBtn.addEventListener("click", () => openAddGameDialog());
     addGameDialogClose?.addEventListener("click", () => closeAddGameDialog());
-    addGameDialog?.addEventListener("click", (event) => {
-      if (event.target === addGameDialog) closeAddGameDialog();
-    });
+    bindDialogBackdropClose(addGameDialog, () => closeAddGameDialog());
     addGameStoreLinkAdd?.addEventListener("click", () => addGameStoreLinkRow());
     addGameKeyArtUpload?.addEventListener("click", () =>
       addGameKeyArtInput?.click()
@@ -6182,29 +7028,7 @@
       else closeGameDetail({ updateUrl: false });
     });
     addRowDialogClose.addEventListener("click", () => closeAddRowDialog());
-    addRowDialog.addEventListener("click", (event) => {
-      if (event.target === addRowDialog) closeAddRowDialog();
-    });
-    addRowGameTitleSelect.addEventListener("change", () => {
-      syncAddRowGameTitleMode();
-      showAddRowError("");
-    });
-    addRowCoverUpload.addEventListener("click", () => addRowCoverInput.click());
-    addRowCoverClear.addEventListener("click", () => {
-      clearAddRowCover();
-      showAddRowError("");
-    });
-    addRowCoverInput.addEventListener("change", () => {
-      const file = addRowCoverInput.files?.[0];
-      if (!file) return;
-      if (!file.type.startsWith("image/")) {
-        showAddRowError("Please choose an image file for the cover.");
-        addRowCoverInput.value = "";
-        return;
-      }
-      setAddRowCoverFile(file);
-      showAddRowError("");
-    });
+    bindDialogBackdropClose(addRowDialog, () => closeAddRowDialog());
     addRowPressReleaseUpload.addEventListener("click", () =>
       addRowPressReleaseInput.click()
     );
@@ -6231,7 +7055,28 @@
     addRowForm.addEventListener("submit", submitAddRowDialog);
     settingsBtn.addEventListener("click", () => setView("settings"));
     backBtn.addEventListener("click", () => setView("workspace"));
+    gameYoutubeTestBtn?.addEventListener("click", () => {
+      if (!activeGameTitle) return;
+      if (youtubeTestPageOpen) {
+        closeYoutubeTestPage({ restoreDetail: true });
+        if (currentTable) renderTable(currentTable, currentFileName);
+        return;
+      }
+      openYoutubeTestPage();
+    });
+    youtubeTestFetchBtn?.addEventListener("click", () => {
+      void fetchYoutubeTestPage();
+    });
     adminHomeBtn?.addEventListener("click", () => {
+      if (coverageLinksPageOpen) {
+        closeCoverageLinksDialog();
+        return;
+      }
+      if (youtubeTestPageOpen) {
+        closeYoutubeTestPage({ restoreDetail: true });
+        if (currentTable) renderTable(currentTable, currentFileName);
+        return;
+      }
       if (!activeGameTitle) return;
       closeGameDetail({ updateUrl: true });
     });

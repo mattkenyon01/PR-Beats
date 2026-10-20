@@ -125,6 +125,33 @@ body.public-page .note.is-error {
   position: static;
 }
 
+.settings-appearance {
+  margin-top: 1.25rem;
+  display: grid;
+  gap: 0.65rem;
+  justify-items: start;
+}
+
+.settings-section-title {
+  margin: 1.35rem 0 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #9aa3b2;
+}
+
+.settings-appearance .settings-section-title {
+  margin-top: 0;
+}
+
+.settings-theme-toggle {
+  position: static;
+  left: auto;
+  bottom: auto;
+  z-index: auto;
+}
+
 .cover-banner {
   position: relative;
   width: 100%;
@@ -1309,6 +1336,160 @@ body.admin-page:has(.admin-app.is-grid-layout) {
   display: none !important;
 }
 
+.game-youtube-test-btn {
+  font-weight: 700;
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+.game-youtube-test-btn.is-active {
+  background: color-mix(in srgb, var(--accent, #5b8def) 22%, transparent);
+}
+
+.game-youtube-test-btn[hidden] {
+  display: none !important;
+}
+
+.youtube-test-page {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: 0.85rem;
+  width: 100%;
+  text-align: left;
+}
+
+.youtube-test-page[hidden] {
+  display: none !important;
+}
+
+.youtube-test-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.85rem 1rem;
+  flex: 0 0 auto;
+}
+
+.youtube-test-copy {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+  flex: 1 1 16rem;
+}
+
+.youtube-test-title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.youtube-test-hint {
+  margin: 0;
+  color: var(--muted, #8b93a7);
+  font-size: 0.92rem;
+}
+
+.youtube-test-status {
+  margin: 0;
+  flex: 0 0 auto;
+  font-size: 0.92rem;
+  color: var(--muted, #8b93a7);
+}
+
+.youtube-test-status.is-error {
+  color: var(--danger, #c44);
+}
+
+.youtube-test-totals {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.65rem 1rem;
+  flex: 0 0 auto;
+  width: 100%;
+}
+
+@media (max-width: 720px) {
+  .youtube-test-totals {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.youtube-test-total {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.youtube-test-total-label {
+  font-size: 0.82rem;
+  color: var(--muted, #8b93a7);
+}
+
+.youtube-test-total-value {
+  font-size: 1.15rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.youtube-test-table-wrap {
+  flex: 1 1 auto;
+  width: 100%;
+  max-width: 100%;
+  min-height: 0;
+  overflow: auto;
+}
+
+.youtube-test-table {
+  width: max-content;
+  min-width: 100%;
+}
+
+.youtube-test-table .youtube-test-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-app.is-youtube-test-page .game-detail,
+.admin-app.is-youtube-test-page .game-catalog,
+.admin-app.is-youtube-test-page .coverage-links-page {
+  display: none !important;
+}
+
+.admin-app.is-youtube-test-page .report {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.admin-app.is-youtube-test-page .youtube-test-page {
+  flex: 1 1 auto;
+  min-height: min(70vh, 48rem);
+  overflow: hidden;
+}
+
+.admin-app.is-youtube-test-page .youtube-test-table-wrap {
+  border: 1px solid color-mix(in srgb, var(--border, #3a3f4a) 80%, transparent);
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+}
+
+.admin-app.is-youtube-test-page .game-detail-delete {
+  display: none !important;
+}
+
+.admin-app.is-youtube-test-page #view-mode-control,
+.admin-app.is-youtube-test-page #import-btn,
+.admin-app.is-youtube-test-page #add-row-btn,
+.admin-app.is-youtube-test-page #share-btn {
+  display: none !important;
+}
+
 .admin-app.is-game-detail #view-mode-control,
 .admin-app.is-game-detail #import-btn,
 .admin-app.is-game-detail #share-btn,
@@ -1423,11 +1604,82 @@ body.admin-page:has(.admin-app.is-grid-layout) {
   height: 2.1rem;
 }
 
+.game-detail-section-actions {
+  position: absolute;
+  top: 0.85rem;
+  right: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.game-detail-section-actions .game-detail-section-add {
+  position: static;
+  top: auto;
+  right: auto;
+}
+.game-section-media-coverage-summary {
+  display: grid;
+  gap: 0.55rem;
+  width: 100%;
+  max-width: 100%;
+}
+
+.media-coverage-summary-groups {
+  display: grid;
+  gap: 1rem;
+  width: 100%;
+  max-width: 100%;
+}
+
+.media-coverage-summary-group {
+  display: grid;
+  gap: 0.4rem;
+  width: 100%;
+  min-width: 0;
+}
+
+.media-coverage-summary-group-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.media-coverage-summary-wrap {
+  width: 100%;
+  max-width: 100%;
+}
+
+.media-coverage-summary-table {
+  width: 100%;
+  min-width: 0;
+  table-layout: auto;
+}
+
+.media-coverage-summary-table th,
+.media-coverage-summary-table td {
+  white-space: nowrap;
+}
+
+.media-coverage-summary-table th[scope="row"] {
+  width: 100%;
+  text-align: left;
+  font-weight: 600;
+}
+
+.media-coverage-summary-table td {
+  width: 1%;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
 .game-section-media-coverage {
   display: grid;
   gap: 1rem;
 }
-
 .media-coverage-inline-type {
   display: grid;
   gap: 0.45rem;
@@ -1840,6 +2092,14 @@ body.admin-page:has(.admin-app.is-grid-layout) {
 
 .media-cards .trailer-card {
   min-width: 0;
+}
+
+.media-coverage-summary-section-public {
+  margin-top: 0.35rem;
+}
+
+.media-coverage-summary-public-wrap {
+  width: 100%;
 }
 
 .media-coverage-section-public {
@@ -2593,6 +2853,10 @@ body.admin-page:has(.admin-app.is-grid-layout) {
   font-size: 1.2rem;
   font-weight: 700;
   letter-spacing: -0.02em;
+}
+
+.add-row-dialog-header .dialog-close-btn {
+  flex: 0 0 auto;
 }
 
 .add-row-dialog-body {
@@ -4498,6 +4762,74 @@ body.admin-page:has(.admin-app.is-grid-layout) {
   margin-right: auto;
 }
 
+.coverage-links-page {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: 0.85rem;
+  text-align: left;
+}
+
+.coverage-links-page[hidden] {
+  display: none !important;
+}
+
+.coverage-header-actions {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.coverage-header-actions[hidden] {
+  display: none !important;
+}
+
+.coverage-header-actions .coverage-links-dialog-clear {
+  height: 2.5rem;
+  padding: 0 0.75rem;
+  white-space: nowrap;
+}
+
+.admin-app.is-coverage-links-page .game-detail {
+  display: none !important;
+}
+
+.admin-app.is-coverage-links-page .report {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.admin-app.is-coverage-links-page .coverage-links-page {
+  flex: 1 1 auto;
+  min-height: min(70vh, 48rem);
+  overflow: hidden;
+}
+
+.admin-app.is-coverage-links-page .coverage-links-dialog-table-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  overflow: auto;
+  border: 1px solid color-mix(in srgb, var(--border, #3a3f4a) 80%, transparent);
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+}
+
+.admin-app.is-coverage-links-page .game-detail-delete {
+  display: none !important;
+}
+
+.admin-app.is-coverage-links-page #view-mode-control,
+.admin-app.is-coverage-links-page #import-btn,
+.admin-app.is-coverage-links-page #add-row-btn,
+.admin-app.is-coverage-links-page #share-btn {
+  display: none !important;
+}
+
 .coverage-links-dialog-table-wrap {
   overflow: auto;
   padding: 0 1.1rem;
@@ -4541,6 +4873,45 @@ body.admin-page:has(.admin-app.is-grid-layout) {
     inset 0 -1px 0 rgba(255, 255, 255, 0.1);
 }
 
+.coverage-links-dialog-table th.coverage-sortable {
+  padding: 0;
+}
+
+.coverage-links-dialog-table .coverage-sort-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+  width: 100%;
+  margin: 0;
+  padding: 0.55rem;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-align: left;
+  cursor: pointer;
+}
+
+.coverage-links-dialog-table .coverage-sort-btn:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.coverage-links-dialog-table .coverage-sort-marker {
+  opacity: 0.35;
+  font-size: 0.7rem;
+  line-height: 1;
+}
+
+.coverage-links-dialog-table th.is-sort-asc .coverage-sort-marker,
+.coverage-links-dialog-table th.is-sort-desc .coverage-sort-marker {
+  opacity: 1;
+  color: #e8eaed;
+}
+
 .coverage-links-dialog-table th:first-child,
 .coverage-links-dialog-table td:first-child {
   width: 6.5rem;
@@ -4567,6 +4938,7 @@ body.admin-page:has(.admin-app.is-grid-layout) {
   border-radius: 0;
   font: inherit;
   line-height: 1.35;
+  text-align: left;
   color: #e8eaed;
   background: transparent;
   box-shadow: none;
@@ -4576,6 +4948,71 @@ body.admin-page:has(.admin-app.is-grid-layout) {
   white-space: nowrap;
   overflow: visible;
   text-overflow: clip;
+}
+
+.coverage-links-dialog-table .coverage-link-field,
+.coverage-links-dialog-table .cell-input,
+.admin-app td .coverage-links-dialog-table .cell-input,
+.admin-app .coverage-links-dialog-table td .cell-input,
+.admin-app .coverage-links-dialog-table td .coverage-link-title-field {
+  resize: none !important;
+}
+
+.coverage-links-dialog-table .coverage-link-title-field {
+  display: block;
+  text-align: left;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  resize: none !important;
+  min-height: calc(1.35em * 2 + 0.8rem);
+  max-height: calc(1.35em * 2 + 0.8rem);
+  height: calc(1.35em * 2 + 0.8rem);
+  overflow: hidden;
+  line-height: 1.35;
+}
+
+.coverage-links-dialog-table .coverage-link-readonly {
+  color: #9aa3b2;
+  cursor: default;
+  white-space: nowrap;
+}
+
+.coverage-links-dialog-table .coverage-link-country-cell {
+  vertical-align: middle;
+  overflow: hidden;
+}
+
+.coverage-links-dialog-table .coverage-link-country-editor {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.45rem;
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+  box-sizing: border-box;
+  padding-right: 0.35rem;
+}
+
+.coverage-links-dialog-table .coverage-link-country-editor .coverage-link-field {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: auto !important;
+  max-width: none !important;
+}
+
+.coverage-links-dialog-table .coverage-link-country-editor .coverage-link-flag {
+  flex: 0 0 auto;
+  margin-left: auto;
+  width: 1.55rem;
+  height: calc(1.55rem * 2 / 3);
+  border-color: rgba(255, 255, 255, 0.14);
+  background: #0b0d11;
+}
+
+.coverage-links-dialog-table .coverage-link-country-editor .coverage-link-flag[hidden] {
+  display: none !important;
 }
 
 .coverage-links-dialog-table .coverage-link-field:hover,

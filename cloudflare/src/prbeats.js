@@ -151,6 +151,8 @@ async function handleApi(request, env, url) {
             saveRow: "PATCH /api/announcements/:id",
             deleteRow: "DELETE /api/announcements/:id",
             mediaCoverage: "GET /api/media-coverage?game=",
+            youtubeSearch:
+              "GET /api/youtube-search?q=&pageToken=&maxResults=5",
             presence: "POST /api/presence",
             uploadImage: "POST /api/game-images",
             getImage: "GET /api/game-images/:ownerUid/:fileName",
@@ -747,6 +749,34 @@ async function handleApi(request, env, url) {
         request,
         json(withD1({ gameTitle, mediaCoverage }, db))
       );
+    }
+
+    if (url.pathname === "/api/youtube-search") {
+      const auth = await requireFirebaseUser(
+        request,
+        env.FIREBASE_PROJECT_ID || DEFAULT_FIREBASE_PROJECT_ID
+      );
+      if (auth.error) return withCors(request, auth.error);
+      if (request.method !== "GET") {
+        return withCors(request, json({ error: "Method not allowed." }, 405));
+      }
+      try {
+        const result = await searchYouTubeVideosPage(env, {
+          query: url.searchParams.get("q") || "",
+          pageToken: url.searchParams.get("pageToken") || "",
+          maxResults: url.searchParams.get("maxResults") || "5",
+        });
+        return withCors(request, json(result));
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "YouTube search failed.";
+        const status = /not configured/i.test(message)
+          ? 503
+          : /quota|rate|403/i.test(message)
+            ? 429
+            : 400;
+        return withCors(request, json({ error: message }, status));
+      }
     }
 
     const announcementRowMatch = url.pathname.match(
@@ -2878,4 +2908,181 @@ async function listActiveEditors(db) {
   } catch {
     return [];
   }
+}
+
+const YOUTUBE_API_BASE = "https://www.googleapis.com/youtube/v3";
+const YOUTUBE_SEARCH_DEFAULT_PAGE = 5;
+const YOUTUBE_SEARCH_MAX_PAGE = 10;
+
+function normalizeYouTubeQuery(value) {
+  return String(value || "").trim();
+}
+
+function youtubeApiKey(env) {
+  return String(env?.YOUTUBE_API_KEY || "").trim();
+}
+
+async function youtubeApiGet(path, params, apiKey) {
+  const url = new URL(`${YOUTUBE_API_BASE}/${path}`);
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value == null || value === "") return;
+    url.searchParams.set(key, String(value));
+  });
+  url.searchParams.set("key", apiKey);
+
+  const response = await fetch(url.toString(), {
+    method: "GET",
+    headers: { Accept: "application/json" },
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const apiMessage =
+      data?.error?.message ||
+      data?.error?.errors?.[0]?.message ||
+      `YouTube API error (${response.status})`;
+    throw new Error(apiMessage);
+  }
+  return data;
+}
+
+/** Fold punctuation so "Witch's" and "Witchs" compare the same. */
+function normalizeYouTubeMatchText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/['’`´]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
+function videoMatchesQuery(video, query) {
+  const needle = normalizeYouTubeMatchText(query);
+  if (!needle) return true;
+  const haystack = normalizeYouTubeMatchText(
+    `${video.title || ""} ${video.description || ""}`
+  );
+  return haystack.includes(needle);
+}
+
+async function searchYouTubeVideosPage(env, options = {}) {
+  const apiKey = youtubeApiKey(env);
+  if (!apiKey) {
+    throw new Error(
+      "YOUTUBE_API_KEY is not configured. Set it with: npx wrangler secret put YOUTUBE_API_KEY"
+    );
+  }
+
+  const query = normalizeYouTubeQuery(options.query);
+  if (!query) {
+    throw new Error("Missing search query (q).");
+  }
+
+  const maxResults = Math.max(
+    1,
+    Math.min(
+      YOUTUBE_SEARCH_MAX_PAGE,
+      Number(options.maxResults) || YOUTUBE_SEARCH_DEFAULT_PAGE
+    )
+  );
+  const pageToken = String(options.pageToken || "").trim();
+  // Unquoted + punctuation-folded so "Witch's" / "Witchs" both hit the index.
+  // videoMatchesQuery still requires the phrase in title/description.
+  const searchQuery =
+    normalizeYouTubeMatchText(query) || query.replace(/"/g, "").trim();
+
+  const searchData = await youtubeApiGet(
+    "search",
+    {
+      part: "snippet",
+      type: "video",
+      q: searchQuery,
+      order: "viewCount",
+      maxResults: String(maxResults),
+      pageToken: pageToken || undefined,
+    },
+    apiKey
+  );
+
+  const ids = (searchData.items || [])
+    .map((item) => item?.id?.videoId)
+    .filter((id) => Boolean(id));
+
+  let detailsById = new Map();
+  if (ids.length) {
+    const videoData = await youtubeApiGet(
+      "videos",
+      {
+        part: "snippet,statistics,contentDetails",
+        id: ids.join(","),
+      },
+      apiKey
+    );
+    detailsById = new Map(
+      (videoData.items || []).map((item) => [item.id, item])
+    );
+  }
+
+  const videos = ids
+    .map((id) => {
+      const detail = detailsById.get(id);
+      const snippet = detail?.snippet || {};
+      const statistics = detail?.statistics || {};
+      return {
+        id,
+        title: String(snippet.title || "").trim(),
+        description: String(snippet.description || "").trim(),
+        channelTitle: String(snippet.channelTitle || "").trim(),
+        channelId: String(snippet.channelId || "").trim(),
+        publishedAt: String(snippet.publishedAt || "").trim(),
+        thumbnail:
+          snippet.thumbnails?.medium?.url ||
+          snippet.thumbnails?.default?.url ||
+          "",
+        url: `https://www.youtube.com/watch?v=${id}`,
+        viewCount: String(statistics.viewCount || "0"),
+        likeCount: String(statistics.likeCount || "0"),
+        commentCount: String(statistics.commentCount || "0"),
+        subscriberCount: "0",
+        duration: String(detail?.contentDetails?.duration || "").trim(),
+      };
+    })
+    .filter((video) => videoMatchesQuery(video, query));
+
+  const channelIds = [
+    ...new Set(videos.map((video) => video.channelId).filter(Boolean)),
+  ];
+  const subscriberByChannel = new Map();
+  if (channelIds.length) {
+    const channelData = await youtubeApiGet(
+      "channels",
+      {
+        part: "statistics",
+        id: channelIds.join(","),
+      },
+      apiKey
+    );
+    (channelData.items || []).forEach((item) => {
+      const id = String(item?.id || "").trim();
+      if (!id) return;
+      subscriberByChannel.set(
+        id,
+        String(item?.statistics?.subscriberCount || "0")
+      );
+    });
+    videos.forEach((video) => {
+      video.subscriberCount = subscriberByChannel.get(video.channelId) || "0";
+    });
+  }
+
+  return {
+    query,
+    maxResults,
+    nextPageToken: String(searchData.nextPageToken || ""),
+    prevPageToken: String(searchData.prevPageToken || ""),
+    totalResults: Number(searchData.pageInfo?.totalResults) || 0,
+    resultsPerPage: Number(searchData.pageInfo?.resultsPerPage) || videos.length,
+    videos,
+  };
 }
