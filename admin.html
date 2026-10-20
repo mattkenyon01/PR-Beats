@@ -3669,14 +3669,29 @@
       const beforeCover = coverageColumnsBeforeCover();
       const afterCover = coverageColumnsAfterCover();
       const expectedCols = beforeCover.length + 1 + afterCover.length + 1;
+      const removeIsFirst =
+        coverageDialogHead.firstElementChild?.classList.contains(
+          "coverage-link-remove-cell"
+        );
       if (
         coverageDialogHead.childElementCount === expectedCols &&
-        coverageDialogHead.querySelector(".coverage-sort-btn")
+        coverageDialogHead.querySelector(".coverage-sort-btn") &&
+        removeIsFirst
       ) {
         updateCoverageSortHeaders();
         return;
       }
       coverageDialogHead.innerHTML = "";
+
+      const removeTh = document.createElement("th");
+      removeTh.scope = "col";
+      removeTh.className = "coverage-link-remove-cell";
+      const sr = document.createElement("span");
+      sr.className = "visually-hidden";
+      sr.textContent = "Remove";
+      removeTh.appendChild(sr);
+      coverageDialogHead.appendChild(removeTh);
+
       beforeCover.forEach((column) => {
         coverageDialogHead.appendChild(
           makeCoverageSortHeader(column.key, column.label)
@@ -3688,29 +3703,30 @@
           makeCoverageSortHeader(column.key, column.label)
         );
       });
-
-      const removeTh = document.createElement("th");
-      removeTh.scope = "col";
-      const sr = document.createElement("span");
-      sr.className = "visually-hidden";
-      sr.textContent = "Remove";
-      removeTh.appendChild(sr);
-      coverageDialogHead.appendChild(removeTh);
       updateCoverageSortHeaders();
     }
 
-    function formatCoverageDateAdded(value) {
+    function formatCoverageDateAddedParts(value) {
       const raw = String(value || "").trim();
-      if (!raw) return "";
-      const date = new Date(raw);
-      if (Number.isNaN(date.getTime())) return raw;
-      return date.toLocaleString(undefined, {
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
+      if (!raw) return { time: "", date: "", label: "" };
+      const parsed = new Date(raw);
+      if (Number.isNaN(parsed.getTime())) {
+        return { time: raw, date: "", label: raw };
+      }
+      const time = parsed.toLocaleTimeString(undefined, {
         hour: "2-digit",
         minute: "2-digit",
       });
+      const date = parsed.toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      });
+      return { time, date, label: `${time} ${date}`.trim() };
+    }
+
+    function formatCoverageDateAdded(value) {
+      return formatCoverageDateAddedParts(value).label;
     }
 
     function collectCoverageDialogRows() {
@@ -3834,7 +3850,29 @@
         return;
       }
       const td = document.createElement("td");
-      if (column.key === "dateAdded" || column.readOnly) {
+      if (column.key === "dateAdded") {
+        const iso = String(row[column.key] || "").trim();
+        const parts = formatCoverageDateAddedParts(iso);
+        const stack = document.createElement("div");
+        stack.className = "coverage-link-date-added";
+        stack.dataset.coverageKey = column.key;
+        stack.dataset.iso = iso;
+        stack.setAttribute("aria-label", column.label);
+        stack.title = parts.label;
+        const timeEl = document.createElement("span");
+        timeEl.className = "coverage-link-date-added-time";
+        timeEl.textContent = parts.time || "—";
+        const dateEl = document.createElement("span");
+        dateEl.className = "coverage-link-date-added-date";
+        dateEl.textContent = parts.date || (parts.time ? "" : "—");
+        stack.appendChild(timeEl);
+        stack.appendChild(dateEl);
+        td.className = "coverage-link-date-added-cell";
+        td.appendChild(stack);
+        tr.appendChild(td);
+        return;
+      }
+      if (column.readOnly) {
         const input = document.createElement("input");
         input.type = "text";
         input.readOnly = true;
@@ -3939,6 +3977,26 @@
         }
       });
 
+      const actionTd = document.createElement("td");
+      actionTd.className = "coverage-link-remove-cell";
+      const removeBtn = document.createElement("button");
+      removeBtn.type = "button";
+      removeBtn.className = "btn-icon coverage-link-remove";
+      removeBtn.setAttribute("aria-label", "Remove");
+      removeBtn.title = "Remove";
+      removeBtn.innerHTML =
+        `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>`;
+      removeBtn.addEventListener("click", () => {
+        tr.remove();
+        if (!coverageDialogBody.children.length) {
+          coverageDialogBody.appendChild(createCoverageDialogRow());
+        }
+        fitCoverageDialogColumns();
+        scheduleCoverageLinksSave();
+      });
+      actionTd.appendChild(removeBtn);
+      tr.appendChild(actionTd);
+
       // Date added comes before Cover.
       coverageColumnsBeforeCover().forEach((column) => {
         appendCoverageDialogFieldCell(tr, column, row, null);
@@ -3963,26 +4021,6 @@
       coverageColumnsAfterCover().forEach((column) => {
         appendCoverageDialogFieldCell(tr, column, row, cover);
       });
-
-      const actionTd = document.createElement("td");
-      actionTd.className = "coverage-link-remove-cell";
-      const removeBtn = document.createElement("button");
-      removeBtn.type = "button";
-      removeBtn.className = "btn-icon coverage-link-remove";
-      removeBtn.setAttribute("aria-label", "Remove");
-      removeBtn.title = "Remove";
-      removeBtn.innerHTML =
-        `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>`;
-      removeBtn.addEventListener("click", () => {
-        tr.remove();
-        if (!coverageDialogBody.children.length) {
-          coverageDialogBody.appendChild(createCoverageDialogRow());
-        }
-        fitCoverageDialogColumns();
-        scheduleCoverageLinksSave();
-      });
-      actionTd.appendChild(removeBtn);
-      tr.appendChild(actionTd);
 
       if (row.coverImage) {
         setRowCoverImage(tr, row.coverImage);
@@ -4087,9 +4125,22 @@
         const labelPx = measureText(th, column.label || " ") + 36;
         let contentPx = 0;
         inputs.forEach((input) => {
+          let text = String(input.value || "");
+          if (column.key === "dateAdded") {
+            const timeText =
+              input.querySelector?.(".coverage-link-date-added-time")
+                ?.textContent || "";
+            const dateText =
+              input.querySelector?.(".coverage-link-date-added-date")
+                ?.textContent || "";
+            text =
+              measureText(sample, timeText) >= measureText(sample, dateText)
+                ? timeText
+                : dateText;
+          }
           contentPx = Math.max(
             contentPx,
-            measureText(sample, String(input.value || "")) + pad
+            measureText(sample, text) + pad
           );
         });
         // Title wraps to 2 lines → column width is half the longest single-line width.

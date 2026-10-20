@@ -1330,6 +1330,7 @@ export const COVERAGE_LINK_COLUMNS = [
   {
     key: "resultType",
     label: "Result type",
+    hiddenInEditor: true,
     aliases: ["result type", "result", "coverage type"],
   },
   {
@@ -1357,6 +1358,7 @@ export const COVERAGE_LINK_COLUMNS = [
   {
     key: "globalDomain",
     label: "Global domain",
+    hiddenInEditor: true,
     aliases: [
       "global domain",
       "global domain rank",
@@ -1368,6 +1370,7 @@ export const COVERAGE_LINK_COLUMNS = [
   {
     key: "countryDomain",
     label: "Country domain",
+    hiddenInEditor: true,
     aliases: [
       "country domain",
       "country domain rank",
@@ -1378,6 +1381,7 @@ export const COVERAGE_LINK_COLUMNS = [
   {
     key: "sentiment",
     label: "Sentiment",
+    hiddenInEditor: true,
     aliases: ["sentiment", "tone"],
   },
 ];

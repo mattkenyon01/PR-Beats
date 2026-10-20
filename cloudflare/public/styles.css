@@ -4912,16 +4912,51 @@ body.admin-page:has(.admin-app.is-grid-layout) {
   color: #e8eaed;
 }
 
-.coverage-links-dialog-table th:first-child,
-.coverage-links-dialog-table td:first-child {
-  width: 6.5rem;
-  min-width: 6.5rem;
+.coverage-links-dialog-table th.coverage-link-remove-cell,
+.coverage-links-dialog-table td.coverage-link-remove-cell {
+  width: 2.75rem;
+  min-width: 2.75rem;
+  max-width: 2.75rem;
+}
+
+.coverage-links-dialog-table th[data-coverage-key="dateAdded"],
+.coverage-links-dialog-table td.coverage-link-date-added-cell {
+  width: 5.25rem;
+  min-width: 5.25rem;
+  max-width: 5.25rem;
+}
+
+.coverage-link-date-added-cell {
+  vertical-align: middle;
+  padding: 0.25rem 0.35rem;
+}
+
+.coverage-link-date-added {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.1rem;
+  min-height: 2.35rem;
+  line-height: 1.15;
+  text-align: center;
+  color: #c5c9d1;
+  font-variant-numeric: tabular-nums;
+}
+
+.coverage-link-date-added-time {
+  font-size: 0.72rem;
+  color: #9aa0a6;
+}
+
+.coverage-link-date-added-date {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #e8eaed;
 }
 
 .coverage-links-dialog-table th:last-child,
 .coverage-links-dialog-table td:last-child {
-  width: 2.75rem;
-  min-width: 2.75rem;
   border-right: 0;
 }
 
@@ -5090,9 +5125,11 @@ body.admin-page:has(.admin-app.is-grid-layout) {
     justify-content: flex-start;
   }
 
-  .coverage-links-dialog-table th:first-child,
-  .coverage-links-dialog-table td:first-child {
-    width: 5.5rem;
+  .coverage-links-dialog-table th[data-coverage-key="dateAdded"],
+  .coverage-links-dialog-table td.coverage-link-date-added-cell {
+    width: 4.75rem;
+    min-width: 4.75rem;
+    max-width: 4.75rem;
   }
 
   .coverage-link-cover {
