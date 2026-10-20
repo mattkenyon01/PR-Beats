@@ -1512,21 +1512,17 @@ body.admin-page:has(.admin-app.is-grid-layout) {
   scrollbar-gutter: auto;
 }
 
-/* Catalog announcements table: scroll both axes inside the viewport shell. */
+/* Home table/grid: document scroll like cover/games view (scrollbar on the page). */
 .admin-app.is-catalog-table .report {
-  display: flex;
-  flex-direction: column;
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: hidden;
+  margin-top: 1.25rem;
+  overflow: visible;
 }
 
 .admin-app.is-catalog-table .game-detail:not([hidden]) {
-  display: flex;
-  flex-direction: column;
-  flex: 1 1 auto;
+  display: block;
+  overflow: visible;
   min-height: 0;
-  overflow: hidden;
+  height: auto;
 }
 
 .admin-app.is-catalog-table .game-detail-header {
@@ -1534,29 +1530,43 @@ body.admin-page:has(.admin-app.is-grid-layout) {
 }
 
 .admin-app.is-catalog-table .game-sections.is-catalog-readonly {
-  display: flex;
-  flex-direction: column;
-  flex: 1 1 auto;
+  display: block;
+  overflow: visible;
   min-height: 0;
-  overflow: hidden;
+  height: auto;
   gap: 0;
 }
 
+.admin-app.is-catalog-table .game-sections.is-grid-view .grid-table-wrap,
 .admin-app.is-catalog-table .catalog-readonly-wrap {
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   width: 100%;
-  height: 100%;
-  min-height: 0;
+  height: auto;
   max-height: none;
-  overflow: auto;
-  overscroll-behavior: contain;
-  scrollbar-gutter: stable;
-  scrollbar-width: thin;
-  scrollbar-color: var(--scrollbar) var(--panel-elevated);
+  min-height: 0;
+  /* Wide tables scroll sideways; vertical scroll stays on the page. */
+  overflow-x: auto;
+  overflow-y: visible;
+  overscroll-behavior-x: contain;
+  scrollbar-gutter: auto;
   border: 1px solid var(--border);
   border-radius: 0.45rem;
   background: var(--surface);
   text-align: left;
+}
+
+/* Home table view reuses the editable grid; keep cells interactive. */
+.admin-app.is-catalog-table .catalog-readonly-wrap .grid-table th,
+.admin-app.is-catalog-table .catalog-readonly-wrap .grid-table td {
+  max-width: none;
+  overflow: visible;
+  text-overflow: unset;
+  white-space: nowrap;
+}
+
+.admin-app.is-catalog-table .catalog-readonly-wrap .grid-add-row-bar {
+  position: static;
+  background: var(--surface);
 }
 
 .catalog-readonly-table {
@@ -4453,29 +4463,36 @@ body.admin-page:has(.admin-app.is-grid-layout) {
   overflow-x: scroll;
   overflow-y: auto;
   overscroll-behavior: contain;
-  scrollbar-gutter: stable both-edges;
-  scrollbar-width: auto;
-  scrollbar-color: var(--scrollbar) var(--panel-elevated);
+  scrollbar-gutter: stable;
+  /* Match cover / games view (global admin scrollbar). */
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar) transparent;
 }
 
 .game-sections.is-grid-view .grid-table-wrap::-webkit-scrollbar {
-  width: 12px;
-  height: 12px;
+  width: 8px;
+  height: 8px;
 }
 
 .game-sections.is-grid-view .grid-table-wrap::-webkit-scrollbar-track {
-  background: var(--panel-elevated);
+  background: transparent;
 }
 
 .game-sections.is-grid-view .grid-table-wrap::-webkit-scrollbar-thumb {
   background: var(--scrollbar);
   border-radius: 999px;
-  border: 2px solid var(--panel-elevated);
-  background-clip: padding-box;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+.game-sections.is-grid-view .grid-table-wrap::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+  background-clip: content-box;
+  border: 2px solid transparent;
 }
 
 .game-sections.is-grid-view .grid-table-wrap::-webkit-scrollbar-corner {
-  background: var(--panel-elevated);
+  background: transparent;
 }
 
 .game-sections.is-grid-view .grid-table {

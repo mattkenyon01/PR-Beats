@@ -1111,14 +1111,21 @@
       ).trim();
     }
 
-    function replaceUrlSearch(mutate) {
+    function updateUrlSearch(mutate, { historyMode = "replace" } = {}) {
       const url = new URL(window.location.href);
       mutate(url.searchParams);
       const next = `${url.pathname}${url.search}${url.hash}`;
       const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-      if (next !== current) {
+      if (next === current) return;
+      if (historyMode === "push") {
+        window.history.pushState(window.history.state, "", next);
+      } else {
         window.history.replaceState(window.history.state, "", next);
       }
+    }
+
+    function replaceUrlSearch(mutate) {
+      updateUrlSearch(mutate, { historyMode: "replace" });
     }
 
     function syncViewModeToUrl(mode) {
@@ -1128,15 +1135,21 @@
       });
     }
 
-    function syncGameToUrl(gameTitle) {
-      replaceUrlSearch((params) => {
-        const title = String(gameTitle || "").trim();
-        if (title) params.set("game", title);
-        else {
-          params.delete("game");
-          params.delete("coverage");
-        }
-      });
+    /** Push a history entry when entering/leaving a game so Back stays in admin. */
+    function syncGameToUrl(gameTitle, { historyMode } = {}) {
+      const title = String(gameTitle || "").trim();
+      const current = gameTitleFromUrl();
+      const mode = historyMode || (title !== current ? "push" : "replace");
+      updateUrlSearch(
+        (params) => {
+          if (title) params.set("game", title);
+          else {
+            params.delete("game");
+            params.delete("coverage");
+          }
+        },
+        { historyMode: mode }
+      );
     }
 
     function syncCoverageToUrl(rowId) {
@@ -7546,30 +7559,7 @@
       { key: "totalWishlists", label: "Wishlists" },
     ];
 
-    function catalogPlatformsText(value) {
-      const ids = parsePlatforms(value);
-      if (!ids.length) {
-        const raw = String(value || "").trim();
-        return raw || "—";
-      }
-      return ids
-        .map(
-          (id) =>
-            PLATFORM_OPTIONS.find((option) => option.id === id)?.label || id
-        )
-        .join(", ");
-    }
-
-    function catalogCellText(row, key) {
-      if (key === "platforms") return catalogPlatformsText(row.platforms);
-      if (key === "gameTitle") {
-        return String(row.gameTitle || "").trim() || "Untitled";
-      }
-      const value = String(row?.[key] ?? "").trim();
-      return value || "—";
-    }
-
-    function renderCatalogAnnouncementsTable(visible) {
+    function renderCatalogAnnouncementsTable(visible, columns) {
       if (gameCatalogEl) gameCatalogEl.hidden = true;
       // game-sections lives inside game-detail — keep the shell visible.
       if (gameDetailEl) gameDetailEl.hidden = false;
@@ -7577,27 +7567,19 @@
         gameDetailHeader.hidden = true;
         gameDetailHeader.innerHTML = "";
       }
-      gameSections.innerHTML = "";
-      gameSections.classList.remove("is-grid-view");
-      gameSections.classList.add("is-catalog-readonly");
-      panel.classList.add("is-grid-layout", "is-catalog-table");
+      gameSections.classList.add("is-catalog-readonly", "is-grid-view");
+      // Page-level scroll like cover/games view (not a locked pane under search).
+      panel.classList.remove("is-grid-layout");
+      panel.classList.add("is-catalog-table");
 
-      const rows = sortVisibleForGrid(visible, CATALOG_TABLE_COLUMNS);
       const filterActive = Boolean(
         gameSearchInput.value.trim() || monthFilter.value
       );
-
-      if (rows.length === 0 && filterActive && currentTable?.rows.length > 0) {
-        const empty = document.createElement("p");
-        empty.className = "empty-filter";
-        empty.textContent = gameSearchInput.value.trim()
-          ? "No announcements match this search."
-          : "No rows match this month filter.";
-        gameSections.appendChild(empty);
-        return;
-      }
-
-      if (!rows.length) {
+      if (
+        visible.length === 0 &&
+        !filterActive &&
+        !(currentTable?.rows?.length > 0)
+      ) {
         const empty = document.createElement("p");
         empty.className = "empty-filter";
         empty.textContent = "No announcements yet.";
@@ -7605,84 +7587,9 @@
         return;
       }
 
-      const wrap = document.createElement("div");
-      wrap.className = "table-wrap catalog-readonly-wrap";
-
-      const tableEl = document.createElement("table");
-      tableEl.className = "catalog-readonly-table";
-
-      const thead = document.createElement("thead");
-      const headRow = document.createElement("tr");
-      CATALOG_TABLE_COLUMNS.forEach((column) => {
-        const th = document.createElement("th");
-        th.scope = "col";
-        th.className = `col-${column.key} grid-sortable`;
-        if (gridSortKey === column.key) {
-          th.classList.add(
-            gridSortDirection === "asc" ? "is-sort-asc" : "is-sort-desc"
-          );
-        }
-
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = "grid-sort-btn";
-        button.setAttribute(
-          "aria-label",
-          `Sort by ${column.label}${
-            gridSortKey === column.key
-              ? gridSortDirection === "asc"
-                ? ", ascending"
-                : ", descending"
-              : ""
-          }`
-        );
-        const label = document.createElement("span");
-        label.textContent = column.label;
-        button.appendChild(label);
-        const marker = document.createElement("span");
-        marker.className = "grid-sort-marker";
-        marker.setAttribute("aria-hidden", "true");
-        marker.textContent =
-          gridSortKey === column.key
-            ? gridSortDirection === "asc"
-              ? "▲"
-              : "▼"
-            : "⇅";
-        button.appendChild(marker);
-        button.addEventListener("click", () => setGridSort(column.key));
-        th.appendChild(button);
-        headRow.appendChild(th);
-      });
-      thead.appendChild(headRow);
-
-      const tbody = document.createElement("tbody");
-      const fragment = document.createDocumentFragment();
-      rows.forEach(({ row }) => {
-        const tr = document.createElement("tr");
-        tr.className = "catalog-readonly-row";
-        const gameTitle = String(row.gameTitle || "").trim() || "Untitled";
-        tr.title = `Open ${gameTitle}`;
-        tr.tabIndex = 0;
-        tr.addEventListener("click", () => openGameDetail(gameTitle));
-        tr.addEventListener("keydown", (event) => {
-          if (event.key !== "Enter" && event.key !== " ") return;
-          event.preventDefault();
-          openGameDetail(gameTitle);
-        });
-        CATALOG_TABLE_COLUMNS.forEach((column) => {
-          const td = document.createElement("td");
-          td.className = `col-${column.key}`;
-          td.textContent = catalogCellText(row, column.key);
-          tr.appendChild(td);
-        });
-        fragment.appendChild(tr);
-      });
-      tbody.appendChild(fragment);
-
-      tableEl.appendChild(thead);
-      tableEl.appendChild(tbody);
-      wrap.appendChild(tableEl);
-      gameSections.appendChild(wrap);
+      renderGridView(visible, columns);
+      const wrap = gameSections.querySelector(".grid-table-wrap");
+      wrap?.classList.add("catalog-readonly-wrap");
     }
 
     function renderFormattedView(visible, columns) {
@@ -7691,7 +7598,7 @@
         return;
       }
       if (catalogViewMode === "table") {
-        renderCatalogAnnouncementsTable(visible);
+        renderCatalogAnnouncementsTable(visible, columns);
         return;
       }
       gameSections.classList.remove("is-grid-view", "is-catalog-readonly");
@@ -7873,15 +7780,17 @@
       });
       const isCatalogTable = !activeGameTitle && catalogViewMode === "table";
       const isGrid = Boolean(activeGameTitle) && viewModeSelect.value === "grid";
-      const columns = tableColumns(table, { grid: isGrid });
+      const columns = tableColumns(table, {
+        grid: isGrid || isCatalogTable,
+      });
       gameSections.classList.toggle(
         "is-grid-view",
-        (isGrid || Boolean(activeGameTitle)) && !isCatalogTable
+        isGrid || Boolean(activeGameTitle) || isCatalogTable
       );
       gameSections.classList.toggle("is-catalog-readonly", isCatalogTable);
       panel.classList.toggle(
         "is-grid-layout",
-        isGrid || Boolean(activeGameTitle) || isCatalogTable
+        isGrid || Boolean(activeGameTitle)
       );
       panel.classList.toggle("is-catalog-table", isCatalogTable);
       panel.classList.toggle("is-game-detail", Boolean(activeGameTitle));
@@ -7915,8 +7824,7 @@
         renderFormattedView(visible, columns);
       }
 
-      // Catalog table is read-only text — skip expensive per-cell measuring.
-      if (!isCatalogTable) fitTableColumns();
+      fitTableColumns();
 
       if (restorePlatformMenuRowId) {
         openPlatformMenuForRow(restorePlatformMenuRowId);
