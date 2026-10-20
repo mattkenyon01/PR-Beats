@@ -595,6 +595,7 @@
       displayNameFromEmail,
       emptyCoverageLink,
       emptyMediaCoverageRow,
+      formatCoverageStat,
       groupMediaCoverageRowsByType,
       isLinkSectionKey,
       linkSectionDef,
@@ -3889,19 +3890,32 @@
         tr.appendChild(td);
         return;
       }
-      const isTitle = column.key === "title";
-      const input = document.createElement(isTitle ? "textarea" : "input");
-      if (!isTitle) input.type = "text";
-      input.className = isTitle
-        ? "cell-input coverage-link-field coverage-link-title-field"
+      const isWrapField =
+        column.key === "title" ||
+        column.key === "outletName" ||
+        column.key === "outletCountry";
+      const input = document.createElement(isWrapField ? "textarea" : "input");
+      if (!isWrapField) input.type = "text";
+      input.className = isWrapField
+        ? "cell-input coverage-link-field coverage-link-wrap-field"
         : "cell-input coverage-link-field";
       input.dataset.coverageKey = column.key;
-      input.value = row[column.key] || "";
+      input.value =
+        column.key === "outletStats"
+          ? formatCoverageStat(row[column.key] || "")
+          : row[column.key] || "";
       input.setAttribute("aria-label", column.label);
-      if (isTitle) {
+      if (isWrapField) {
         input.rows = 2;
         input.wrap = "soft";
         input.style.resize = "none";
+      }
+      if (column.key === "outletStats") {
+        input.inputMode = "numeric";
+        input.addEventListener("blur", () => {
+          input.value = formatCoverageStat(input.value);
+          scheduleFitCoverageDialogColumns();
+        });
       }
       if (column.key === "url") {
         input.classList.add("coverage-link-url");
@@ -4052,29 +4066,66 @@
       fitCoverageColumnsTimer = setTimeout(fitCoverageDialogColumns, 40);
     }
 
-    function fitCoverageTitleField(el) {
+    function isCoverageWrapColumn(key) {
+      return key === "title" || key === "outletName" || key === "outletCountry";
+    }
+
+    function coverageWrapFieldLineCount(el, lineHeight) {
+      const styles = getComputedStyle(el);
+      const width = Math.max(
+        0,
+        el.clientWidth || el.offsetWidth || parseFloat(el.style.width) || 0
+      );
+      if (!width) return 1;
+      const probe = document.createElement("div");
+      probe.setAttribute("aria-hidden", "true");
+      probe.style.cssText = [
+        "position:absolute",
+        "left:-9999px",
+        "top:0",
+        "visibility:hidden",
+        "white-space:pre-wrap",
+        "overflow-wrap:anywhere",
+        "word-break:break-word",
+        `width:${width}px`,
+        `font:${styles.font}`,
+        `letter-spacing:${styles.letterSpacing}`,
+        `line-height:${lineHeight}px`,
+        "box-sizing:border-box",
+        "padding:0",
+        "margin:0",
+      ].join(";");
+      probe.textContent = String(el.value || "") || " ";
+      document.body.appendChild(probe);
+      const height = probe.getBoundingClientRect().height;
+      probe.remove();
+      return Math.max(1, Math.round(height / Math.max(lineHeight, 1)));
+    }
+
+    function fitCoverageWrapField(el) {
       if (!(el instanceof HTMLTextAreaElement)) return;
-      if (!el.classList.contains("coverage-link-title-field")) return;
+      if (!el.classList.contains("coverage-link-wrap-field")) return;
       const styles = getComputedStyle(el);
       const lineHeight = parseFloat(styles.lineHeight) || 18;
       const sidePad = 0.4 * 16; // matches 0.4rem padding
       const boxHeight = lineHeight * 2 + sidePad * 2;
       el.style.height = `${boxHeight}px`;
-      el.style.paddingTop = `${sidePad}px`;
-      el.style.paddingBottom = `${sidePad}px`;
-      // Measure with normal padding, then vertically center when only one line.
-      const contentHeight = el.scrollHeight - sidePad * 2;
-      if (contentHeight <= lineHeight * 1.35) {
+      // One visual line → pad so text sits in the vertical middle of the 2-line cell.
+      const lines = coverageWrapFieldLineCount(el, lineHeight);
+      if (lines <= 1) {
         const pad = Math.max(sidePad, (boxHeight - lineHeight) / 2);
         el.style.paddingTop = `${pad}px`;
         el.style.paddingBottom = `${pad}px`;
+      } else {
+        el.style.paddingTop = `${sidePad}px`;
+        el.style.paddingBottom = `${sidePad}px`;
       }
     }
 
-    function fitCoverageTitleFields() {
+    function fitCoverageWrapFields() {
       coverageDialogBody
-        ?.querySelectorAll(".coverage-link-title-field")
-        .forEach((el) => fitCoverageTitleField(el));
+        ?.querySelectorAll(".coverage-link-wrap-field")
+        .forEach((el) => fitCoverageWrapField(el));
     }
 
     function fitCoverageDialogColumns() {
@@ -4143,16 +4194,34 @@
             measureText(sample, text) + pad
           );
         });
-        // Title wraps to 2 lines → column width is half the longest single-line width.
+        // Wrap fields use 2 lines → column width is half the longest single-line width.
         // All coverage columns are locked (min = max) so they are not flexible.
-        let maxPx =
-          column.key === "title"
-            ? Math.max(Math.ceil(Math.max(contentPx, labelPx) / 2), labelPx)
-            : Math.max(labelPx, contentPx);
+        let maxPx = isCoverageWrapColumn(column.key)
+          ? Math.max(Math.ceil(Math.max(contentPx, labelPx) / 2), labelPx)
+          : Math.max(labelPx, contentPx);
         maxPx = Math.max(maxPx, Math.ceil(4.5 * 16));
         // Room for the flag on the right of Outlet country.
         if (column.key === "outletCountry") {
           maxPx += Math.ceil(1.55 * 16 + 0.45 * 16 + 0.45 * 16);
+        }
+
+        // Date added uses fixed CSS sizing + padding; don't override or it spills.
+        if (column.key === "dateAdded") {
+          th.style.width = "";
+          th.style.minWidth = "";
+          th.style.maxWidth = "";
+          coverageDialogBody.querySelectorAll("tr").forEach((tr) => {
+            const input = tr.querySelector(
+              `[data-coverage-key="${CSS.escape(column.key)}"]`
+            );
+            const td = input?.closest("td");
+            if (td) {
+              td.style.width = "";
+              td.style.minWidth = "";
+              td.style.maxWidth = "";
+            }
+          });
+          return;
         }
 
         const width = `${maxPx}px`;
@@ -4184,7 +4253,7 @@
       });
 
       probe.remove();
-      fitCoverageTitleFields();
+      fitCoverageWrapFields();
       updateCoverageSortHeaders();
     }
 
@@ -4555,8 +4624,8 @@
         return;
       }
       if (!event.target.classList.contains("coverage-link-field")) return;
-      if (event.target.classList.contains("coverage-link-title-field")) {
-        fitCoverageTitleField(event.target);
+      if (event.target.classList.contains("coverage-link-wrap-field")) {
+        fitCoverageWrapField(event.target);
       }
       scheduleFitCoverageDialogColumns();
       scheduleCoverageLinksSave();

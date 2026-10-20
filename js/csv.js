@@ -1341,6 +1341,7 @@ export const COVERAGE_LINK_COLUMNS = [
   {
     key: "outletType",
     label: "Outlet type",
+    hiddenInEditor: true,
     aliases: ["outlet type", "media type", "channel type"],
   },
   {
