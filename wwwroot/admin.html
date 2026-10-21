@@ -6704,6 +6704,38 @@ const mediaCoverageViewportHScroll = document.getElementById(
           "TikTok Likes should be manually copied from Pixel Maniacs, as its not included in the csv",
       };
 
+      const refreshTotalsInputs = () => {
+        const totalsGroup = mediaCoverageSummaryGroups(rows, {
+          summaryOverrides: overrides,
+        }).find((group) => group.id === "totals");
+        if (!totalsGroup) return;
+        totalsGroup.metrics.forEach((metric) => {
+          const input = groupsEl.querySelector(
+            `tr[data-metric-id="${CSS.escape(metric.id)}"] .media-coverage-summary-value-input`
+          );
+          if (!input) return;
+          const tr = input.closest("tr");
+          const computed = String(
+            metric.computedValue || metric.value || ""
+          ).trim();
+          input.dataset.computedValue = computed;
+          const hasDirect = Object.prototype.hasOwnProperty.call(
+            overrides,
+            metric.id
+          );
+          if (hasDirect) {
+            input.value = String(overrides[metric.id] || "").trim() || computed;
+            if (tr) tr.classList.add("is-manual-override");
+            input.title =
+              "Manually set. Clear the field to restore the calculated value.";
+          } else {
+            input.value = computed;
+            if (tr) tr.classList.remove("is-manual-override");
+            input.title = "Click to edit";
+          }
+        });
+      };
+
       mediaCoverageSummaryGroups(rows, { summaryOverrides: overrides }).forEach(
         (group) => {
           const block = document.createElement("div");
@@ -6795,6 +6827,11 @@ const mediaCoverageViewportHScroll = document.getElementById(
                 );
                 if (!ok) {
                   showError("Could not save summary override.");
+                } else if (
+                  metric.id !== "total-audience" &&
+                  metric.id !== "media-coverages"
+                ) {
+                  refreshTotalsInputs();
                 }
               } finally {
                 input.disabled = false;
@@ -6837,7 +6874,8 @@ const mediaCoverageViewportHScroll = document.getElementById(
               "summary",
               group.id
             ),
-            defaultCollapsed: true,
+            // Keep Totals open so Total Audience / Media Coverages are obvious.
+            defaultCollapsed: group.id !== "totals",
           });
           groupsEl.appendChild(block);
         }

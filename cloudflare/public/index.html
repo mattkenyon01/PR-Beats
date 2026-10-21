@@ -954,14 +954,48 @@
         "media-coverage-stat-row media-coverage-stat-row-featured";
       featured.forEach((card) => appendCard(featuredRow, card));
 
-      const grid = document.createElement("div");
-      grid.className = "media-coverage-stat-grid";
-      rest.forEach((card) => appendCard(grid, card));
+      const platformOrder = [
+        { id: "youtube", label: "YouTube" },
+        { id: "tiktok", label: "TikTok" },
+        { id: "instagram", label: "Instagram" },
+        { id: "bilibili", label: "BiliBili" },
+        { id: "podcast", label: "Podcast" },
+      ];
+      const byPlatform = new Map();
+      rest.forEach((card) => {
+        const key = String(card.platform || "").trim().toLowerCase() || "other";
+        if (!byPlatform.has(key)) byPlatform.set(key, []);
+        byPlatform.get(key).push(card);
+      });
 
       const wrap = document.createElement("div");
       wrap.className = "media-coverage-stat-board";
       wrap.appendChild(featuredRow);
-      wrap.appendChild(grid);
+
+      const appendPlatformSection = (platformId, label) => {
+        const cardsForPlatform = byPlatform.get(platformId);
+        if (!cardsForPlatform?.length) return;
+        byPlatform.delete(platformId);
+        const section = document.createElement("section");
+        section.className = "media-coverage-stat-platform";
+        section.dataset.platform = platformId;
+        const heading = document.createElement("h4");
+        heading.className = "media-coverage-stat-platform-title";
+        heading.textContent = label;
+        const grid = document.createElement("div");
+        grid.className = "media-coverage-stat-grid";
+        cardsForPlatform.forEach((card) => appendCard(grid, card));
+        section.appendChild(heading);
+        section.appendChild(grid);
+        wrap.appendChild(section);
+      };
+
+      platformOrder.forEach(({ id, label }) => appendPlatformSection(id, label));
+      [...byPlatform.keys()].forEach((id) => {
+        const label = id.charAt(0).toUpperCase() + id.slice(1);
+        appendPlatformSection(id, label);
+      });
+
       mediaCoverageSummaryTablesEl.appendChild(wrap);
     }
 

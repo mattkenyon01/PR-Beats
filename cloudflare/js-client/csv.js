@@ -604,7 +604,6 @@ export function mediaCoverageDisplayLabel(row) {
 const MEDIA_COVERAGE_TYPE_ORDER = [
   "youtube",
   "yt",
-  "twitch",
   "tiktok",
   "tik tok",
   "instagram",
@@ -612,6 +611,9 @@ const MEDIA_COVERAGE_TYPE_ORDER = [
   "bilibili",
   "bili bili",
   "bili",
+  "twitch",
+  "podcast",
+  "podcasts",
 ];
 
 export function mediaCoverageTypeKey(value) {
@@ -902,6 +904,57 @@ function applySummaryOverride(metric, overrides) {
   };
 }
 
+/**
+ * Featured totals using Summary overrides when present.
+ * Total Audience swaps in youtube-audience; Media Coverages swaps each
+ * platform coverage count that has an override.
+ */
+function mediaCoverageTotalsFromOverrides(summary, overrides) {
+  const overrideNumber = (metricId, fallback) => {
+    const raw = String(overrides?.[metricId] ?? "").trim();
+    if (!raw) return { value: Number(fallback) || 0, isOverride: false };
+    return { value: mediaCoverageMetricNumber(raw), isOverride: true };
+  };
+
+  const youtubeAudience = overrideNumber(
+    "youtube-audience",
+    summary.youtube.audience
+  );
+  let audience =
+    youtubeAudience.value +
+    ((Number(summary.totals.audience) || 0) -
+      (Number(summary.youtube.audience) || 0));
+  let audienceIsOverride = youtubeAudience.isOverride;
+
+  let coverages = Number(summary.totals.coverages) || 0;
+  let coveragesIsOverride = false;
+  [
+    ["youtube-coverages", summary.youtube.coverages],
+    ["podcasts-count", summary.podcasts.count],
+    ["tiktok-videos", summary.tiktok.videos],
+    ["bilibili-videos", summary.bilibili.videos],
+    ["instagram-reels", summary.instagram.reels],
+  ].forEach(([metricId, computed]) => {
+    const next = overrideNumber(metricId, computed);
+    if (!next.isOverride) return;
+    coverages = coverages - (Number(computed) || 0) + next.value;
+    coveragesIsOverride = true;
+  });
+
+  const directAudience = overrideNumber("total-audience", audience);
+  if (directAudience.isOverride) {
+    audience = directAudience.value;
+    audienceIsOverride = true;
+  }
+  const directCoverages = overrideNumber("media-coverages", coverages);
+  if (directCoverages.isOverride) {
+    coverages = directCoverages.value;
+    coveragesIsOverride = true;
+  }
+
+  return { audience, audienceIsOverride, coverages, coveragesIsOverride };
+}
+
 /** Platform-grouped label/value rows for the Media Coverage Summary. */
 export function mediaCoverageSummaryGroups(rows, options = {}) {
   const summary = summarizeMediaCoverage(rows);
@@ -910,7 +963,28 @@ export function mediaCoverageSummaryGroups(rows, options = {}) {
     options.summaryOverrides && typeof options.summaryOverrides === "object"
       ? options.summaryOverrides
       : {};
+  // Totals computed from platform overrides only; direct total-* overrides apply via applySummaryOverride.
+  const platformOverrides = { ...overrides };
+  delete platformOverrides["total-audience"];
+  delete platformOverrides["media-coverages"];
+  const totals = mediaCoverageTotalsFromOverrides(summary, platformOverrides);
   const groups = [
+    {
+      id: "totals",
+      title: "Totals",
+      metrics: [
+        {
+          id: "total-audience",
+          label: "Total Audience",
+          value: format(totals.audience),
+        },
+        {
+          id: "media-coverages",
+          label: "Media Coverages",
+          value: format(totals.coverages),
+        },
+      ],
+    },
     {
       id: "youtube",
       title: "YouTube",
@@ -948,17 +1022,6 @@ export function mediaCoverageSummaryGroups(rows, options = {}) {
       ],
     },
     {
-      id: "podcasts",
-      title: "Podcasts",
-      metrics: [
-        {
-          id: "podcasts-count",
-          label: "Podcasts",
-          value: format(summary.podcasts.count),
-        },
-      ],
-    },
-    {
       id: "tiktok",
       title: "TikTok",
       metrics: [
@@ -981,6 +1044,37 @@ export function mediaCoverageSummaryGroups(rows, options = {}) {
           id: "tiktok-likes",
           label: "TikTok Likes",
           value: format(summary.tiktok.likes),
+        },
+      ],
+    },
+    {
+      id: "instagram",
+      title: "Instagram",
+      metrics: [
+        {
+          id: "instagram-reels",
+          label: "Instagram Reels",
+          value: format(summary.instagram.reels),
+        },
+        {
+          id: "instagram-creators",
+          label: "Individual Influencer Contribution Instagram",
+          value: format(summary.instagram.creators),
+        },
+        {
+          id: "instagram-views",
+          label: "Instagram Views",
+          value: format(summary.instagram.views),
+        },
+        {
+          id: "instagram-likes",
+          label: "Instagram Likes",
+          value: format(summary.instagram.likes),
+        },
+        {
+          id: "instagram-comments",
+          label: "Instagram Comments",
+          value: format(summary.instagram.comments),
         },
       ],
     },
@@ -1016,33 +1110,13 @@ export function mediaCoverageSummaryGroups(rows, options = {}) {
       ],
     },
     {
-      id: "instagram",
-      title: "Instagram",
+      id: "podcasts",
+      title: "Podcasts",
       metrics: [
         {
-          id: "instagram-reels",
-          label: "Instagram Reels",
-          value: format(summary.instagram.reels),
-        },
-        {
-          id: "instagram-creators",
-          label: "Individual Influencer Contribution Instagram",
-          value: format(summary.instagram.creators),
-        },
-        {
-          id: "instagram-views",
-          label: "Instagram Views",
-          value: format(summary.instagram.views),
-        },
-        {
-          id: "instagram-likes",
-          label: "Instagram Likes",
-          value: format(summary.instagram.likes),
-        },
-        {
-          id: "instagram-comments",
-          label: "Instagram Comments",
-          value: format(summary.instagram.comments),
+          id: "podcasts-count",
+          label: "Podcasts",
+          value: format(summary.podcasts.count),
         },
       ],
     },
@@ -1101,6 +1175,8 @@ export function mediaCoveragePlatformIcon(platform) {
 
 /** Map public/admin card ids → Summary override metric ids. */
 const MEDIA_COVERAGE_CARD_OVERRIDE_IDS = {
+  "total-audience": "total-audience",
+  "media-coverages": "media-coverages",
   "audience-youtube": "youtube-audience",
   "coverages-youtube": "youtube-coverages",
   "creators-youtube": "youtube-creators",
@@ -1145,6 +1221,7 @@ export function mediaCoverageSummaryCards(rows, options = {}) {
     options.summaryOverrides && typeof options.summaryOverrides === "object"
       ? options.summaryOverrides
       : {};
+  const totals = mediaCoverageTotalsFromOverrides(summary, overrides);
   const card = (partial) => {
     const display = mediaCoverageCardDisplayValue(
       partial.id,
@@ -1163,7 +1240,7 @@ export function mediaCoverageSummaryCards(rows, options = {}) {
     card({
       id: "total-audience",
       platform: "audience",
-      value: format(summary.totals.audience),
+      value: format(totals.audience),
       label: "Total Audience",
       hint: "Total sub & follower count",
       featured: true,
@@ -1171,7 +1248,7 @@ export function mediaCoverageSummaryCards(rows, options = {}) {
     card({
       id: "media-coverages",
       platform: "coverages",
-      value: format(summary.totals.coverages),
+      value: format(totals.coverages),
       label: "Media Coverages",
       hint: "All types of coverages",
       featured: true,
@@ -1219,13 +1296,6 @@ export function mediaCoverageSummaryCards(rows, options = {}) {
       hint: "Total number of comments",
     }),
     card({
-      id: "podcasts",
-      platform: "podcast",
-      value: format(summary.podcasts.count),
-      label: "Podcasts",
-      hint: "Total number of podcasts",
-    }),
-    card({
       id: "videos-tiktok",
       platform: "tiktok",
       value: format(summary.tiktok.videos),
@@ -1252,6 +1322,41 @@ export function mediaCoverageSummaryCards(rows, options = {}) {
       value: format(summary.tiktok.likes),
       label: "TikTok Likes",
       hint: "Total number of likes on TikTok",
+    }),
+    card({
+      id: "reels-instagram",
+      platform: "instagram",
+      value: format(summary.instagram.reels),
+      label: "Instagram Reels",
+      hint: "Total number of reels",
+    }),
+    card({
+      id: "creators-instagram",
+      platform: "instagram",
+      value: format(summary.instagram.creators),
+      label: "Individual Influencer Contribution Instagram",
+      hint: "Total number of different creators",
+    }),
+    card({
+      id: "views-instagram",
+      platform: "instagram",
+      value: format(summary.instagram.views),
+      label: "Instagram Views",
+      hint: "Total number views on Instagram",
+    }),
+    card({
+      id: "likes-instagram",
+      platform: "instagram",
+      value: format(summary.instagram.likes),
+      label: "Instagram Likes",
+      hint: "Total number of likes on Instagram",
+    }),
+    card({
+      id: "comments-instagram",
+      platform: "instagram",
+      value: format(summary.instagram.comments),
+      label: "Instagram Comments",
+      hint: "Total number of comments on Instagram",
     }),
     card({
       id: "videos-bilibili",
@@ -1289,39 +1394,11 @@ export function mediaCoverageSummaryCards(rows, options = {}) {
       hint: "Total number of comments on BiliBili",
     }),
     card({
-      id: "reels-instagram",
-      platform: "instagram",
-      value: format(summary.instagram.reels),
-      label: "Instagram Reels",
-      hint: "Total number of reels",
-    }),
-    card({
-      id: "creators-instagram",
-      platform: "instagram",
-      value: format(summary.instagram.creators),
-      label: "Individual Influencer Contribution Instagram",
-      hint: "Total number of different creators",
-    }),
-    card({
-      id: "views-instagram",
-      platform: "instagram",
-      value: format(summary.instagram.views),
-      label: "Instagram Views",
-      hint: "Total number views on Instagram",
-    }),
-    card({
-      id: "likes-instagram",
-      platform: "instagram",
-      value: format(summary.instagram.likes),
-      label: "Instagram Likes",
-      hint: "Total number of likes on Instagram",
-    }),
-    card({
-      id: "comments-instagram",
-      platform: "instagram",
-      value: format(summary.instagram.comments),
-      label: "Instagram Comments",
-      hint: "Total number of comments on Instagram",
+      id: "podcasts",
+      platform: "podcast",
+      value: format(summary.podcasts.count),
+      label: "Podcasts",
+      hint: "Total number of podcasts",
     }),
   ];
 }

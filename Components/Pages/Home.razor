@@ -359,25 +359,36 @@
                                     </article>
                                 }
                             </div>
-                            <div class="media-coverage-stat-grid">
-                                @foreach (var card in _mediaCoverageCards.Where(c => !c.Featured))
-                                {
-                                    <article class="media-coverage-stat-card">
-                                        @{
-                                            var iconSrc = MediaCoveragePlatformIconSrc(card.Platform);
-                                        }
-                                        @if (!string.IsNullOrWhiteSpace(iconSrc))
+                            @foreach (var platform in MediaCoverageStatPlatformOrder)
+                            {
+                                var platformCards = _mediaCoverageCards
+                                    .Where(c => !c.Featured
+                                        && string.Equals(c.Platform, platform.Id, StringComparison.OrdinalIgnoreCase))
+                                    .ToList();
+                                if (platformCards.Count == 0) continue;
+                                <section class="media-coverage-stat-platform" data-platform="@platform.Id">
+                                    <h4 class="media-coverage-stat-platform-title">@platform.Label</h4>
+                                    <div class="media-coverage-stat-grid">
+                                        @foreach (var card in platformCards)
                                         {
-                                            <span class="media-coverage-stat-icon is-@card.Platform" aria-hidden="true" title="@card.Label">
-                                                <img src="@iconSrc" alt="" loading="lazy" decoding="async" />
-                                            </span>
+                                            <article class="media-coverage-stat-card">
+                                                @{
+                                                    var iconSrc = MediaCoveragePlatformIconSrc(card.Platform);
+                                                }
+                                                @if (!string.IsNullOrWhiteSpace(iconSrc))
+                                                {
+                                                    <span class="media-coverage-stat-icon is-@card.Platform" aria-hidden="true" title="@card.Label">
+                                                        <img src="@iconSrc" alt="" loading="lazy" decoding="async" />
+                                                    </span>
+                                                }
+                                                <p class="media-coverage-stat-value">@card.Value</p>
+                                                <h4 class="media-coverage-stat-label">@card.Label</h4>
+                                                <p class="media-coverage-stat-hint">@card.Hint</p>
+                                            </article>
                                         }
-                                        <p class="media-coverage-stat-value">@card.Value</p>
-                                        <h4 class="media-coverage-stat-label">@card.Label</h4>
-                                        <p class="media-coverage-stat-hint">@card.Hint</p>
-                                    </article>
-                                }
-                            </div>
+                                    </div>
+                                </section>
+                            }
                         </div>
                     </div>
                 </section>
@@ -855,8 +866,19 @@
         return anonymous + byCreator.Values.Sum();
     }
 
+    private static readonly (string Id, string Label)[] MediaCoverageStatPlatformOrder =
+    [
+        ("youtube", "YouTube"),
+        ("tiktok", "TikTok"),
+        ("instagram", "Instagram"),
+        ("bilibili", "BiliBili"),
+        ("podcast", "Podcast"),
+    ];
+
     private static readonly Dictionary<string, string> MediaCoverageCardOverrideIds = new(StringComparer.Ordinal)
     {
+        ["total-audience"] = "total-audience",
+        ["media-coverages"] = "media-coverages",
         ["audience-youtube"] = "youtube-audience",
         ["coverages-youtube"] = "youtube-coverages",
         ["creators-youtube"] = "youtube-creators",
@@ -880,6 +902,16 @@
         ["comments-instagram"] = "instagram-comments",
     };
 
+    private static double OverrideOrComputed(
+        IReadOnlyDictionary<string, string> overrides,
+        string metricId,
+        double computed)
+    {
+        if (overrides.TryGetValue(metricId, out var raw) && !string.IsNullOrWhiteSpace(raw))
+            return MediaCoverageMetricNumber(raw);
+        return computed;
+    }
+
     private static List<MediaCoverageStatCard> BuildMediaCoverageCards(
         IReadOnlyList<Dictionary<string, string>> rows,
         IReadOnlyDictionary<string, string>? summaryOverrides = null)
@@ -898,7 +930,22 @@
         var youtubeAudience = UniqueCreatorFieldSum(youtube, "youtubeSubs");
         var tiktokAudience = UniqueCreatorFieldSum(tiktok, "tiktokFollower");
         var twitchAudience = UniqueCreatorFieldSum(twitch, "twitchFollower");
-        var totalAudience = youtubeAudience + tiktokAudience + twitchAudience;
+        var effectiveYoutubeAudience = OverrideOrComputed(overrides, "youtube-audience", youtubeAudience);
+        var totalAudience = effectiveYoutubeAudience + tiktokAudience + twitchAudience;
+        totalAudience = OverrideOrComputed(overrides, "total-audience", totalAudience);
+
+        var youtubeCoverages = (double)youtube.Count;
+        var podcastCount = (double)podcasts.Count;
+        var tiktokVideos = (double)tiktok.Count;
+        var bilibiliVideos = (double)bilibili.Count;
+        var instagramReels = (double)instagram.Count;
+        var totalCoverages = (double)rows.Count
+            - youtubeCoverages + OverrideOrComputed(overrides, "youtube-coverages", youtubeCoverages)
+            - podcastCount + OverrideOrComputed(overrides, "podcasts-count", podcastCount)
+            - tiktokVideos + OverrideOrComputed(overrides, "tiktok-videos", tiktokVideos)
+            - bilibiliVideos + OverrideOrComputed(overrides, "bilibili-videos", bilibiliVideos)
+            - instagramReels + OverrideOrComputed(overrides, "instagram-reels", instagramReels);
+        totalCoverages = OverrideOrComputed(overrides, "media-coverages", totalCoverages);
 
         MediaCoverageStatCard Card(
             string id, string value, string label, string hint, bool featured, string platform = "")
@@ -915,28 +962,28 @@
         return
         [
             Card("total-audience", Format(totalAudience), "Total Audience", "Total sub & follower count", true, "audience"),
-            Card("media-coverages", Format(rows.Count), "Media Coverages", "All types of coverages", true, "coverages"),
+            Card("media-coverages", Format(totalCoverages), "Media Coverages", "All types of coverages", true, "coverages"),
             Card("audience-youtube", Format(youtubeAudience), "Audience YouTube", "Total subscriber count", false, "youtube"),
             Card("coverages-youtube", Format(youtube.Count), "Media Coverages YouTube", "Pieces of content", false, "youtube"),
             Card("creators-youtube", Format(CountMediaCoverageCreators(youtube)), "Individual Influencer Contribution YouTube", "Total number of different creators", false, "youtube"),
             Card("views-youtube", Format(SumMediaCoverageField(youtube, "youtubeViews")), "YouTube Views", "Total number of views", false, "youtube"),
             Card("likes-youtube", Format(SumMediaCoverageField(youtube, "youtubeLikes")), "YouTube Likes", "Total number of likes", false, "youtube"),
             Card("comments-youtube", Format(SumMediaCoverageField(youtube, "youtubeComments")), "YouTube Comments", "Total number of comments", false, "youtube"),
-            Card("podcasts", Format(podcasts.Count), "Podcasts", "Total number of podcasts", false, "podcast"),
             Card("videos-tiktok", Format(tiktok.Count), "TikTok Videos", "Total number of videos", false, "tiktok"),
             Card("creators-tiktok", Format(CountMediaCoverageCreators(tiktok)), "Individual Influencer Contribution TikTok", "Total number of different creators", false, "tiktok"),
             Card("views-tiktok", Format(SumMediaCoverageField(tiktok, "tiktokViews")), "TikTok Views", "Total number views on TikTok", false, "tiktok"),
             Card("likes-tiktok", Format(SumMediaCoverageField(tiktok, "tiktokLikes")), "TikTok Likes", "Total number of likes on TikTok", false, "tiktok"),
-            Card("videos-bilibili", Format(bilibili.Count), "BiliBili Videos", "Total number of videos", false, "bilibili"),
-            Card("creators-bilibili", Format(CountMediaCoverageCreators(bilibili)), "Individual Influencer Contribution BiliBili", "Total number of different creators", false, "bilibili"),
-            Card("views-bilibili", Format(SumMediaCoverageField(bilibili, "bilibiliViews")), "BiliBili Views", "Total number views on BiliBili", false, "bilibili"),
-            Card("likes-bilibili", Format(SumMediaCoverageField(bilibili, "bilibiliLikes")), "BiliBili Likes", "Total number of likes on BiliBili", false, "bilibili"),
-            Card("comments-bilibili", Format(SumMediaCoverageField(bilibili, "bilibiliComments")), "BiliBili Comments", "Total number of comments on BiliBili", false, "bilibili"),
             Card("reels-instagram", Format(instagram.Count), "Instagram Reels", "Total number of reels", false, "instagram"),
             Card("creators-instagram", Format(CountMediaCoverageCreators(instagram)), "Individual Influencer Contribution Instagram", "Total number of different creators", false, "instagram"),
             Card("views-instagram", Format(SumMediaCoverageField(instagram, "instagramViews")), "Instagram Views", "Total number views on Instagram", false, "instagram"),
             Card("likes-instagram", Format(SumMediaCoverageField(instagram, "instagramLikes")), "Instagram Likes", "Total number of likes on Instagram", false, "instagram"),
             Card("comments-instagram", Format(SumMediaCoverageField(instagram, "instagramComments")), "Instagram Comments", "Total number of comments on Instagram", false, "instagram"),
+            Card("videos-bilibili", Format(bilibili.Count), "BiliBili Videos", "Total number of videos", false, "bilibili"),
+            Card("creators-bilibili", Format(CountMediaCoverageCreators(bilibili)), "Individual Influencer Contribution BiliBili", "Total number of different creators", false, "bilibili"),
+            Card("views-bilibili", Format(SumMediaCoverageField(bilibili, "bilibiliViews")), "BiliBili Views", "Total number views on BiliBili", false, "bilibili"),
+            Card("likes-bilibili", Format(SumMediaCoverageField(bilibili, "bilibiliLikes")), "BiliBili Likes", "Total number of likes on BiliBili", false, "bilibili"),
+            Card("comments-bilibili", Format(SumMediaCoverageField(bilibili, "bilibiliComments")), "BiliBili Comments", "Total number of comments on BiliBili", false, "bilibili"),
+            Card("podcasts", Format(podcasts.Count), "Podcasts", "Total number of podcasts", false, "podcast"),
         ];
     }
 
