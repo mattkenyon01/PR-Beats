@@ -81,6 +81,18 @@ export function loadMediaCoverage(token, gameTitle) {
   return api(`/api/media-coverage?${query.toString()}`, { token });
 }
 
+/** Replace media coverage JSON for one game title. */
+export function saveMediaCoverage(token, gameTitle, mediaCoverage) {
+  return api("/api/media-coverage", {
+    token,
+    method: "PUT",
+    body: {
+      gameTitle: String(gameTitle || "").trim() || "Untitled",
+      mediaCoverage: String(mediaCoverage ?? ""),
+    },
+  });
+}
+
 export function loadPublicAnnouncements(search = "") {
   const query =
     typeof search === "string"
@@ -94,6 +106,34 @@ export function loadPublicAnnouncements(search = "") {
       : `?${query}`
     : "";
   return api(`/api/public/announcements${suffix}`, { method: "GET" });
+}
+
+/** Load media coverage for one game on the public homepage (share-gated). */
+export function loadPublicMediaCoverage(gameTitle, search = "") {
+  const params = new URLSearchParams();
+  params.set("game", String(gameTitle || "").trim() || "Untitled");
+  const raw =
+    typeof search === "string"
+      ? search.replace(/^\?/, "")
+      : search instanceof URLSearchParams
+        ? search.toString()
+        : "";
+  if (raw) {
+    const fromPage = new URLSearchParams(raw);
+    const shareId = String(fromPage.get("s") || "").trim();
+    if (shareId) params.set("s", shareId);
+    fromPage.getAll("game").forEach((value) => {
+      const next = String(value || "").trim();
+      if (next) params.append("game", next);
+    });
+    fromPage.getAll("games").forEach((value) => {
+      const next = String(value || "").trim();
+      if (next) params.append("games", next);
+    });
+  }
+  return api(`/api/public/media-coverage?${params.toString()}`, {
+    method: "GET",
+  });
 }
 
 export function saveAnnouncements(token, rows, revision = "") {
@@ -434,23 +474,6 @@ export async function uploadPressReleasePdf(token, file, label = "") {
 
 export function isPersistedCoverUrl(url) {
   return /\/api\/(?:game-images|coverage-covers)\//i.test(String(url || "").trim());
-}
-
-/**
- * Fetch one small page of YouTube search results + video stats.
- * Pass pageToken from a previous response to continue.
- */
-export function searchYouTubeVideos(
-  token,
-  { query, pageToken = "", maxResults = 50 } = {}
-) {
-  const params = new URLSearchParams({
-    q: String(query || "").trim(),
-    maxResults: String(maxResults || 50),
-  });
-  const tokenValue = String(pageToken || "").trim();
-  if (tokenValue) params.set("pageToken", tokenValue);
-  return api(`/api/youtube-search?${params.toString()}`, { token });
 }
 
 /** Fetch a remote cover image into R2 and return the stable Worker URL. */

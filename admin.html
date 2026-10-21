@@ -115,16 +115,6 @@
               <circle cx="12" cy="12" r="3"/>
             </svg>
           </button>
-          <button
-            type="button"
-            class="btn-icon game-youtube-test-btn"
-            id="game-youtube-test-btn"
-            aria-label="YouTube test space"
-            title="YouTube test space"
-            hidden
-          >
-            !
-          </button>
           <button type="button" class="btn-icon game-detail-delete" id="game-detail-delete" aria-label="Delete game" title="Delete game" hidden>
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M3 6h18"/>
@@ -174,119 +164,7 @@
           <header class="game-detail-header" id="game-detail-header"></header>
           <div class="game-sections" id="game-sections"></div>
         </div>
-        <div class="youtube-test-page" id="youtube-test-page" hidden>
-          <div class="youtube-test-toolbar">
-            <div class="youtube-test-copy">
-              <h2 class="youtube-test-title" id="youtube-test-title">YouTube test</h2>
-              <p class="youtube-test-hint" id="youtube-test-hint">
-                Fetch a small batch of videos whose title or description matches this game.
-              </p>
-            </div>
-            <div class="youtube-test-actions">
-              <input
-                id="youtube-test-csv-input"
-                type="file"
-                accept=".csv,text/csv"
-                hidden
-              />
-              <button type="button" class="btn-ghost" id="youtube-test-import">
-                Import CSV
-              </button>
-              <button type="button" class="btn-primary" id="youtube-test-fetch">
-                Fetch videos
-              </button>
-            </div>
-          </div>
-          <p class="youtube-test-status" id="youtube-test-status" hidden></p>
-          <div class="youtube-test-totals" id="youtube-test-totals" aria-live="polite">
-            <div class="youtube-test-total">
-              <span class="youtube-test-total-label">Overall views</span>
-              <span class="youtube-test-total-value" id="youtube-test-total-views">0</span>
-            </div>
-            <div class="youtube-test-total">
-              <span class="youtube-test-total-label">Overall likes</span>
-              <span class="youtube-test-total-value" id="youtube-test-total-likes">0</span>
-            </div>
-            <div class="youtube-test-total">
-              <span class="youtube-test-total-label">Overall comments</span>
-              <span class="youtube-test-total-value" id="youtube-test-total-comments">0</span>
-            </div>
-            <div class="youtube-test-total">
-              <span class="youtube-test-total-label">Overall subscribers</span>
-              <span class="youtube-test-total-value" id="youtube-test-total-subscribers">0</span>
-            </div>
-          </div>
-          <div
-            class="youtube-test-shared-words"
-            id="youtube-test-shared-words"
-            hidden
-          >
-            <p class="youtube-test-shared-words-label">
-              Words shared across titles
-            </p>
-            <div
-              class="youtube-test-shared-words-list"
-              id="youtube-test-shared-words-list"
-            ></div>
-          </div>
-          <div class="table-wrap grid-table-wrap youtube-test-table-wrap">
-            <table class="grid-table youtube-test-table">
-              <thead>
-                <tr>
-                  <th scope="col">Title</th>
-                  <th scope="col">Channel</th>
-                  <th scope="col">Subscribers</th>
-                  <th scope="col">Published</th>
-                  <th scope="col">Views</th>
-                  <th scope="col">Likes</th>
-                  <th scope="col">Comments</th>
-                  <th scope="col">URL</th>
-                </tr>
-              </thead>
-              <tbody id="youtube-test-body"></tbody>
-            </table>
-          </div>
-          <section
-            class="youtube-test-missing"
-            id="youtube-test-missing"
-            hidden
-          >
-            <div class="youtube-test-missing-heading">
-              <h3 class="youtube-test-missing-title">
-                Missing from fetch results
-              </h3>
-              <p class="youtube-test-missing-count" id="youtube-test-missing-count"></p>
-            </div>
-            <p class="youtube-test-missing-hint">
-              CSV rows (YouTube Title + Details URL) that are not in the table above.
-            </p>
-            <div
-              class="youtube-test-shared-words"
-              id="youtube-test-missing-shared-words"
-              hidden
-            >
-              <p class="youtube-test-shared-words-label">
-                Words shared across missing titles
-              </p>
-              <div
-                class="youtube-test-shared-words-list"
-                id="youtube-test-missing-shared-words-list"
-              ></div>
-            </div>
-            <div class="table-wrap grid-table-wrap youtube-test-table-wrap">
-              <table class="grid-table youtube-test-table youtube-test-missing-table">
-                <thead>
-                  <tr>
-                    <th scope="col">YouTube Title</th>
-                    <th scope="col">Details / URL</th>
-                  </tr>
-                </thead>
-                <tbody id="youtube-test-missing-body"></tbody>
-              </table>
-            </div>
-          </section>
-        </div>
-        <div class="coverage-links-page" id="coverage-links-page" hidden>
+<div class="coverage-links-page" id="coverage-links-page" hidden>
           <input
             id="coverage-links-dialog-title"
             type="hidden"
@@ -748,6 +626,7 @@
       parseCoverageLinksValue,
       parseCoverageSectionTitle,
       parseMediaCoverageValue,
+      parseMediaCoverageSummaryOverrides,
       serializeCoverageLinksValue,
       serializeMediaCoverageValue,
       mediaCoverageSummaryGroups,
@@ -756,6 +635,7 @@
       loadAnnouncements,
       loadAnnouncementsRevision,
       loadMediaCoverage,
+      saveMediaCoverage,
       saveAnnouncements,
       saveAnnouncementRow,
       deleteAnnouncementRow as deleteAnnouncementRowApi,
@@ -774,7 +654,6 @@
       linkPreviewImageUrl,
       isPersistedCoverUrl,
       storeCoverageCover,
-      searchYouTubeVideos,
     } from "./js/api.js";
 
     const panel = document.getElementById("panel");
@@ -810,92 +689,8 @@
     const gameLoadingName = document.getElementById("game-loading-name");
     let gameLoadingToken = 0;
     const gameDetailDelete = document.getElementById("game-detail-delete");
-    const gameYoutubeTestBtn = document.getElementById("game-youtube-test-btn");
-    const youtubeTestPageEl = document.getElementById("youtube-test-page");
-    const youtubeTestTitleEl = document.getElementById("youtube-test-title");
-    const youtubeTestHintEl = document.getElementById("youtube-test-hint");
-    const youtubeTestFetchBtn = document.getElementById("youtube-test-fetch");
-    const youtubeTestImportBtn = document.getElementById("youtube-test-import");
-    const youtubeTestCsvInput = document.getElementById("youtube-test-csv-input");
-    const youtubeTestStatusEl = document.getElementById("youtube-test-status");
-    const youtubeTestBodyEl = document.getElementById("youtube-test-body");
-    const youtubeTestMissingEl = document.getElementById("youtube-test-missing");
-    const youtubeTestMissingBodyEl = document.getElementById(
-      "youtube-test-missing-body"
-    );
-    const youtubeTestMissingCountEl = document.getElementById(
-      "youtube-test-missing-count"
-    );
-    const youtubeTestMissingSharedWordsEl = document.getElementById(
-      "youtube-test-missing-shared-words"
-    );
-    const youtubeTestMissingSharedWordsListEl = document.getElementById(
-      "youtube-test-missing-shared-words-list"
-    );
-    const youtubeTestTotalViewsEl = document.getElementById(
-      "youtube-test-total-views"
-    );
-    const youtubeTestTotalLikesEl = document.getElementById(
-      "youtube-test-total-likes"
-    );
-    const youtubeTestTotalCommentsEl = document.getElementById(
-      "youtube-test-total-comments"
-    );
-    const youtubeTestTotalSubscribersEl = document.getElementById(
-      "youtube-test-total-subscribers"
-    );
-    const youtubeTestSharedWordsEl = document.getElementById(
-      "youtube-test-shared-words"
-    );
-    const youtubeTestSharedWordsListEl = document.getElementById(
-      "youtube-test-shared-words-list"
-    );
-    const YOUTUBE_TITLE_STOP_WORDS = new Set([
-      "a",
-      "an",
-      "and",
-      "are",
-      "as",
-      "at",
-      "be",
-      "by",
-      "for",
-      "from",
-      "in",
-      "into",
-      "is",
-      "it",
-      "its",
-      "of",
-      "on",
-      "or",
-      "our",
-      "that",
-      "the",
-      "this",
-      "to",
-      "vs",
-      "was",
-      "were",
-      "with",
-      "you",
-      "your",
-      "my",
-      "we",
-      "i",
-    ]);
-    const gameDetailHeader = document.getElementById("game-detail-header");
-    let youtubeTestPageOpen = false;
-    let youtubeTestState = {
-      gameTitle: "",
-      nextPageToken: "",
-      videos: [],
-      loading: false,
-      autoFetch: false,
-      csvRows: [],
-    };
-    const YOUTUBE_TEST_PAGE_SIZE = 50;
-    const mediaCoverageViewportHScroll = document.getElementById(
+        const gameDetailHeader = document.getElementById("game-detail-header");
+const mediaCoverageViewportHScroll = document.getElementById(
       "media-coverage-viewport-hscroll"
     );
     const mediaCoverageViewportHScrollSpacer = document.getElementById(
@@ -2475,7 +2270,11 @@
 
     function mediaCoverageDialogIsDirty() {
       if (!mediaCoverageEdit) return false;
-      const next = serializeMediaCoverageValue(collectMediaCoverageDialogRows());
+      const next = serializeMediaCoverageValue(collectMediaCoverageDialogRows(), {
+        summaryOverrides: parseMediaCoverageSummaryOverrides(
+          mediaCoverageEdit.baselineSerialized
+        ),
+      });
       return next !== (mediaCoverageEdit.baselineSerialized || "");
     }
 
@@ -2869,7 +2668,12 @@
       }
 
       const nextValue = serializeMediaCoverageValue(
-        collectMediaCoverageDialogRows()
+        collectMediaCoverageDialogRows(),
+        {
+          summaryOverrides: parseMediaCoverageSummaryOverrides(
+            mediaCoverageEdit.baselineSerialized
+          ),
+        }
       );
       const changed =
         nextValue !== (mediaCoverageEdit.baselineSerialized || "");
@@ -3131,9 +2935,6 @@
       if (coverageLinksPageOpen) {
         closeCoverageLinksDialog({ updateUrl: false });
       }
-      if (youtubeTestPageOpen) {
-        closeYoutubeTestPage({ restoreDetail: false });
-      }
       activeGameTitle = "";
       setAppTitle(APP_TITLE_DEFAULT);
       hideMediaCoverageViewportHScroll();
@@ -3142,593 +2943,6 @@
       if (currentTable) renderTable(currentTable, currentFileName);
       else renderEmptyCatalog();
     }
-
-    function formatYoutubeCount(value) {
-      const n = Number(String(value || "").replace(/,/g, ""));
-      if (!Number.isFinite(n)) return "0";
-      return n.toLocaleString("en-US");
-    }
-
-    function formatYoutubeDate(value) {
-      const raw = String(value || "").trim();
-      if (!raw) return "—";
-      const date = new Date(raw);
-      if (Number.isNaN(date.getTime())) return raw;
-      return date.toLocaleDateString(undefined, {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      });
-    }
-
-    function setYoutubeTestStatus(message, { error = false } = {}) {
-      if (!youtubeTestStatusEl) return;
-      const text = String(message || "").trim();
-      youtubeTestStatusEl.hidden = !text;
-      youtubeTestStatusEl.textContent = text;
-      youtubeTestStatusEl.classList.toggle("is-error", Boolean(error && text));
-    }
-
-    function youtubeTestCountValue(value) {
-      const n = Number(String(value || "").replace(/,/g, ""));
-      return Number.isFinite(n) ? n : 0;
-    }
-
-    function renderYoutubeTestTotals() {
-      let views = 0;
-      let likes = 0;
-      let comments = 0;
-      const channelSubs = new Map();
-      youtubeTestState.videos.forEach((video) => {
-        views += youtubeTestCountValue(video.viewCount);
-        likes += youtubeTestCountValue(video.likeCount);
-        comments += youtubeTestCountValue(video.commentCount);
-        const channelId = String(video.channelId || "").trim();
-        const channelKey = channelId || `name:${video.channelTitle || ""}`;
-        if (!channelKey || channelKey === "name:") return;
-        if (!channelSubs.has(channelKey)) {
-          channelSubs.set(
-            channelKey,
-            youtubeTestCountValue(video.subscriberCount)
-          );
-        }
-      });
-      let subscribers = 0;
-      for (const count of channelSubs.values()) subscribers += count;
-      if (youtubeTestTotalViewsEl) {
-        youtubeTestTotalViewsEl.textContent = views.toLocaleString("en-US");
-      }
-      if (youtubeTestTotalLikesEl) {
-        youtubeTestTotalLikesEl.textContent = likes.toLocaleString("en-US");
-      }
-      if (youtubeTestTotalCommentsEl) {
-        youtubeTestTotalCommentsEl.textContent =
-          comments.toLocaleString("en-US");
-      }
-      if (youtubeTestTotalSubscribersEl) {
-        youtubeTestTotalSubscribersEl.textContent =
-          subscribers.toLocaleString("en-US");
-      }
-    }
-
-    function youtubeTitleWordTokens(value) {
-      return String(value || "")
-        .toLowerCase()
-        .normalize("NFKD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .replace(/['’`´]/g, "")
-        .replace(/[^a-z0-9]+/g, " ")
-        .trim()
-        .split(/\s+/)
-        .filter(
-          (token) =>
-            token.length >= 3 &&
-            !YOUTUBE_TITLE_STOP_WORDS.has(token) &&
-            !/^\d+$/.test(token)
-        );
-    }
-
-    function listYoutubeSharedTitleWords(titles, gameTitle) {
-      const list = (Array.isArray(titles) ? titles : [])
-        .map((entry) => {
-          if (typeof entry === "string") return entry;
-          return String(entry?.title || "");
-        })
-        .filter((title) => Boolean(String(title || "").trim()));
-      const total = list.length;
-      if (total < 2) return [];
-      const gameTokens = new Set(youtubeTitleWordTokens(gameTitle));
-      const docFreq = new Map();
-      list.forEach((title) => {
-        const seen = new Set();
-        youtubeTitleWordTokens(title).forEach((token) => {
-          if (gameTokens.has(token) || seen.has(token)) return;
-          seen.add(token);
-          docFreq.set(token, (docFreq.get(token) || 0) + 1);
-        });
-      });
-      return [...docFreq.entries()]
-        .filter(([, count]) => count >= 2)
-        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-        .slice(0, 36)
-        .map(([word, count]) => ({ word, count, total }));
-    }
-
-    function fillYoutubeSharedWordsList(containerEl, listEl, shared) {
-      if (!containerEl || !listEl) return;
-      listEl.innerHTML = "";
-      if (!shared.length) {
-        containerEl.hidden = true;
-        return;
-      }
-      containerEl.hidden = false;
-      shared.forEach(({ word, count, total }) => {
-        const item = document.createElement("span");
-        item.className = "youtube-test-shared-word";
-        item.title = `“${word}” found in ${count} of ${total} titles`;
-        const wordEl = document.createElement("span");
-        wordEl.className = "youtube-test-shared-word-text";
-        wordEl.textContent = word;
-        const countEl = document.createElement("span");
-        countEl.className = "youtube-test-shared-word-count";
-        countEl.textContent = `${count}/${total}`;
-        item.append(wordEl, countEl);
-        listEl.appendChild(item);
-      });
-    }
-
-    function renderYoutubeTestSharedWords() {
-      const gameTitle = String(
-        youtubeTestState.gameTitle || activeGameTitle || ""
-      ).trim();
-      fillYoutubeSharedWordsList(
-        youtubeTestSharedWordsEl,
-        youtubeTestSharedWordsListEl,
-        listYoutubeSharedTitleWords(youtubeTestState.videos, gameTitle)
-      );
-    }
-
-    function renderYoutubeTestMissingSharedWords(missing) {
-      const gameTitle = String(
-        youtubeTestState.gameTitle || activeGameTitle || ""
-      ).trim();
-      fillYoutubeSharedWordsList(
-        youtubeTestMissingSharedWordsEl,
-        youtubeTestMissingSharedWordsListEl,
-        listYoutubeSharedTitleWords(missing, gameTitle)
-      );
-    }
-
-    function youtubeVideoIdFromUrl(value) {
-      const raw = String(value || "").trim();
-      if (!raw) return "";
-      if (/^[\w-]{11}$/.test(raw)) return raw;
-      try {
-        const url = new URL(raw, "https://www.youtube.com");
-        const host = url.hostname.replace(/^www\./, "").toLowerCase();
-        if (host === "youtu.be") {
-          return url.pathname.replace(/^\//, "").split("/")[0] || "";
-        }
-        if (
-          host.endsWith("youtube.com") ||
-          host.endsWith("youtube-nocookie.com")
-        ) {
-          const fromQuery = String(url.searchParams.get("v") || "").trim();
-          if (fromQuery) return fromQuery;
-          const pathMatch = url.pathname.match(
-            /\/(?:shorts|embed|live|v)\/([^/?#]+)/i
-          );
-          if (pathMatch?.[1]) return pathMatch[1];
-        }
-      } catch {
-        // Ignore invalid URLs.
-      }
-      return "";
-    }
-
-    function normalizeYoutubeTitleKey(value) {
-      return String(value || "")
-        .toLowerCase()
-        .normalize("NFKD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .replace(/['’`´]/g, "")
-        .replace(/[^a-z0-9]+/g, " ")
-        .trim()
-        .replace(/\s+/g, " ");
-    }
-
-    function youtubeCsvRowFromMediaCoverage(row) {
-      const title = String(row?.youtubeTitle || "").trim();
-      const details = String(row?.details || row?.handleUrl || "").trim();
-      const id = youtubeVideoIdFromUrl(details);
-      const platform = mediaCoveragePlatformId(row?.type);
-      const looksLikeYoutube =
-        platform === "youtube" ||
-        Boolean(id) ||
-        /youtu\.?be|youtube\.com/i.test(details) ||
-        (Boolean(title) && !details);
-      if (!looksLikeYoutube || (!title && !details)) return null;
-      return { title, details, id };
-    }
-
-    function listYoutubeTestMissingFromCsv() {
-      const csvRows = Array.isArray(youtubeTestState.csvRows)
-        ? youtubeTestState.csvRows
-        : [];
-      if (!csvRows.length) return [];
-
-      const fetchedIds = new Set(
-        youtubeTestState.videos
-          .map((video) =>
-            String(
-              video?.id || youtubeVideoIdFromUrl(video?.url) || ""
-            ).trim()
-          )
-          .filter(Boolean)
-      );
-      const fetchedTitles = new Set(
-        youtubeTestState.videos
-          .map((video) => normalizeYoutubeTitleKey(video?.title))
-          .filter(Boolean)
-      );
-
-      const missing = [];
-      const seen = new Set();
-      csvRows.forEach((row) => {
-        const entry = youtubeCsvRowFromMediaCoverage(row);
-        if (!entry) return;
-        const titleKey = normalizeYoutubeTitleKey(entry.title);
-        const dedupeKey = entry.id || titleKey || entry.details.toLowerCase();
-        if (!dedupeKey || seen.has(dedupeKey)) return;
-        seen.add(dedupeKey);
-
-        if (entry.id && fetchedIds.has(entry.id)) return;
-        if (titleKey && fetchedTitles.has(titleKey)) return;
-        missing.push(entry);
-      });
-      return missing;
-    }
-
-    function renderYoutubeTestMissing() {
-      if (!youtubeTestMissingEl || !youtubeTestMissingBodyEl) return;
-      const missing = listYoutubeTestMissingFromCsv();
-      youtubeTestMissingBodyEl.innerHTML = "";
-
-      if (!youtubeTestState.csvRows?.length) {
-        youtubeTestMissingEl.hidden = true;
-        if (youtubeTestMissingCountEl) youtubeTestMissingCountEl.textContent = "";
-        renderYoutubeTestMissingSharedWords([]);
-        return;
-      }
-
-      youtubeTestMissingEl.hidden = false;
-      if (youtubeTestMissingCountEl) {
-        youtubeTestMissingCountEl.textContent = `${missing.length} missing`;
-      }
-      renderYoutubeTestMissingSharedWords(missing);
-
-      if (!missing.length) {
-        const tr = document.createElement("tr");
-        const td = document.createElement("td");
-        td.colSpan = 2;
-        td.className = "empty-filter";
-        td.textContent =
-          "All imported YouTube Title / Details rows are present in the fetch results.";
-        tr.appendChild(td);
-        youtubeTestMissingBodyEl.appendChild(tr);
-        return;
-      }
-
-      missing.forEach((entry) => {
-        const tr = document.createElement("tr");
-        const titleTd = document.createElement("td");
-        titleTd.textContent = entry.title || "—";
-        const urlTd = document.createElement("td");
-        if (entry.details) {
-          const a = document.createElement("a");
-          a.href = entry.details;
-          a.target = "_blank";
-          a.rel = "noopener noreferrer";
-          a.textContent = entry.details;
-          urlTd.appendChild(a);
-        } else {
-          urlTd.textContent = "—";
-        }
-        tr.appendChild(titleTd);
-        tr.appendChild(urlTd);
-        youtubeTestMissingBodyEl.appendChild(tr);
-      });
-    }
-
-    function importYoutubeTestCsvFile(file) {
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        try {
-          const rows = mediaCoverageFromCsv(String(reader.result || ""));
-          const youtubeRows = rows.filter((row) =>
-            youtubeCsvRowFromMediaCoverage(row)
-          );
-          if (!youtubeRows.length) {
-            throw new Error(
-              "No YouTube rows found. Need “Youtube Title” and/or “Details, e.g. an url” columns."
-            );
-          }
-          youtubeTestState.csvRows = youtubeRows;
-          renderYoutubeTestMissing();
-          const missing = listYoutubeTestMissingFromCsv();
-          setYoutubeTestStatus(
-            `Imported ${youtubeRows.length} YouTube CSV row${
-              youtubeRows.length === 1 ? "" : "s"
-            } · ${missing.length} missing from fetch results.`
-          );
-        } catch (err) {
-          setYoutubeTestStatus(
-            err instanceof Error ? err.message : "Could not import that CSV.",
-            { error: true }
-          );
-        }
-      };
-      reader.onerror = () =>
-        setYoutubeTestStatus("Could not read that CSV file.", { error: true });
-      reader.readAsText(file);
-    }
-
-    function renderYoutubeTestRows() {
-      renderYoutubeTestTotals();
-      renderYoutubeTestSharedWords();
-      if (!youtubeTestBodyEl) return;
-      youtubeTestBodyEl.innerHTML = "";
-      if (!youtubeTestState.videos.length) {
-        const tr = document.createElement("tr");
-        const td = document.createElement("td");
-        td.colSpan = 8;
-        td.className = "empty-filter";
-        td.textContent = "No videos fetched yet. Press Fetch videos.";
-        tr.appendChild(td);
-        youtubeTestBodyEl.appendChild(tr);
-        renderYoutubeTestMissing();
-        return;
-      }
-
-      youtubeTestState.videos.forEach((video) => {
-        const tr = document.createElement("tr");
-        const cells = [
-          video.title || "Untitled",
-          video.channelTitle || "—",
-          formatYoutubeCount(video.subscriberCount),
-          formatYoutubeDate(video.publishedAt),
-          formatYoutubeCount(video.viewCount),
-          formatYoutubeCount(video.likeCount),
-          formatYoutubeCount(video.commentCount),
-        ];
-        cells.forEach((text, index) => {
-          const td = document.createElement("td");
-          td.textContent = text;
-          if (index === 2 || index >= 4) td.className = "youtube-test-num";
-          tr.appendChild(td);
-        });
-        const urlTd = document.createElement("td");
-        const url = String(video.url || "").trim();
-        if (url) {
-          const a = document.createElement("a");
-          a.href = url;
-          a.target = "_blank";
-          a.rel = "noopener noreferrer";
-          a.textContent = url;
-          urlTd.appendChild(a);
-        } else {
-          urlTd.textContent = "—";
-        }
-        tr.appendChild(urlTd);
-        youtubeTestBodyEl.appendChild(tr);
-      });
-      renderYoutubeTestMissing();
-    }
-
-    function syncYoutubeTestFetchButton() {
-      if (!youtubeTestFetchBtn) return;
-      const hasMore =
-        !youtubeTestState.videos.length ||
-        Boolean(youtubeTestState.nextPageToken);
-      if (youtubeTestState.autoFetch) {
-        youtubeTestFetchBtn.disabled = false;
-        youtubeTestFetchBtn.textContent = "Stop";
-        youtubeTestFetchBtn.setAttribute("aria-pressed", "true");
-        youtubeTestFetchBtn.classList.add("is-stop");
-        return;
-      }
-      youtubeTestFetchBtn.classList.remove("is-stop");
-      youtubeTestFetchBtn.setAttribute("aria-pressed", "false");
-      youtubeTestFetchBtn.disabled = youtubeTestState.loading || !hasMore;
-      youtubeTestFetchBtn.textContent = youtubeTestState.loading
-        ? "Fetching…"
-        : hasMore
-          ? "Fetch videos"
-          : "No more results";
-    }
-
-    function stopYoutubeTestAutoFetch(statusMessage = "") {
-      youtubeTestState.autoFetch = false;
-      if (statusMessage) setYoutubeTestStatus(statusMessage);
-      syncYoutubeTestFetchButton();
-    }
-
-    function openYoutubeTestPage() {
-      const gameTitle = String(activeGameTitle || "").trim();
-      if (!gameTitle) return;
-      if (coverageLinksPageOpen) {
-        closeCoverageLinksDialog({ updateUrl: false });
-      }
-      youtubeTestPageOpen = true;
-      youtubeTestState = {
-        gameTitle,
-        nextPageToken: "",
-        videos: [],
-        loading: false,
-        autoFetch: false,
-        csvRows: [],
-      };
-      if (youtubeTestTitleEl) {
-        youtubeTestTitleEl.textContent = `YouTube test — ${gameTitle}`;
-      }
-      if (youtubeTestHintEl) {
-        youtubeTestHintEl.textContent = `Press Fetch to keep loading batches of up to ${YOUTUBE_TEST_PAGE_SIZE}. Searches several title variants (exact phrase, without “The”, shorter forms) by views, date, and relevance. Keeps videos that mention “${gameTitle}” in the title, description, or timestamp/chapter lines. Press Stop to pause.`;
-      }
-      setYoutubeTestStatus("");
-      renderYoutubeTestRows();
-      syncYoutubeTestFetchButton();
-      if (gameCatalogEl) gameCatalogEl.hidden = true;
-      if (gameDetailEl) gameDetailEl.hidden = true;
-      if (coverageLinksPageEl) coverageLinksPageEl.hidden = true;
-      if (youtubeTestPageEl) youtubeTestPageEl.hidden = false;
-      panel?.classList.add("is-youtube-test-page");
-      setAppTitle(gameTitle);
-      if (gameYoutubeTestBtn) gameYoutubeTestBtn.classList.add("is-active");
-      hideMediaCoverageViewportHScroll();
-    }
-
-    function closeYoutubeTestPage({ restoreDetail = true } = {}) {
-      if (!youtubeTestPageOpen && youtubeTestPageEl?.hidden !== false) return;
-      youtubeTestPageOpen = false;
-      youtubeTestState.autoFetch = false;
-      youtubeTestState.loading = false;
-      if (youtubeTestPageEl) youtubeTestPageEl.hidden = true;
-      panel?.classList.remove("is-youtube-test-page");
-      if (gameYoutubeTestBtn) gameYoutubeTestBtn.classList.remove("is-active");
-      setYoutubeTestStatus("");
-      if (restoreDetail && activeGameTitle) {
-        if (gameDetailEl) gameDetailEl.hidden = false;
-        if (gameCatalogEl) gameCatalogEl.hidden = true;
-        setAppTitle(activeGameTitle);
-      }
-    }
-
-    async function fetchYoutubeTestPage() {
-      const gameTitle = String(
-        youtubeTestState.gameTitle || activeGameTitle || ""
-      ).trim();
-      if (!gameTitle || youtubeTestState.loading) return false;
-      if (
-        youtubeTestState.videos.length &&
-        !youtubeTestState.nextPageToken
-      ) {
-        setYoutubeTestStatus("No more YouTube results for this search.");
-        stopYoutubeTestAutoFetch();
-        return false;
-      }
-
-      youtubeTestState.loading = true;
-      syncYoutubeTestFetchButton();
-      setYoutubeTestStatus(
-        youtubeTestState.autoFetch
-          ? `Fetching… (${youtubeTestState.videos.length} loaded so far)`
-          : youtubeTestState.videos.length
-            ? "Fetching next batch…"
-            : "Searching YouTube…"
-      );
-
-      try {
-        const token = await getIdToken();
-        const data = await searchYouTubeVideos(token, {
-          query: gameTitle,
-          pageToken: youtubeTestState.nextPageToken,
-          maxResults: YOUTUBE_TEST_PAGE_SIZE,
-        });
-        const batch = Array.isArray(data?.videos) ? data.videos : [];
-        const seen = new Set(youtubeTestState.videos.map((v) => v.id));
-        batch.forEach((video) => {
-          const id = String(video?.id || "").trim();
-          if (!id || seen.has(id)) return;
-          seen.add(id);
-          youtubeTestState.videos.push(video);
-        });
-        youtubeTestState.nextPageToken = String(data?.nextPageToken || "");
-        renderYoutubeTestRows();
-        const totalHint = Number(data?.totalResults)
-          ? ` · ~${Number(data.totalResults).toLocaleString("en-US")} estimated matches`
-          : "";
-        const queryHint = Array.isArray(data?.searchQueries) && data.searchQueries.length
-          ? ` · ${data.searchQueries.length} search lanes`
-          : "";
-        if (youtubeTestState.autoFetch && youtubeTestState.nextPageToken) {
-          setYoutubeTestStatus(
-            `Loaded ${youtubeTestState.videos.length} video${
-              youtubeTestState.videos.length === 1 ? "" : "s"
-            }… fetching more${totalHint}${queryHint}.`
-          );
-        } else {
-          setYoutubeTestStatus(
-            batch.length
-              ? `Loaded ${batch.length} video${batch.length === 1 ? "" : "s"} (${youtubeTestState.videos.length} total)${totalHint}${queryHint}.`
-              : youtubeTestState.nextPageToken
-                ? "This page had no matching videos. Continuing…"
-                : "No matching videos found."
-          );
-        }
-        return Boolean(youtubeTestState.nextPageToken);
-      } catch (err) {
-        stopYoutubeTestAutoFetch();
-        setYoutubeTestStatus(
-          err instanceof Error ? err.message : "YouTube search failed.",
-          { error: true }
-        );
-        return false;
-      } finally {
-        youtubeTestState.loading = false;
-        syncYoutubeTestFetchButton();
-      }
-    }
-
-    async function runYoutubeTestAutoFetch() {
-      if (youtubeTestState.autoFetch || youtubeTestState.loading) return;
-      const hasMore =
-        !youtubeTestState.videos.length ||
-        Boolean(youtubeTestState.nextPageToken);
-      if (!hasMore) {
-        setYoutubeTestStatus("No more YouTube results for this search.");
-        syncYoutubeTestFetchButton();
-        return;
-      }
-
-      youtubeTestState.autoFetch = true;
-      syncYoutubeTestFetchButton();
-
-      while (youtubeTestState.autoFetch && youtubeTestPageOpen) {
-        const hasNext = await fetchYoutubeTestPage();
-        if (!youtubeTestState.autoFetch || !youtubeTestPageOpen) break;
-        if (!hasNext) {
-          stopYoutubeTestAutoFetch(
-            youtubeTestState.videos.length
-              ? `Finished — ${youtubeTestState.videos.length} video${
-                  youtubeTestState.videos.length === 1 ? "" : "s"
-                } loaded.`
-              : "No matching videos found."
-          );
-          break;
-        }
-        await new Promise((resolve) => setTimeout(resolve, 200));
-      }
-
-      if (!youtubeTestState.autoFetch) {
-        syncYoutubeTestFetchButton();
-      }
-    }
-
-    function toggleYoutubeTestFetch() {
-      if (youtubeTestState.autoFetch) {
-        stopYoutubeTestAutoFetch(
-          youtubeTestState.loading
-            ? "Stopping after this batch…"
-            : `Stopped — ${youtubeTestState.videos.length} video${
-                youtubeTestState.videos.length === 1 ? "" : "s"
-              } loaded.`
-        );
-        return;
-      }
-      void runYoutubeTestAutoFetch();
-    }
-
 
     function rememberDatasetRevision(revision, etag = "") {
       datasetRevision = String(revision ?? "");
@@ -5796,8 +5010,7 @@
         settingsView.hidden &&
         hasTable &&
         !activeGameTitle &&
-        !coverageLinksPageOpen &&
-        !youtubeTestPageOpen;
+        !coverageLinksPageOpen;
       catalogViewToggle.hidden = !show;
       if (!show) return;
       const isTable = catalogViewMode === "table";
@@ -5838,9 +5051,6 @@
 
     function setView(view) {
       const settings = view === "settings";
-      if (settings && youtubeTestPageOpen) {
-        closeYoutubeTestPage({ restoreDetail: false });
-      }
       workspaceView.hidden = settings;
       settingsView.hidden = !settings;
       importBtn.hidden = settings || Boolean(activeGameTitle);
@@ -5848,9 +5058,6 @@
       // View mode dropdown is unused in the game-centric catalog/detail UI.
       viewModeControl.hidden = true;
       settingsBtn.hidden = settings;
-      if (gameYoutubeTestBtn) {
-        gameYoutubeTestBtn.hidden = settings || !activeGameTitle;
-      }
       pageLede.textContent = settings ? "Manage your account." : "";
       pageLede.hidden = !settings;
       if (!settings && activeGameTitle) setAppTitle(activeGameTitle);
@@ -7373,10 +6580,113 @@
       }
     }
 
-    function renderGameDetailMediaCoverageSummary(rows) {
+    function mediaCoverageCollapseStorageKey(gameTitle, kind, id) {
+      return `prbeats-mc-collapse:${String(gameTitle || "").trim() || "Untitled"}:${kind}:${id}`;
+    }
+
+    function isMediaCoverageSectionCollapsed(storageKey, defaultCollapsed = true) {
+      try {
+        const raw = sessionStorage.getItem(storageKey);
+        if (raw === "1") return true;
+        if (raw === "0") return false;
+      } catch {
+        /* ignore */
+      }
+      return defaultCollapsed;
+    }
+
+    function setMediaCoverageSectionCollapsed(storageKey, collapsed) {
+      try {
+        sessionStorage.setItem(storageKey, collapsed ? "1" : "0");
+      } catch {
+        /* ignore */
+      }
+    }
+
+    function wireMediaCoverageCollapse(block, heading, {
+      storageKey,
+      defaultCollapsed = true,
+    } = {}) {
+      if (!block || !heading) return;
+      const key = String(storageKey || "").trim();
+      const collapsed = key
+        ? isMediaCoverageSectionCollapsed(key, defaultCollapsed)
+        : defaultCollapsed;
+
+      block.classList.toggle("is-collapsed", collapsed);
+      heading.classList.add("media-coverage-collapse-toggle");
+      heading.setAttribute("role", "button");
+      heading.tabIndex = 0;
+      heading.setAttribute("aria-expanded", collapsed ? "false" : "true");
+
+      if (!heading.querySelector(".media-coverage-collapse-chevron")) {
+        const chevron = document.createElement("span");
+        chevron.className = "media-coverage-collapse-chevron";
+        chevron.setAttribute("aria-hidden", "true");
+        chevron.innerHTML =
+          '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>';
+        heading.insertBefore(chevron, heading.firstChild);
+      }
+
+      const toggle = () => {
+        const nextCollapsed = !block.classList.contains("is-collapsed");
+        block.classList.toggle("is-collapsed", nextCollapsed);
+        heading.setAttribute("aria-expanded", nextCollapsed ? "false" : "true");
+        if (key) setMediaCoverageSectionCollapsed(key, nextCollapsed);
+        requestAnimationFrame(() => updateMediaCoverageViewportHScroll());
+      };
+
+      if (heading.dataset.collapseBound === "1") return;
+      heading.dataset.collapseBound = "1";
+      heading.addEventListener("click", (event) => {
+        if (event.target.closest("a, button, input, textarea, select")) return;
+        toggle();
+      });
+      heading.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        toggle();
+      });
+    }
+
+    async function persistMediaCoverageSummaryOverrides(gameTitle, overrides) {
+      const key = mediaCoverageCacheKey(gameTitle);
+      const raw = await ensureMediaCoverageForTitle(key);
+      const rows = parseMediaCoverageValue(raw);
+      const nextValue = serializeMediaCoverageValue(rows, {
+        summaryOverrides: overrides,
+      });
+      const previous = String(mediaCoverageByGame.get(key) || raw || "");
+      if (nextValue === previous) return true;
+      setMediaCoverageForTitle(key, nextValue);
+      try {
+        const token = await getIdToken();
+        const data = await saveMediaCoverage(token, key, nextValue);
+        noteD1FromResponse(data, "Save media coverage summary");
+        const saved = String(data?.mediaCoverage ?? nextValue);
+        mediaCoverageByGame.set(key, saved);
+        if (currentTable) {
+          currentTable.rows.forEach((row) => {
+            const title = (row.gameTitle || "").trim() || "Untitled";
+            if (title === key) row.mediaCoverage = saved;
+          });
+        }
+        return true;
+      } catch (error) {
+        console.error(error);
+        return false;
+      }
+    }
+
+    function renderGameDetailMediaCoverageSummary(
+      rows,
+      gameTitle = "",
+      summaryOverrides = {}
+    ) {
       const section = document.createElement("section");
       section.className =
         "game-section game-section-detail game-section-media-coverage-summary";
+      section.dataset.gameTitle = gameTitle;
 
       const heading = document.createElement("div");
       heading.className = "game-detail-section-heading";
@@ -7388,41 +6698,150 @@
 
       const groupsEl = document.createElement("div");
       groupsEl.className = "media-coverage-summary-groups";
+      const overrides = { ...summaryOverrides };
+      const summaryMetricHelp = {
+        "tiktok-likes":
+          "TikTok Likes should be manually copied from Pixel Maniacs, as its not included in the csv",
+      };
 
-      mediaCoverageSummaryGroups(rows).forEach((group) => {
-        const block = document.createElement("div");
-        block.className = "media-coverage-summary-group";
-        block.dataset.summaryGroup = group.id;
+      mediaCoverageSummaryGroups(rows, { summaryOverrides: overrides }).forEach(
+        (group) => {
+          const block = document.createElement("div");
+          block.className = "media-coverage-summary-group";
+          block.dataset.summaryGroup = group.id;
 
-        const groupTitle = document.createElement("h4");
-        groupTitle.className = "media-coverage-summary-group-title";
-        groupTitle.textContent = group.title;
-        block.appendChild(groupTitle);
+          const groupTitle = document.createElement("h4");
+          groupTitle.className = "media-coverage-summary-group-title";
+          groupTitle.textContent = group.title;
+          block.appendChild(groupTitle);
 
-        const wrap = document.createElement("div");
-        wrap.className = "table-wrap grid-table-wrap media-coverage-summary-wrap";
+          const wrap = document.createElement("div");
+          wrap.className =
+            "table-wrap grid-table-wrap media-coverage-summary-wrap";
 
-        const table = document.createElement("table");
-        table.className = "grid-table media-coverage-summary-table";
+          const table = document.createElement("table");
+          table.className = "grid-table media-coverage-summary-table";
 
-        const tbody = document.createElement("tbody");
-        group.metrics.forEach((metric) => {
-          const tr = document.createElement("tr");
-          const th = document.createElement("th");
-          th.scope = "row";
-          th.textContent = metric.label;
-          const td = document.createElement("td");
-          td.textContent = metric.value;
-          tr.appendChild(th);
-          tr.appendChild(td);
-          tbody.appendChild(tr);
-        });
+          const tbody = document.createElement("tbody");
 
-        table.appendChild(tbody);
-        wrap.appendChild(table);
-        block.appendChild(wrap);
-        groupsEl.appendChild(block);
-      });
+          group.metrics.forEach((metric) => {
+            const tr = document.createElement("tr");
+            tr.dataset.metricId = metric.id;
+            if (metric.isOverride) tr.classList.add("is-manual-override");
+
+            const th = document.createElement("th");
+            th.scope = "row";
+            th.className = "media-coverage-summary-label-cell";
+
+            const labelWrap = document.createElement("span");
+            labelWrap.className = "media-coverage-summary-label-wrap";
+
+            const helpText = summaryMetricHelp[metric.id];
+            if (helpText) {
+              const help = document.createElement("span");
+              help.className = "media-coverage-summary-help";
+              help.title = helpText;
+              help.setAttribute("aria-label", helpText);
+              help.tabIndex = 0;
+              help.innerHTML =
+                '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>';
+              labelWrap.appendChild(help);
+            }
+
+            const labelText = document.createElement("span");
+            labelText.className = "media-coverage-summary-label-text";
+            labelText.textContent = metric.label;
+            labelWrap.appendChild(labelText);
+            th.appendChild(labelWrap);
+
+            const td = document.createElement("td");
+            td.className = "media-coverage-summary-value-cell";
+
+            const input = document.createElement("input");
+            input.type = "text";
+            input.className = "media-coverage-summary-value-input";
+            input.value = metric.value;
+            input.dataset.metricId = metric.id;
+            input.dataset.computedValue = metric.computedValue || metric.value;
+            input.setAttribute("aria-label", metric.label);
+            input.title = metric.isOverride
+              ? "Manually set. Clear the field to restore the calculated value."
+              : "Click to edit";
+            input.spellcheck = false;
+
+            const syncOverrideUi = (isOverride) => {
+              tr.classList.toggle("is-manual-override", isOverride);
+              input.title = isOverride
+                ? "Manually set. Clear the field to restore the calculated value."
+                : "Click to edit";
+            };
+
+            const commitOverride = async () => {
+              const computed = String(input.dataset.computedValue || "").trim();
+              const next = String(input.value || "").trim();
+              if (!next || next === computed) {
+                delete overrides[metric.id];
+                input.value = computed;
+                syncOverrideUi(false);
+              } else {
+                overrides[metric.id] = next;
+                syncOverrideUi(true);
+              }
+              input.disabled = true;
+              try {
+                const ok = await persistMediaCoverageSummaryOverrides(
+                  gameTitle,
+                  overrides
+                );
+                if (!ok) {
+                  showError("Could not save summary override.");
+                }
+              } finally {
+                input.disabled = false;
+              }
+            };
+
+            input.addEventListener("keydown", (event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                input.blur();
+              }
+              if (event.key === "Escape") {
+                event.preventDefault();
+                const hasOverride = Object.prototype.hasOwnProperty.call(
+                  overrides,
+                  metric.id
+                );
+                input.value = hasOverride
+                  ? overrides[metric.id]
+                  : input.dataset.computedValue || metric.value;
+                input.blur();
+              }
+            });
+            input.addEventListener("blur", () => {
+              void commitOverride();
+            });
+
+            td.appendChild(input);
+            tr.appendChild(th);
+            tr.appendChild(td);
+            tbody.appendChild(tr);
+          });
+
+          table.appendChild(tbody);
+          wrap.appendChild(table);
+          block.appendChild(wrap);
+          wireMediaCoverageCollapse(block, groupTitle, {
+            storageKey: mediaCoverageCollapseStorageKey(
+              gameTitle,
+              "summary",
+              group.id
+            ),
+            defaultCollapsed: true,
+          });
+          groupsEl.appendChild(block);
+        }
+      );
 
       section.appendChild(groupsEl);
       return section;
@@ -7468,10 +6887,13 @@
       if (activeGameTitle !== gameTitle || !section.isConnected) return;
 
       let rows = [];
+      let summaryOverrides = {};
       try {
         rows = parseMediaCoverageValue(raw);
+        summaryOverrides = parseMediaCoverageSummaryOverrides(raw);
       } catch {
         rows = [];
+        summaryOverrides = {};
       }
       loading.remove();
 
@@ -7484,7 +6906,13 @@
         return;
       }
 
-      summaryMount.replaceWith(renderGameDetailMediaCoverageSummary(rows));
+      summaryMount.replaceWith(
+        renderGameDetailMediaCoverageSummary(
+          rows,
+          gameTitle,
+          summaryOverrides
+        )
+      );
 
       const groups = groupMediaCoverageRowsByType(rows);
       groups.forEach((group) => {
@@ -7548,6 +6976,14 @@
         wrap.appendChild(table);
         attachMediaCoverageHScrollSync(wrap);
         block.appendChild(wrap);
+        wireMediaCoverageCollapse(block, typeHeading, {
+          storageKey: mediaCoverageCollapseStorageKey(
+            gameTitle,
+            "type",
+            group.label
+          ),
+          defaultCollapsed: true,
+        });
         section.appendChild(block);
       });
 
@@ -7558,27 +6994,14 @@
       if (gameCatalogEl) gameCatalogEl.hidden = true;
       if (coverageLinksPageOpen) {
         if (gameDetailEl) gameDetailEl.hidden = true;
-        if (youtubeTestPageEl) youtubeTestPageEl.hidden = true;
         if (coverageLinksPageEl) coverageLinksPageEl.hidden = false;
         setCoverageHeaderActionsVisible(true);
         panel?.classList.add("is-coverage-links-page");
-        panel?.classList.remove("is-youtube-test-page");
-        return;
-      }
-      if (youtubeTestPageOpen) {
-        if (gameDetailEl) gameDetailEl.hidden = true;
-        if (coverageLinksPageEl) coverageLinksPageEl.hidden = true;
-        if (youtubeTestPageEl) youtubeTestPageEl.hidden = false;
-        setCoverageHeaderActionsVisible(false);
-        panel?.classList.remove("is-coverage-links-page");
-        panel?.classList.add("is-youtube-test-page");
         return;
       }
       if (coverageLinksPageEl) coverageLinksPageEl.hidden = true;
-      if (youtubeTestPageEl) youtubeTestPageEl.hidden = true;
       setCoverageHeaderActionsVisible(false);
       panel?.classList.remove("is-coverage-links-page");
-      panel?.classList.remove("is-youtube-test-page");
       if (gameDetailEl) gameDetailEl.hidden = false;
       if (gameDetailHeader) gameDetailHeader.hidden = false;
       panel?.classList.remove("is-catalog-table");
@@ -7928,21 +7351,7 @@
         gameDetailHeader.hidden = false;
       }
       if (gameDetailDelete) {
-        gameDetailDelete.hidden = !activeGameTitle || youtubeTestPageOpen;
-      }
-      if (gameYoutubeTestBtn) {
-        gameYoutubeTestBtn.hidden = !activeGameTitle;
-        gameYoutubeTestBtn.classList.toggle("is-active", youtubeTestPageOpen);
-      }
-
-      if (youtubeTestPageOpen) {
-        if (gameCatalogEl) gameCatalogEl.hidden = true;
-        if (gameDetailEl) gameDetailEl.hidden = true;
-        if (coverageLinksPageEl) coverageLinksPageEl.hidden = true;
-        if (youtubeTestPageEl) youtubeTestPageEl.hidden = false;
-        panel?.classList.add("is-youtube-test-page");
-        hideCatalogViewportHScroll();
-        return;
+        gameDetailDelete.hidden = !activeGameTitle;
       }
 
       if (activeGameTitle) {
@@ -8407,34 +7816,9 @@
     addRowForm.addEventListener("submit", submitAddRowDialog);
     settingsBtn.addEventListener("click", () => setView("settings"));
     backBtn.addEventListener("click", () => setView("workspace"));
-    gameYoutubeTestBtn?.addEventListener("click", () => {
-      if (!activeGameTitle) return;
-      if (youtubeTestPageOpen) {
-        closeYoutubeTestPage({ restoreDetail: true });
-        if (currentTable) renderTable(currentTable, currentFileName);
-        return;
-      }
-      openYoutubeTestPage();
-    });
-    youtubeTestFetchBtn?.addEventListener("click", () => {
-      toggleYoutubeTestFetch();
-    });
-    youtubeTestImportBtn?.addEventListener("click", () => {
-      youtubeTestCsvInput?.click();
-    });
-    youtubeTestCsvInput?.addEventListener("change", () => {
-      const file = youtubeTestCsvInput.files?.[0];
-      youtubeTestCsvInput.value = "";
-      if (file) importYoutubeTestCsvFile(file);
-    });
     adminHomeBtn?.addEventListener("click", () => {
       if (coverageLinksPageOpen) {
         closeCoverageLinksDialog();
-        return;
-      }
-      if (youtubeTestPageOpen) {
-        closeYoutubeTestPage({ restoreDetail: true });
-        if (currentTable) renderTable(currentTable, currentFileName);
         return;
       }
       if (!activeGameTitle) return;

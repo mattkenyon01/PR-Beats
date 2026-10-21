@@ -59,20 +59,6 @@ In Firebase Console → Authentication → Settings → Authorized domains, add:
 
 `FIREBASE_PROJECT_ID` in `wrangler.jsonc` is already set to `prbeats-996dd`.
 
-## 4b. YouTube Data API (optional — admin “!” test space)
-
-Create a Google Cloud API key with **YouTube Data API v3** enabled, then:
-
-```bash
-npx wrangler secret put YOUTUBE_API_KEY
-```
-
-For local `npm run dev`, put the same key in `cloudflare/.dev.vars`:
-
-```
-YOUTUBE_API_KEY=your_key_here
-```
-
 ## 5. Run locally
 
 ```bash
@@ -100,7 +86,6 @@ This creates/updates Worker name `prbeats` in the **same Cloudflare account** as
 | GET | `/api/game-images/:uid/:file` | no | serve a stored game image |
 | POST | `/api/coverage-covers` | Firebase Bearer | fetch a remote cover into R2 (`{ imageUrl, pageUrl? }`) |
 | GET | `/api/coverage-covers/:uid/:file` | no | serve a stored coverage cover |
-| GET | `/api/youtube-search?q=&pageToken=&maxResults=5` | Firebase Bearer | batched YouTube search + stats (needs `YOUTUBE_API_KEY`) |
 
 If saves return **405**, make sure `wrangler.jsonc` has `assets.run_worker_first: ["/api/*"]` and redeploy. Without that, Cloudflare’s static asset server handles `/api/*` and rejects POST/PUT.
 

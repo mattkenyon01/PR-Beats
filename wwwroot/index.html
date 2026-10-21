@@ -16,7 +16,7 @@
     #pdf-viewer[hidden] { display: none !important; }
     #pdf-expand-btn[hidden] { display: none !important; }
   </style>
-  <link rel="stylesheet" href="styles.css?v=home-table-view-2" />
+  <link rel="stylesheet" href="styles.css?v=media-coverage-stats-13" />
 </head>
 <body class="public-page">
   <div class="public-app" id="public-app">
@@ -120,8 +120,9 @@
           </div>
         </section>
 
-        <section class="coverage-links-section media-coverage-summary-section-public" id="media-coverage-summary-card" aria-labelledby="media-coverage-summary-heading" hidden>
-          <h3 class="detail-card-label coverage-links-heading" id="media-coverage-summary-heading">Summary</h3>
+        <section class="coverage-links-section media-coverage-summary-section-public" id="media-coverage-summary-card" aria-labelledby="media-coverage-summary-heading">
+          <h3 class="detail-card-label coverage-links-heading" id="media-coverage-summary-heading">Media Coverage</h3>
+          <p class="media-coverage-summary-status" id="media-coverage-summary-status" hidden></p>
           <div class="media-coverage-summary-public-wrap" id="media-coverage-summary-tables"></div>
         </section>
 
@@ -154,20 +155,22 @@
       fetchLinkPreview,
       linkPreviewImageUrl,
       loadPublicAnnouncements,
+      loadPublicMediaCoverage,
     } from "./js/api.js";
     import {
       countryFlagUrl,
       coverageLinkDisplayLabel,
       coverageLinkUrls,
       coverageStatSortValue,
-      DEFAULT_MEDIA_COVERAGE_TITLE,
       formatCoverageStat,
       groupMediaCoverageRowsByType,
       mediaCoverageColumnsForType,
       parseCoverageLinksValue,
       parseCoverageSectionTitle,
       parseMediaCoverageValue,
-      mediaCoverageSummaryGroups,
+      parseMediaCoverageSummaryOverrides,
+      mediaCoveragePlatformIcon,
+      mediaCoverageSummaryCards,
     } from "./js/csv.js";
 
     initThemeToggle();
@@ -235,6 +238,9 @@
     const coverageLinksHeadingEl = document.getElementById("coverage-links-heading");
     const mediaCoverageSummaryCardEl = document.getElementById(
       "media-coverage-summary-card"
+    );
+    const mediaCoverageSummaryStatusEl = document.getElementById(
+      "media-coverage-summary-status"
     );
     const mediaCoverageSummaryTablesEl = document.getElementById(
       "media-coverage-summary-tables"
@@ -884,74 +890,90 @@
       );
     }
 
-    function setGameLinkSections(entries) {
-      const gameTitle =
-        (entries[0]?.gameTitle || "").trim() || "Untitled";
-      const gameRows = rowsForGameTitle(gameTitle);
-      const sourceRows = gameRows.length ? gameRows : entries;
-      const raw =
-        sourceRows
-          .map((row) => String(row.mediaCoverage || "").trim())
-          .find(Boolean) || "";
-      const rows = parseMediaCoverageValue(raw);
+    let mediaCoverageLoadToken = 0;
+    const mediaCoveragePublicCache = new Map();
 
-      if (mediaCoverageHeadingEl) {
-        mediaCoverageHeadingEl.textContent =
-          rows.length === 0
-            ? DEFAULT_MEDIA_COVERAGE_TITLE
-            : `${DEFAULT_MEDIA_COVERAGE_TITLE} (${rows.length})`;
-      }
-      if (mediaCoverageCardEl) {
-        mediaCoverageCardEl.hidden = rows.length === 0;
-      }
-      if (mediaCoverageSummaryCardEl) {
-        mediaCoverageSummaryCardEl.hidden = rows.length === 0;
-      }
-      if (mediaCoverageSummaryTablesEl) {
-        mediaCoverageSummaryTablesEl.innerHTML = "";
-      }
+    function setMediaCoverageSummaryStatus(message, { error = false } = {}) {
+      if (!mediaCoverageSummaryStatusEl) return;
+      const text = String(message || "").trim();
+      mediaCoverageSummaryStatusEl.hidden = !text;
+      mediaCoverageSummaryStatusEl.textContent = text;
+      mediaCoverageSummaryStatusEl.classList.toggle("is-error", Boolean(error && text));
+    }
+
+    function renderMediaCoverageStatBoard(rows, summaryOverrides = {}) {
+      if (!mediaCoverageSummaryCardEl || !mediaCoverageSummaryTablesEl) return;
+      mediaCoverageSummaryCardEl.hidden = false;
+      mediaCoverageSummaryTablesEl.innerHTML = "";
+
+      const cards = mediaCoverageSummaryCards(rows, { summaryOverrides });
+      const featured = cards.filter((card) => card.featured);
+      const rest = cards.filter((card) => !card.featured);
+
+      const appendCard = (parent, card) => {
+        const article = document.createElement("article");
+        article.className = "media-coverage-stat-card";
+        if (card.featured) article.classList.add("is-featured");
+        article.dataset.statId = card.id;
+
+        const icon = mediaCoveragePlatformIcon(card.platform);
+        if (icon?.src) {
+          const iconEl = document.createElement("span");
+          iconEl.className = `media-coverage-stat-icon is-${card.platform}`;
+          iconEl.setAttribute("aria-hidden", "true");
+          iconEl.title = icon.label;
+          const img = document.createElement("img");
+          img.src = icon.src;
+          img.alt = "";
+          img.loading = "lazy";
+          img.decoding = "async";
+          iconEl.appendChild(img);
+          article.appendChild(iconEl);
+        }
+
+        const valueEl = document.createElement("p");
+        valueEl.className = "media-coverage-stat-value";
+        valueEl.textContent = card.value;
+
+        const labelEl = document.createElement("h4");
+        labelEl.className = "media-coverage-stat-label";
+        labelEl.textContent = card.label;
+
+        const hintEl = document.createElement("p");
+        hintEl.className = "media-coverage-stat-hint";
+        hintEl.textContent = card.hint;
+
+        article.appendChild(valueEl);
+        article.appendChild(labelEl);
+        article.appendChild(hintEl);
+        parent.appendChild(article);
+      };
+
+      const featuredRow = document.createElement("div");
+      featuredRow.className =
+        "media-coverage-stat-row media-coverage-stat-row-featured";
+      featured.forEach((card) => appendCard(featuredRow, card));
+
+      const grid = document.createElement("div");
+      grid.className = "media-coverage-stat-grid";
+      rest.forEach((card) => appendCard(grid, card));
+
+      const wrap = document.createElement("div");
+      wrap.className = "media-coverage-stat-board";
+      wrap.appendChild(featuredRow);
+      wrap.appendChild(grid);
+      mediaCoverageSummaryTablesEl.appendChild(wrap);
+    }
+
+    function renderMediaCoveragePublicTables(rows) {
+      if (mediaCoverageHeadingEl) mediaCoverageHeadingEl.hidden = true;
       if (!mediaCoveragePublicTablesEl) return;
       mediaCoveragePublicTablesEl.innerHTML = "";
+      if (mediaCoverageCardEl) {
+        mediaCoverageCardEl.hidden = !rows.length;
+      }
       if (!rows.length) return;
 
-      if (mediaCoverageSummaryTablesEl) {
-        const groupsEl = document.createElement("div");
-        groupsEl.className = "media-coverage-summary-groups";
-        mediaCoverageSummaryGroups(rows).forEach((group) => {
-          const block = document.createElement("div");
-          block.className = "media-coverage-summary-group";
-          block.dataset.summaryGroup = group.id;
-
-          const groupTitle = document.createElement("h4");
-          groupTitle.className = "media-coverage-summary-group-title";
-          groupTitle.textContent = group.title;
-          block.appendChild(groupTitle);
-
-          const wrap = document.createElement("div");
-          wrap.className = "media-coverage-summary-wrap";
-          const table = document.createElement("table");
-          table.className = "grid-table media-coverage-summary-table";
-          const tbody = document.createElement("tbody");
-          group.metrics.forEach((metric) => {
-            const tr = document.createElement("tr");
-            const th = document.createElement("th");
-            th.scope = "row";
-            th.textContent = metric.label;
-            const td = document.createElement("td");
-            td.textContent = metric.value;
-            tr.appendChild(th);
-            tr.appendChild(td);
-            tbody.appendChild(tr);
-          });
-          table.appendChild(tbody);
-          wrap.appendChild(table);
-          block.appendChild(wrap);
-          groupsEl.appendChild(block);
-        });
-        mediaCoverageSummaryTablesEl.appendChild(groupsEl);
-      }
-
-      // Useful public columns, further narrowed per Type section.
       const publicKeys = new Set([
         "publishedTime",
         "handleId",
@@ -1033,6 +1055,77 @@
         block.appendChild(wrap);
         mediaCoveragePublicTablesEl.appendChild(block);
       });
+    }
+
+    function applyMediaCoverageRows(raw, { loadError = "" } = {}) {
+      const payload = String(raw || "");
+      let rows = [];
+      let summaryOverrides = {};
+      try {
+        rows = parseMediaCoverageValue(payload);
+        summaryOverrides = parseMediaCoverageSummaryOverrides(payload);
+      } catch {
+        rows = [];
+        summaryOverrides = {};
+      }
+      renderMediaCoverageStatBoard(rows, summaryOverrides);
+      renderMediaCoveragePublicTables(rows);
+      if (loadError && !rows.length) {
+        setMediaCoverageSummaryStatus(loadError, { error: true });
+      } else if (!rows.length) {
+        setMediaCoverageSummaryStatus(
+          "No media coverage saved for this game yet."
+        );
+      } else {
+        setMediaCoverageSummaryStatus("");
+      }
+    }
+
+    async function setGameLinkSections(entries) {
+      const gameTitle =
+        (entries[0]?.gameTitle || "").trim() || "Untitled";
+      const token = ++mediaCoverageLoadToken;
+
+      // Per-game cache: every Witch's Bakery announcement shows the same numbers.
+      if (mediaCoveragePublicCache.has(gameTitle)) {
+        applyMediaCoverageRows(
+          String(mediaCoveragePublicCache.get(gameTitle) || "")
+        );
+        return;
+      }
+
+      // Show the board immediately (zeros) while the per-game payload loads.
+      renderMediaCoverageStatBoard([]);
+      setMediaCoverageSummaryStatus("Loading media coverage…");
+      renderMediaCoveragePublicTables([]);
+
+      let raw = "";
+      let loadError = "";
+      try {
+        const data = await loadPublicMediaCoverage(
+          gameTitle,
+          window.location.search
+        );
+        raw = String(data?.mediaCoverage || "").trim();
+        mediaCoveragePublicCache.set(gameTitle, raw);
+      } catch (error) {
+        console.error(error);
+        loadError =
+          error instanceof Error
+            ? error.message
+            : "Could not load media coverage.";
+        // Fall back to any coverage embedded on announcement rows.
+        const gameRows = rowsForGameTitle(gameTitle);
+        const sourceRows = gameRows.length ? gameRows : entries;
+        raw =
+          sourceRows
+            .map((row) => String(row.mediaCoverage || "").trim())
+            .find(Boolean) || "";
+        if (raw) mediaCoveragePublicCache.set(gameTitle, raw);
+      }
+
+      if (token !== mediaCoverageLoadToken) return;
+      applyMediaCoverageRows(raw, { loadError });
     }
 
     function closePdfViewer() {
@@ -1227,7 +1320,7 @@
       setTrailer(entries);
       setPdf(entries);
       setCoverageLinks(entries);
-      setGameLinkSections(entries);
+      void setGameLinkSections(entries);
 
       [...dotsEl.querySelectorAll(".carousel-dot")].forEach((dot, i) => {
         const isActive = i === activeIndex;

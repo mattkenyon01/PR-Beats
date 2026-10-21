@@ -144,15 +144,15 @@ async function handleApi(request, env, url) {
             health: "GET /api/health",
             public:
               "GET /api/public/announcements?s=token | ?game=&games=&month=",
+            publicMediaCoverage:
+              "GET /api/public/media-coverage?game=&s=token",
             createShare: "POST /api/shares",
             load: "GET /api/announcements",
             revision: "GET /api/announcements/revision",
             save: "POST /api/announcements",
             saveRow: "PATCH /api/announcements/:id",
             deleteRow: "DELETE /api/announcements/:id",
-            mediaCoverage: "GET /api/media-coverage?game=",
-            youtubeSearch:
-              "GET /api/youtube-search?q=&pageToken=&maxResults=50 (multi-query)",
+            mediaCoverage: "GET|PUT /api/media-coverage?game= / body",
             presence: "POST /api/presence",
             uploadImage: "POST /api/game-images",
             getImage: "GET /api/game-images/:ownerUid/:fileName",
@@ -374,8 +374,52 @@ async function handleApi(request, env, url) {
       if (filtered.error) {
         return withCors(request, filtered.error);
       }
-      const withMedia = await attachMediaCoverageToRows(env.DB, filtered.rows);
-      return withCors(request, json(datasetResponse(withMedia)));
+      // Keep the public feed light — homepage loads media coverage per game.
+      return withCors(request, json(datasetResponse(filtered.rows)));
+    }
+
+    if (url.pathname === "/api/public/media-coverage") {
+      if (request.method !== "GET") {
+        return withCors(request, json({ error: "Method not allowed." }, 405));
+      }
+      const gameTitle = String(url.searchParams.get("game") || "").trim();
+      if (!gameTitle) {
+        return withCors(
+          request,
+          json({ error: "Missing game title (game)." }, 400)
+        );
+      }
+      const access = await assertPublicGameAccess(
+        env.DB,
+        url.searchParams,
+        gameTitle
+      );
+      if (access.error) {
+        return withCors(request, access.error);
+      }
+      try {
+        const mediaCoverage = await loadMediaCoverageValueForGame(
+          env.DB,
+          gameTitle
+        );
+        return withCors(
+          request,
+          json({ gameTitle, mediaCoverage: mediaCoverage || "" })
+        );
+      } catch (error) {
+        return withCors(
+          request,
+          json(
+            {
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Could not load media coverage.",
+            },
+            400
+          )
+        );
+      }
     }
 
     if (url.pathname === "/api/shares") {
@@ -727,56 +771,50 @@ async function handleApi(request, env, url) {
         env.FIREBASE_PROJECT_ID || DEFAULT_FIREBASE_PROJECT_ID
       );
       if (auth.error) return withCors(request, auth.error);
-      if (request.method !== "GET") {
+      if (request.method === "GET") {
+        const gameTitle =
+          String(url.searchParams.get("game") || "").trim() || "Untitled";
+        const db = instrumentDb(env.DB, "Load media coverage", url.pathname);
+        const mediaCoverage = await loadMediaCoverageValueForGame(
+          db,
+          gameTitle
+        );
+        return withCors(
+          request,
+          json(withD1({ gameTitle, mediaCoverage }, db))
+        );
+      }
+      if (request.method === "PUT" || request.method === "POST") {
+        const body = await request.json().catch(() => ({}));
+        const gameTitle =
+          String(body?.gameTitle || body?.game || "").trim() || "Untitled";
+        const mediaCoverage = String(body?.mediaCoverage ?? "");
+        const db = instrumentDb(env.DB, "Save media coverage", url.pathname);
+        await touchAdminPresence(db, auth.user);
+        await replaceMediaCoverageForGame(db, gameTitle, mediaCoverage);
+        const saved = await loadMediaCoverageValueForGame(db, gameTitle);
         return withCors(
           request,
           json(
-            {
-              error: "Method not allowed.",
-              allowed: ["GET", "OPTIONS"],
-              method: request.method,
-              path: url.pathname,
-            },
-            405
+            withD1(
+              { gameTitle, mediaCoverage: saved || mediaCoverage, ok: true },
+              db
+            )
           )
         );
       }
-      const gameTitle =
-        String(url.searchParams.get("game") || "").trim() || "Untitled";
-      const db = instrumentDb(env.DB, "Load media coverage", url.pathname);
-      const mediaCoverage = await loadMediaCoverageValueForGame(db, gameTitle);
       return withCors(
         request,
-        json(withD1({ gameTitle, mediaCoverage }, db))
+        json(
+          {
+            error: "Method not allowed.",
+            allowed: ["GET", "POST", "PUT", "OPTIONS"],
+            method: request.method,
+            path: url.pathname,
+          },
+          405
+        )
       );
-    }
-
-    if (url.pathname === "/api/youtube-search") {
-      const auth = await requireFirebaseUser(
-        request,
-        env.FIREBASE_PROJECT_ID || DEFAULT_FIREBASE_PROJECT_ID
-      );
-      if (auth.error) return withCors(request, auth.error);
-      if (request.method !== "GET") {
-        return withCors(request, json({ error: "Method not allowed." }, 405));
-      }
-      try {
-        const result = await searchYouTubeVideosPage(env, {
-          query: url.searchParams.get("q") || "",
-          pageToken: url.searchParams.get("pageToken") || "",
-          maxResults: url.searchParams.get("maxResults") || "5",
-        });
-        return withCors(request, json(result));
-      } catch (error) {
-        const message =
-          error instanceof Error ? error.message : "YouTube search failed.";
-        const status = /not configured/i.test(message)
-          ? 503
-          : /quota|rate|403/i.test(message)
-            ? 429
-            : 400;
-        return withCors(request, json({ error: message }, status));
-      }
     }
 
     const announcementRowMatch = url.pathname.match(
@@ -1223,48 +1261,140 @@ function parseMediaCoverageRowsFromValue(value) {
     .map((line) => ({ details: line }));
 }
 
-function buildMediaCoverageValue(rows) {
+function normalizeMediaCoverageSummaryOverrides(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const out = {};
+  for (const [key, raw] of Object.entries(value)) {
+    const id = String(key || "").trim();
+    const text = String(raw ?? "").trim();
+    if (id && text) out[id] = text;
+  }
+  return out;
+}
+
+function parseMediaCoverageSummaryOverridesFromValue(value) {
+  const text = String(value || "").trim();
+  if (!text || !(text.startsWith("{") || text.startsWith("["))) return {};
+  try {
+    const parsed = JSON.parse(text);
+    if (Array.isArray(parsed)) return {};
+    return normalizeMediaCoverageSummaryOverrides(parsed?.summaryOverrides);
+  } catch {
+    return {};
+  }
+}
+
+function buildMediaCoverageValue(rows, summaryOverrides = null) {
   const cleaned = (Array.isArray(rows) ? rows : [])
     .map((item) => compactMediaCoverageItem(item))
     .filter(Boolean);
-  if (!cleaned.length) return "";
-  return JSON.stringify({
+  const overrides = normalizeMediaCoverageSummaryOverrides(summaryOverrides);
+  if (!cleaned.length && !Object.keys(overrides).length) return "";
+  const payload = {
     sectionTitle: MEDIA_COVERAGE_SECTION_TITLE,
     rows: cleaned,
-  });
+  };
+  if (Object.keys(overrides).length) {
+    payload.summaryOverrides = overrides;
+  }
+  return JSON.stringify(payload);
 }
 
-async function loadMediaCoverageValueForGame(db, gameTitle) {
-  await ensureMediaCoverageChunksTable(db);
-  const key = mediaCoverageGameKey(gameTitle);
+async function loadMediaCoverageChunksOnly(db, gameTitleKey) {
   const result = await db
     .prepare(
-      `SELECT data_json
+      `SELECT chunk_index, data_json
        FROM media_coverage_chunks
        WHERE game_title_key = ?
        ORDER BY chunk_index ASC`
     )
-    .bind(key)
+    .bind(gameTitleKey)
     .all();
 
   const rows = [];
+  let summaryOverrides = {};
   for (const row of result.results || []) {
     try {
       const parsed = JSON.parse(String(row.data_json || "[]"));
-      if (Array.isArray(parsed)) rows.push(...parsed);
+      if (Array.isArray(parsed)) {
+        rows.push(...parsed);
+        continue;
+      }
+      if (
+        Number(row.chunk_index) < 0 &&
+        parsed &&
+        typeof parsed === "object"
+      ) {
+        summaryOverrides = {
+          ...summaryOverrides,
+          ...normalizeMediaCoverageSummaryOverrides(parsed.summaryOverrides),
+        };
+      }
     } catch {
       // Skip corrupt chunks.
     }
   }
-  return buildMediaCoverageValue(rows);
+  return buildMediaCoverageValue(rows, summaryOverrides);
+}
+
+async function loadMediaCoverageValueForGame(db, gameTitle) {
+  await ensureMediaCoverageChunksTable(db);
+  const title = String(gameTitle || "").trim() || "Untitled";
+  const key = mediaCoverageGameKey(title);
+  const fromChunks = await loadMediaCoverageChunksOnly(db, key);
+  if (fromChunks) return fromChunks;
+
+  // Legacy fallback: media coverage used to live on announcement rows.
+  // Migrate the first non-empty value for this game into chunks, then return it.
+  await ensureMediaCoverageColumn(db);
+  const legacyResult = await db
+    .prepare(
+      `SELECT game_title, media_coverage
+       FROM announcements
+       WHERE media_coverage IS NOT NULL AND trim(media_coverage) != ''`
+    )
+    .all();
+
+  for (const row of legacyResult.results || []) {
+    if (mediaCoverageGameKey(row.game_title) !== key) continue;
+    const legacy = String(row.media_coverage || "").trim();
+    if (!legacy) continue;
+    const legacyTitle = String(row.game_title || "").trim() || title;
+    try {
+      await replaceMediaCoverageForGame(db, legacyTitle, legacy);
+      await db
+        .prepare(
+          `UPDATE announcements
+           SET media_coverage = '', updated_at = datetime('now')
+           WHERE lower(trim(game_title)) = lower(trim(?))`
+        )
+        .bind(legacyTitle)
+        .run();
+    } catch {
+      // Still return the legacy payload even if migration write fails.
+    }
+    return buildMediaCoverageValue(
+      parseMediaCoverageRowsFromValue(legacy),
+      parseMediaCoverageSummaryOverridesFromValue(legacy)
+    );
+  }
+
+  return "";
 }
 
 async function replaceMediaCoverageForGame(db, gameTitle, mediaCoverageValue) {
   await ensureMediaCoverageChunksTable(db);
   const title = String(gameTitle || "").trim() || "Untitled";
   const key = mediaCoverageGameKey(title);
-  const rows = parseMediaCoverageRowsFromValue(mediaCoverageValue);
-  const nextValue = buildMediaCoverageValue(rows);
+  const raw = String(mediaCoverageValue ?? "");
+  // Announcement saves often pass media_coverage="" after clearing the row column.
+  // Never treat a blank string as "delete all coverage / overrides".
+  // Callers that intend to clear must send an explicit JSON document (e.g. {"rows":[]}).
+  if (!raw.trim()) return;
+
+  const rows = parseMediaCoverageRowsFromValue(raw);
+  const summaryOverrides = parseMediaCoverageSummaryOverridesFromValue(raw);
+  const nextValue = buildMediaCoverageValue(rows, summaryOverrides);
   const existingValue = await loadMediaCoverageValueForGame(db, title);
   if (existingValue === nextValue) return;
 
@@ -1273,8 +1403,24 @@ async function replaceMediaCoverageForGame(db, gameTitle, mediaCoverageValue) {
     .bind(key)
     .run();
 
+  const statements = [];
+  if (Object.keys(summaryOverrides).length) {
+    statements.push(
+      db
+        .prepare(
+          `INSERT INTO media_coverage_chunks (
+             game_title_key, game_title, chunk_index, data_json, updated_at
+           ) VALUES (?, ?, ?, ?, datetime('now'))`
+        )
+        .bind(
+          key,
+          title,
+          -1,
+          JSON.stringify({ summaryOverrides })
+        )
+    );
+  }
   if (rows.length) {
-    const statements = [];
     for (let i = 0; i < rows.length; i += MEDIA_COVERAGE_ROWS_PER_CHUNK) {
       const chunk = rows.slice(i, i + MEDIA_COVERAGE_ROWS_PER_CHUNK);
       const chunkIndex = Math.floor(i / MEDIA_COVERAGE_ROWS_PER_CHUNK);
@@ -1288,6 +1434,8 @@ async function replaceMediaCoverageForGame(db, gameTitle, mediaCoverageValue) {
           .bind(key, title, chunkIndex, JSON.stringify(chunk))
       );
     }
+  }
+  if (statements.length) {
     await db.batch(statements);
   }
   await bumpDatasetRevision(db);
@@ -1327,6 +1475,7 @@ async function loadMediaCoverageValueMap(db, gameTitles = null) {
   }
 
   const grouped = new Map();
+  const overridesByGame = new Map();
   for (const row of result.results || []) {
     const key = String(row.game_title_key || "");
     if (!key) continue;
@@ -1335,6 +1484,18 @@ async function loadMediaCoverageValueMap(db, gameTitles = null) {
       const parsed = JSON.parse(String(row.data_json || "[]"));
       if (Array.isArray(parsed)) {
         grouped.get(key).push(...parsed);
+        continue;
+      }
+      if (
+        Number(row.chunk_index) < 0 &&
+        parsed &&
+        typeof parsed === "object"
+      ) {
+        const current = overridesByGame.get(key) || {};
+        overridesByGame.set(key, {
+          ...current,
+          ...normalizeMediaCoverageSummaryOverrides(parsed.summaryOverrides),
+        });
       }
     } catch {
       // Skip corrupt chunks.
@@ -1342,8 +1503,15 @@ async function loadMediaCoverageValueMap(db, gameTitles = null) {
   }
 
   const out = new Map();
-  for (const [key, rows] of grouped.entries()) {
-    out.set(key, buildMediaCoverageValue(rows));
+  const keys = new Set([...grouped.keys(), ...overridesByGame.keys()]);
+  for (const key of keys) {
+    out.set(
+      key,
+      buildMediaCoverageValue(
+        grouped.get(key) || [],
+        overridesByGame.get(key) || {}
+      )
+    );
   }
   return out;
 }
@@ -1414,12 +1582,25 @@ async function replaceAllMediaCoverageFromAnnouncementRows(db, rows) {
   await db.prepare(`DELETE FROM media_coverage_chunks`).run();
 
   for (const { title, value } of byGame.values()) {
-    const items = parseMediaCoverageRowsFromValue(value);
-    if (!items.length) continue;
-    const statements = [];
+    // Reuse the single-game writer so summary overrides stay intact.
+    const rows = parseMediaCoverageRowsFromValue(value);
+    const overrides = parseMediaCoverageSummaryOverridesFromValue(value);
+    if (!rows.length && !Object.keys(overrides).length) continue;
     const key = mediaCoverageGameKey(title);
-    for (let i = 0; i < items.length; i += MEDIA_COVERAGE_ROWS_PER_CHUNK) {
-      const chunk = items.slice(i, i + MEDIA_COVERAGE_ROWS_PER_CHUNK);
+    const statements = [];
+    if (Object.keys(overrides).length) {
+      statements.push(
+        db
+          .prepare(
+            `INSERT INTO media_coverage_chunks (
+               game_title_key, game_title, chunk_index, data_json, updated_at
+             ) VALUES (?, ?, ?, ?, datetime('now'))`
+          )
+          .bind(key, title, -1, JSON.stringify({ summaryOverrides: overrides }))
+      );
+    }
+    for (let i = 0; i < rows.length; i += MEDIA_COVERAGE_ROWS_PER_CHUNK) {
+      const chunk = rows.slice(i, i + MEDIA_COVERAGE_ROWS_PER_CHUNK);
       const chunkIndex = Math.floor(i / MEDIA_COVERAGE_ROWS_PER_CHUNK);
       statements.push(
         db
@@ -2188,6 +2369,40 @@ async function getShare(db, id) {
   };
 }
 
+/**
+ * Same share / query gates as the public announcements feed.
+ * Used by lightweight per-game public endpoints.
+ */
+async function assertPublicGameAccess(db, searchParams, gameTitle) {
+  const titleKey = normalizeFilterKey(gameTitle);
+  if (!titleKey) {
+    return { error: json({ error: "Missing game title." }, 400) };
+  }
+
+  let gameKeys = parseListFilters(searchParams, "game", "games");
+  const shareId = String(searchParams.get("s") || "").trim();
+  if (shareId) {
+    const share = await getShare(db, shareId);
+    if (!share) {
+      return { error: json({ error: "Share link not found." }, 404) };
+    }
+    gameKeys = [
+      ...new Set(share.games.map(normalizeFilterKey).filter(Boolean)),
+    ];
+    // Month-only shares can view any game in the filtered announcement set;
+    // game-scoped shares must include this title.
+    if (gameKeys.length > 0 && !gameKeys.includes(titleKey)) {
+      return { error: json({ error: "Game is not on this share link." }, 403) };
+    }
+    return { ok: true };
+  }
+
+  if (gameKeys.length > 0 && !gameKeys.includes(titleKey)) {
+    return { error: json({ error: "Game is not available." }, 403) };
+  }
+  return { ok: true };
+}
+
 async function filterPublicAnnouncements(db, rows, searchParams) {
   let gameKeys = parseListFilters(searchParams, "game", "games");
   let monthKeys = parseListFilters(searchParams, "month", "months");
@@ -2909,435 +3124,3 @@ async function listActiveEditors(db) {
     return [];
   }
 }
-
-const YOUTUBE_API_BASE = "https://www.googleapis.com/youtube/v3";
-const YOUTUBE_SEARCH_DEFAULT_PAGE = 5;
-const YOUTUBE_SEARCH_MAX_PAGE = 50;
-const YOUTUBE_PAGE_STATE_PREFIX = "pb1.";
-const YOUTUBE_SEARCH_STOP_WORDS = new Set([
-  "the",
-  "and",
-  "for",
-  "with",
-  "from",
-  "game",
-  "games",
-  "demo",
-  "official",
-  "trailer",
-]);
-
-function normalizeYouTubeQuery(value) {
-  return String(value || "").trim();
-}
-
-function youtubeApiKey(env) {
-  return String(env?.YOUTUBE_API_KEY || "").trim();
-}
-
-async function youtubeApiGet(path, params, apiKey) {
-  const url = new URL(`${YOUTUBE_API_BASE}/${path}`);
-  Object.entries(params || {}).forEach(([key, value]) => {
-    if (value == null || value === "") return;
-    url.searchParams.set(key, String(value));
-  });
-  url.searchParams.set("key", apiKey);
-
-  const response = await fetch(url.toString(), {
-    method: "GET",
-    headers: { Accept: "application/json" },
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const apiMessage =
-      data?.error?.message ||
-      data?.error?.errors?.[0]?.message ||
-      `YouTube API error (${response.status})`;
-    throw new Error(apiMessage);
-  }
-  return data;
-}
-
-function base64UrlEncodeUtf8(value) {
-  const bytes = new TextEncoder().encode(String(value || ""));
-  let binary = "";
-  bytes.forEach((byte) => {
-    binary += String.fromCharCode(byte);
-  });
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
-}
-
-function base64UrlDecodeUtf8(value) {
-  const trimmed = String(value || "").trim();
-  const padded = trimmed + "=".repeat((4 - (trimmed.length % 4 || 4)) % 4);
-  const binary = atob(padded.replace(/-/g, "+").replace(/_/g, "/"));
-  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
-  return new TextDecoder().decode(bytes);
-}
-
-/** Fold punctuation so "Witch's" and "Witchs" compare the same. */
-function normalizeYouTubeMatchText(value) {
-  return String(value || "")
-    .toLowerCase()
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/['’`´]/g, "")
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim()
-    .replace(/\s+/g, " ");
-}
-
-/** Search strings that cast a wider net than a single folded title. */
-function buildYouTubeSearchQueries(query) {
-  const raw = normalizeYouTubeQuery(query).replace(/"/g, "").trim();
-  const folded = normalizeYouTubeMatchText(raw);
-  const queries = [];
-  const add = (value) => {
-    const next = String(value || "").trim();
-    if (!next) return;
-    if (queries.some((entry) => entry.toLowerCase() === next.toLowerCase())) {
-      return;
-    }
-    queries.push(next);
-  };
-
-  add(folded || raw);
-  if (raw) add(`"${raw}"`);
-
-  const noArticle = (folded || raw).replace(/^(the|a|an)\s+/i, "").trim();
-  add(noArticle);
-
-  // Broader token query: drop stop words / trailing marketing words.
-  const core = normalizeYouTubeMatchText(noArticle)
-    .split(" ")
-    .filter((token) => token && !YOUTUBE_SEARCH_STOP_WORDS.has(token))
-    .join(" ");
-  add(core);
-
-  // Singular-ish variant helps "Witch Bakery" vs "Witch's Bakery".
-  if (core) {
-    add(
-      core
-        .split(" ")
-        .map((token) =>
-          token.length > 4 && token.endsWith("s") ? token.slice(0, -1) : token
-        )
-        .join(" ")
-    );
-  }
-
-  return queries;
-}
-
-/**
- * Parallel search lanes: primary query by views + date, then phrase / shorter
- * variants by relevance. Page state is encoded so Fetch can continue all lanes.
- */
-function buildYouTubeSearchLanes(query) {
-  const queries = buildYouTubeSearchQueries(query);
-  const lanes = [];
-  const primary = queries[0] || normalizeYouTubeQuery(query);
-  if (primary) {
-    lanes.push({ q: primary, order: "viewCount", pageToken: "" });
-    lanes.push({ q: primary, order: "date", pageToken: "" });
-  }
-  for (let i = 1; i < queries.length && lanes.length < 6; i += 1) {
-    lanes.push({ q: queries[i], order: "relevance", pageToken: "" });
-  }
-  return lanes;
-}
-
-function encodeYouTubePageState(lanes) {
-  const active = (lanes || [])
-    .filter((lane) => lane && lane.q && lane.pageToken !== null)
-    .map((lane) => ({
-      q: String(lane.q || ""),
-      o: String(lane.order || "relevance"),
-      t: lane.pageToken === "" ? "" : String(lane.pageToken || ""),
-    }));
-  if (!active.length) return "";
-  return `${YOUTUBE_PAGE_STATE_PREFIX}${base64UrlEncodeUtf8(
-    JSON.stringify({ v: 1, lanes: active })
-  )}`;
-}
-
-function decodeYouTubePageState(pageToken, query) {
-  const token = String(pageToken || "").trim();
-  if (!token) return buildYouTubeSearchLanes(query);
-
-  if (!token.startsWith(YOUTUBE_PAGE_STATE_PREFIX)) {
-    // Legacy single-lane YouTube token from older clients.
-    const primary =
-      normalizeYouTubeMatchText(query) || normalizeYouTubeQuery(query);
-    return [{ q: primary, order: "viewCount", pageToken: token }];
-  }
-
-  try {
-    const parsed = JSON.parse(
-      base64UrlDecodeUtf8(token.slice(YOUTUBE_PAGE_STATE_PREFIX.length))
-    );
-    const lanes = Array.isArray(parsed?.lanes) ? parsed.lanes : [];
-    const restored = lanes
-      .map((lane) => ({
-        q: String(lane?.q || "").trim(),
-        order: String(lane?.o || lane?.order || "relevance").trim() || "relevance",
-        pageToken:
-          lane?.t == null && lane?.pageToken == null
-            ? ""
-            : String(lane?.t ?? lane?.pageToken ?? ""),
-      }))
-      .filter((lane) => lane.q);
-    return restored.length ? restored : buildYouTubeSearchLanes(query);
-  } catch {
-    return buildYouTubeSearchLanes(query);
-  }
-}
-
-/** True when description has chapter-style timestamps (e.g. 0:00, 1:23, 1:02:03). */
-function descriptionHasTimestamps(description) {
-  const text = String(description || "");
-  if (!text.trim()) return false;
-  const matches = text.match(/(?:^|\n)\s*(?:\d{1,2}:)?\d{1,2}:\d{2}\b/g);
-  return Boolean(matches && matches.length >= 2);
-}
-
-function significantYouTubeQueryTokens(query) {
-  return normalizeYouTubeMatchText(query)
-    .split(" ")
-    .filter((token) => token.length >= 3 && !YOUTUBE_SEARCH_STOP_WORDS.has(token));
-}
-
-/** Match token with simple singular/plural tolerance (witchs ↔ witch). */
-function haystackHasToken(haystack, token) {
-  if (!token) return false;
-  if (haystack.includes(token)) return true;
-  if (token.length > 3 && token.endsWith("s")) {
-    if (haystack.includes(token.slice(0, -1))) return true;
-  } else if (!token.endsWith("s") && haystack.includes(`${token}s`)) {
-    return true;
-  }
-  return false;
-}
-
-function haystackHasAllTokens(haystack, tokens) {
-  if (!tokens.length) return false;
-  return tokens.every((token) => haystackHasToken(haystack, token));
-}
-
-function textMatchesYouTubeQuery(text, query) {
-  const needle = normalizeYouTubeMatchText(query);
-  if (!needle) return true;
-  const haystack = normalizeYouTubeMatchText(text);
-  if (haystack.includes(needle)) return true;
-
-  const noArticleNeedle = needle.replace(/^(the|a|an)\s+/, "").trim();
-  if (noArticleNeedle && haystack.includes(noArticleNeedle)) return true;
-
-  const tokens = significantYouTubeQueryTokens(query);
-  if (tokens.length >= 2 && haystackHasAllTokens(haystack, tokens)) return true;
-  return false;
-}
-
-/**
- * Keep videos where the game name appears in the title, the description,
- * or on a timestamp/chapter line (chapter lines are part of the description).
- */
-function videoMatchesQuery(video, query) {
-  const needle = normalizeYouTubeMatchText(query);
-  if (!needle) return true;
-
-  if (textMatchesYouTubeQuery(video?.title || "", query)) return true;
-
-  const descriptionRaw = String(video?.description || "");
-  if (textMatchesYouTubeQuery(descriptionRaw, query)) return true;
-
-  // Explicit chapter-line check: "0:00 The Witch's Bakery" etc.
-  if (descriptionHasTimestamps(descriptionRaw)) {
-    const chapterLines = descriptionRaw.split(/\r?\n/);
-    for (const line of chapterLines) {
-      if (!/(?:^|\s)(?:\d{1,2}:)?\d{1,2}:\d{2}\b/.test(line)) continue;
-      if (textMatchesYouTubeQuery(line, query)) return true;
-    }
-  }
-
-  return false;
-}
-
-async function youtubeVideosByIds(apiKey, ids) {
-  const detailsById = new Map();
-  const uniqueIds = [...new Set((ids || []).filter(Boolean))];
-  for (let i = 0; i < uniqueIds.length; i += 50) {
-    const chunk = uniqueIds.slice(i, i + 50);
-    const videoData = await youtubeApiGet(
-      "videos",
-      {
-        part: "snippet,statistics,contentDetails",
-        id: chunk.join(","),
-      },
-      apiKey
-    );
-    (videoData.items || []).forEach((item) => {
-      if (item?.id) detailsById.set(item.id, item);
-    });
-  }
-  return detailsById;
-}
-
-async function searchYouTubeVideosPage(env, options = {}) {
-  const apiKey = youtubeApiKey(env);
-  if (!apiKey) {
-    throw new Error(
-      "YOUTUBE_API_KEY is not configured. Set it with: npx wrangler secret put YOUTUBE_API_KEY"
-    );
-  }
-
-  const query = normalizeYouTubeQuery(options.query);
-  if (!query) {
-    throw new Error("Missing search query (q).");
-  }
-
-  const maxResults = Math.max(
-    1,
-    Math.min(
-      YOUTUBE_SEARCH_MAX_PAGE,
-      Number(options.maxResults) || YOUTUBE_SEARCH_DEFAULT_PAGE
-    )
-  );
-  const lanes = decodeYouTubePageState(options.pageToken, query);
-  if (!lanes.length) {
-    return {
-      query,
-      maxResults,
-      nextPageToken: "",
-      prevPageToken: "",
-      totalResults: 0,
-      resultsPerPage: 0,
-      searchQueries: [],
-      videos: [],
-    };
-  }
-
-  // Fan out across query/order lanes, then merge + post-filter.
-  const laneResults = await Promise.all(
-    lanes.map(async (lane) => {
-      const searchData = await youtubeApiGet(
-        "search",
-        {
-          part: "snippet",
-          type: "video",
-          q: lane.q,
-          order: lane.order || "relevance",
-          maxResults: String(maxResults),
-          pageToken: lane.pageToken || undefined,
-        },
-        apiKey
-      );
-      const ids = (searchData.items || [])
-        .map((item) => item?.id?.videoId)
-        .filter((id) => Boolean(id));
-      const next = String(searchData.nextPageToken || "");
-      return {
-        lane,
-        ids,
-        nextPageToken: next,
-        totalResults: Number(searchData.pageInfo?.totalResults) || 0,
-      };
-    })
-  );
-
-  const idOrder = [];
-  const seenIds = new Set();
-  laneResults.forEach((result) => {
-    result.ids.forEach((id) => {
-      if (seenIds.has(id)) return;
-      seenIds.add(id);
-      idOrder.push(id);
-    });
-  });
-
-  const detailsById = await youtubeVideosByIds(apiKey, idOrder);
-
-  const videos = idOrder
-    .map((id) => {
-      const detail = detailsById.get(id);
-      const snippet = detail?.snippet || {};
-      const statistics = detail?.statistics || {};
-      return {
-        id,
-        title: String(snippet.title || "").trim(),
-        description: String(snippet.description || "").trim(),
-        channelTitle: String(snippet.channelTitle || "").trim(),
-        channelId: String(snippet.channelId || "").trim(),
-        publishedAt: String(snippet.publishedAt || "").trim(),
-        thumbnail:
-          snippet.thumbnails?.medium?.url ||
-          snippet.thumbnails?.default?.url ||
-          "",
-        url: `https://www.youtube.com/watch?v=${id}`,
-        viewCount: String(statistics.viewCount || "0"),
-        likeCount: String(statistics.likeCount || "0"),
-        commentCount: String(statistics.commentCount || "0"),
-        subscriberCount: "0",
-        duration: String(detail?.contentDetails?.duration || "").trim(),
-      };
-    })
-    .filter((video) => videoMatchesQuery(video, query));
-
-  const channelIds = [
-    ...new Set(videos.map((video) => video.channelId).filter(Boolean)),
-  ];
-  const subscriberByChannel = new Map();
-  if (channelIds.length) {
-    for (let i = 0; i < channelIds.length; i += 50) {
-      const chunk = channelIds.slice(i, i + 50);
-      const channelData = await youtubeApiGet(
-        "channels",
-        {
-          part: "statistics",
-          id: chunk.join(","),
-        },
-        apiKey
-      );
-      (channelData.items || []).forEach((item) => {
-        const id = String(item?.id || "").trim();
-        if (!id) return;
-        subscriberByChannel.set(
-          id,
-          String(item?.statistics?.subscriberCount || "0")
-        );
-      });
-    }
-    videos.forEach((video) => {
-      video.subscriberCount = subscriberByChannel.get(video.channelId) || "0";
-    });
-  }
-
-  const nextLanes = laneResults
-    .map((result) =>
-      result.nextPageToken
-        ? {
-            q: result.lane.q,
-            order: result.lane.order,
-            pageToken: result.nextPageToken,
-          }
-        : null
-    )
-    .filter(Boolean);
-
-  const totalResults = laneResults.reduce(
-    (sum, result) => sum + (result.totalResults || 0),
-    0
-  );
-
-  return {
-    query,
-    maxResults,
-    nextPageToken: encodeYouTubePageState(nextLanes),
-    prevPageToken: "",
-    totalResults,
-    resultsPerPage: videos.length,
-    searchQueries: lanes.map((lane) => `${lane.q} (${lane.order})`),
-    videos,
-  };
-}
-

@@ -104,7 +104,7 @@
                             aria-selected="@isActive"
                             aria-label="@slideLabel"
                             tabindex="@(isActive ? 0 : -1)"
-                            @onclick="() => ShowSlide(index)">
+                            @onclick="() => ShowSlideAsync(index)">
                     </button>
                 }
             </div>
@@ -326,6 +326,61 @@
                     </div>
                     </div>
                 </section>
+
+                <section class="coverage-links-section media-coverage-summary-section-public"
+                         aria-labelledby="media-coverage-summary-heading">
+                    <h3 class="detail-card-label coverage-links-heading" id="media-coverage-summary-heading">
+                        Media Coverage
+                    </h3>
+                    @if (!string.IsNullOrWhiteSpace(_mediaCoverageStatus))
+                    {
+                        <p class="media-coverage-summary-status @(_mediaCoverageStatusError ? "is-error" : null)">
+                            @_mediaCoverageStatus
+                        </p>
+                    }
+                    <div class="media-coverage-summary-public-wrap">
+                        <div class="media-coverage-stat-board">
+                            <div class="media-coverage-stat-row media-coverage-stat-row-featured">
+                                @foreach (var card in _mediaCoverageCards.Where(c => c.Featured))
+                                {
+                                    <article class="media-coverage-stat-card is-featured">
+                                        @{
+                                            var featuredIcon = MediaCoveragePlatformIconSrc(card.Platform);
+                                        }
+                                        @if (!string.IsNullOrWhiteSpace(featuredIcon))
+                                        {
+                                            <span class="media-coverage-stat-icon is-@card.Platform" aria-hidden="true" title="@card.Label">
+                                                <img src="@featuredIcon" alt="" loading="lazy" decoding="async" />
+                                            </span>
+                                        }
+                                        <p class="media-coverage-stat-value">@card.Value</p>
+                                        <h4 class="media-coverage-stat-label">@card.Label</h4>
+                                        <p class="media-coverage-stat-hint">@card.Hint</p>
+                                    </article>
+                                }
+                            </div>
+                            <div class="media-coverage-stat-grid">
+                                @foreach (var card in _mediaCoverageCards.Where(c => !c.Featured))
+                                {
+                                    <article class="media-coverage-stat-card">
+                                        @{
+                                            var iconSrc = MediaCoveragePlatformIconSrc(card.Platform);
+                                        }
+                                        @if (!string.IsNullOrWhiteSpace(iconSrc))
+                                        {
+                                            <span class="media-coverage-stat-icon is-@card.Platform" aria-hidden="true" title="@card.Label">
+                                                <img src="@iconSrc" alt="" loading="lazy" decoding="async" />
+                                            </span>
+                                        }
+                                        <p class="media-coverage-stat-value">@card.Value</p>
+                                        <h4 class="media-coverage-stat-label">@card.Label</h4>
+                                        <p class="media-coverage-stat-hint">@card.Hint</p>
+                                    </article>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </section>
             </div>
         </div>
     }
@@ -373,6 +428,12 @@
     private bool _detailCardsWatchReady;
     private string? _coverLoadError;
     private string? _coverLoadAttemptUrl;
+    private List<MediaCoverageStatCard> _mediaCoverageCards = BuildMediaCoverageCards([]);
+    private string _mediaCoverageStatus = "";
+    private bool _mediaCoverageStatusError;
+    private string? _mediaCoverageLoadedForGame;
+    private readonly Dictionary<string, string> _mediaCoverageCache = new(StringComparer.OrdinalIgnoreCase);
+    private int _mediaCoverageLoadToken;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -455,6 +516,7 @@
                 .ToList();
 
             _status = "";
+            await EnsureMediaCoverageForActiveSlideAsync();
         }
         catch (Exception ex)
         {
@@ -463,7 +525,9 @@
         }
     }
 
-    private void ShowSlide(int index)
+    private Task ShowSlideAsync(int index) => ShowSlide(index);
+
+    private async Task ShowSlide(int index)
     {
         if (_slides.Count == 0) return;
         ClosePdfViewer();
@@ -471,7 +535,423 @@
         _detailCardsWatchReady = false;
         _coverLoadError = null;
         _coverLoadAttemptUrl = null;
+        await EnsureMediaCoverageForActiveSlideAsync();
     }
+
+    private async Task EnsureMediaCoverageForActiveSlideAsync()
+    {
+        if (_slides.Count == 0) return;
+        var active = _slides[_activeIndex];
+        var gameTitle = string.IsNullOrWhiteSpace(active.GameTitle)
+            ? "Untitled"
+            : active.GameTitle.Trim();
+
+        // Per-game cache: every Witch's Bakery slide shows the same game totals.
+        if (_mediaCoverageCache.TryGetValue(gameTitle, out var cachedJson))
+        {
+            _mediaCoverageLoadedForGame = gameTitle;
+            ApplyMediaCoverageJson(cachedJson);
+            return;
+        }
+
+        if (string.Equals(_mediaCoverageLoadedForGame, gameTitle, StringComparison.OrdinalIgnoreCase)
+            && _mediaCoverageCards.Count > 0
+            && string.IsNullOrWhiteSpace(_mediaCoverageStatus))
+        {
+            return;
+        }
+
+        var token = ++_mediaCoverageLoadToken;
+        _mediaCoverageLoadedForGame = gameTitle;
+        _mediaCoverageStatusError = false;
+
+        // Prefer the dedicated per-game API over any announcement-embedded copy.
+        _mediaCoverageStatus = "Loading media coverage…";
+        _mediaCoverageCards = BuildMediaCoverageCards([]);
+        try
+        {
+            var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+            var shareSuffix = "";
+            foreach (var part in uri.Query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var eq = part.IndexOf('=');
+                var key = eq >= 0 ? part[..eq] : part;
+                if (!string.Equals(Uri.UnescapeDataString(key), "s", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+                var value = eq >= 0 ? Uri.UnescapeDataString(part[(eq + 1)..]) : "";
+                if (!string.IsNullOrWhiteSpace(value))
+                {
+                    shareSuffix = "&s=" + Uri.EscapeDataString(value.Trim());
+                }
+                break;
+            }
+            var apiUrl =
+                $"{ApiBase}/api/public/media-coverage?game={Uri.EscapeDataString(gameTitle)}{shareSuffix}";
+
+            using var response = await Http.GetAsync(apiUrl);
+            if (token != _mediaCoverageLoadToken) return;
+            if (!response.IsSuccessStatusCode)
+            {
+                // Fall back to any coverage embedded on announcement rows for this game.
+                var embedded = "";
+                foreach (var row in _slides)
+                {
+                    var title = string.IsNullOrWhiteSpace(row.GameTitle) ? "Untitled" : row.GameTitle.Trim();
+                    if (!string.Equals(title, gameTitle, StringComparison.OrdinalIgnoreCase)) continue;
+                    embedded = row.MediaCoverage?.Trim() ?? "";
+                    if (!string.IsNullOrWhiteSpace(embedded)) break;
+                }
+                if (!string.IsNullOrWhiteSpace(embedded))
+                {
+                    _mediaCoverageCache[gameTitle] = embedded;
+                    ApplyMediaCoverageJson(embedded);
+                    return;
+                }
+
+                _mediaCoverageStatusError = true;
+                _mediaCoverageStatus = response.StatusCode == System.Net.HttpStatusCode.NotFound
+                    ? "Media coverage API not available yet."
+                    : $"Could not load media coverage ({(int)response.StatusCode}).";
+                _mediaCoverageCards = BuildMediaCoverageCards([]);
+                return;
+            }
+
+            var payload = await response.Content.ReadFromJsonAsync<MediaCoveragePublicPayload>(
+                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            if (token != _mediaCoverageLoadToken) return;
+            var json = payload?.MediaCoverage?.Trim() ?? "";
+            _mediaCoverageCache[gameTitle] = json;
+            ApplyMediaCoverageJson(json);
+        }
+        catch (Exception ex)
+        {
+            if (token != _mediaCoverageLoadToken) return;
+            _mediaCoverageStatusError = true;
+            _mediaCoverageStatus = $"Could not load media coverage: {ex.Message}";
+            _mediaCoverageCards = BuildMediaCoverageCards([]);
+        }
+    }
+
+    private void ApplyMediaCoverageJson(string json)
+    {
+        var rows = ParseMediaCoverageRows(json);
+        var overrides = ParseMediaCoverageSummaryOverrides(json);
+        _mediaCoverageCards = BuildMediaCoverageCards(rows, overrides);
+        _mediaCoverageStatus = rows.Count == 0 ? "No media coverage saved for this game yet." : "";
+        _mediaCoverageStatusError = false;
+    }
+
+    private static Dictionary<string, string> ParseMediaCoverageSummaryOverrides(string? raw)
+    {
+        var text = (raw ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(text) || !text.StartsWith('{')) return new(StringComparer.Ordinal);
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(text);
+            if (doc.RootElement.ValueKind != System.Text.Json.JsonValueKind.Object) return new(StringComparer.Ordinal);
+            if (!doc.RootElement.TryGetProperty("summaryOverrides", out var overridesEl)
+                || overridesEl.ValueKind != System.Text.Json.JsonValueKind.Object)
+            {
+                return new(StringComparer.Ordinal);
+            }
+            var result = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var prop in overridesEl.EnumerateObject())
+            {
+                var id = prop.Name?.Trim() ?? "";
+                var value = prop.Value.ValueKind switch
+                {
+                    System.Text.Json.JsonValueKind.String => prop.Value.GetString()?.Trim() ?? "",
+                    System.Text.Json.JsonValueKind.Number => prop.Value.ToString(),
+                    _ => "",
+                };
+                if (!string.IsNullOrWhiteSpace(id) && !string.IsNullOrWhiteSpace(value))
+                    result[id] = value;
+            }
+            return result;
+        }
+        catch
+        {
+            return new(StringComparer.Ordinal);
+        }
+    }
+
+    private static List<Dictionary<string, string>> ParseMediaCoverageRows(string? raw)
+    {
+        var text = (raw ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(text) || text is "[]" or "{}") return [];
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(text);
+            System.Text.Json.JsonElement list = default;
+            var hasList = false;
+            if (doc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Array)
+            {
+                list = doc.RootElement;
+                hasList = true;
+            }
+            else if (doc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Object)
+            {
+                // Worker stores { sectionTitle, rows: [...] } — same shape as admin/js.
+                if (doc.RootElement.TryGetProperty("rows", out var rowsEl)
+                    && rowsEl.ValueKind == System.Text.Json.JsonValueKind.Array)
+                {
+                    list = rowsEl;
+                    hasList = true;
+                }
+                else if (doc.RootElement.TryGetProperty("links", out var linksEl)
+                    && linksEl.ValueKind == System.Text.Json.JsonValueKind.Array)
+                {
+                    list = linksEl;
+                    hasList = true;
+                }
+            }
+            if (!hasList) return [];
+
+            var rows = new List<Dictionary<string, string>>();
+            foreach (var item in list.EnumerateArray())
+            {
+                if (item.ValueKind == System.Text.Json.JsonValueKind.String)
+                {
+                    var details = item.GetString()?.Trim() ?? "";
+                    if (!string.IsNullOrWhiteSpace(details))
+                    {
+                        rows.Add(new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                        {
+                            ["details"] = details,
+                        });
+                    }
+                    continue;
+                }
+                if (item.ValueKind != System.Text.Json.JsonValueKind.Object) continue;
+                var row = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var prop in item.EnumerateObject())
+                {
+                    row[prop.Name] = prop.Value.ValueKind switch
+                    {
+                        System.Text.Json.JsonValueKind.String => prop.Value.GetString()?.Trim() ?? "",
+                        System.Text.Json.JsonValueKind.Number => prop.Value.ToString(),
+                        System.Text.Json.JsonValueKind.True => "true",
+                        System.Text.Json.JsonValueKind.False => "false",
+                        System.Text.Json.JsonValueKind.Null => "",
+                        _ => prop.Value.ToString(),
+                    };
+                }
+                if (row.Count > 0) rows.Add(row);
+            }
+            return rows;
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    private static string RowValue(Dictionary<string, string> row, string key) =>
+        row.TryGetValue(key, out var value) ? value?.Trim() ?? "" : "";
+
+    private static string MediaCoverageTypeKey(string? value) =>
+        System.Text.RegularExpressions.Regex.Replace(
+            System.Text.RegularExpressions.Regex.Replace(
+                (value ?? "").Trim().ToLowerInvariant(),
+                @"[_-]+",
+                " "),
+            @"\s+",
+            " ");
+
+    private static string MediaCoveragePlatformId(string? typeValue)
+    {
+        var key = MediaCoverageTypeKey(MediaCoverageTypeLabel(typeValue));
+        if (key is "yt" or "youtube") return "youtube";
+        if (key == "twitch") return "twitch";
+        if (key is "tiktok" or "tik tok") return "tiktok";
+        if (key is "instagram" or "ig") return "instagram";
+        if (key is "bilibili" or "bili bili" or "bili") return "bilibili";
+        return "";
+    }
+
+    private static string MediaCoverageTypeLabel(string? value)
+    {
+        var raw = (value ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(raw)) return "Other";
+        var key = MediaCoverageTypeKey(raw);
+        if (key is "yt" or "youtube") return "YouTube";
+        if (key == "twitch") return "Twitch";
+        if (key is "tiktok" or "tik tok") return "TikTok";
+        if (key is "instagram" or "ig") return "Instagram";
+        if (key is "bilibili" or "bili bili" or "bili") return "BiliBili";
+        return raw;
+    }
+
+    private static bool IsPodcastRow(Dictionary<string, string> row)
+    {
+        var key = MediaCoverageTypeKey(RowValue(row, "type"));
+        return key is "podcast" or "podcasts"
+            || System.Text.RegularExpressions.Regex.IsMatch(key, @"\bpodcasts?\b");
+    }
+
+    private static double MediaCoverageMetricNumber(string? value)
+    {
+        var cleaned = (value ?? "").Trim().Replace(",", "");
+        if (string.IsNullOrWhiteSpace(cleaned)) return 0;
+        var match = System.Text.RegularExpressions.Regex.Match(cleaned, @"-?\d+(?:\.\d+)?");
+        if (!match.Success) return 0;
+        return double.TryParse(match.Value, System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture, out var n)
+            ? n
+            : 0;
+    }
+
+    private static string MediaCoverageCreatorIdentity(Dictionary<string, string> row)
+    {
+        var handleId = RowValue(row, "handleId").ToLowerInvariant();
+        if (!string.IsNullOrWhiteSpace(handleId)) return $"id:{handleId}";
+        var channel = RowValue(row, "youtubeChannelTitle").ToLowerInvariant();
+        if (!string.IsNullOrWhiteSpace(channel)) return $"ch:{channel}";
+        var twitch = RowValue(row, "twitchAccount").ToLowerInvariant();
+        if (!string.IsNullOrWhiteSpace(twitch)) return $"tw:{twitch}";
+        var name = RowValue(row, "customName").ToLowerInvariant();
+        if (!string.IsNullOrWhiteSpace(name)) return $"name:{name}";
+        var url = RowValue(row, "handleUrl").ToLowerInvariant();
+        if (!string.IsNullOrWhiteSpace(url)) return $"url:{url}";
+        return "";
+    }
+
+    private static int CountMediaCoverageCreators(IEnumerable<Dictionary<string, string>> rows)
+    {
+        var ids = new HashSet<string>(StringComparer.Ordinal);
+        var anonymous = 0;
+        foreach (var row in rows)
+        {
+            var identity = MediaCoverageCreatorIdentity(row);
+            if (!string.IsNullOrWhiteSpace(identity)) ids.Add(identity);
+            else anonymous += 1;
+        }
+        return ids.Count + anonymous;
+    }
+
+    private static double SumMediaCoverageField(IEnumerable<Dictionary<string, string>> rows, string key) =>
+        rows.Sum(row => MediaCoverageMetricNumber(RowValue(row, key)));
+
+    private static double UniqueCreatorFieldSum(IEnumerable<Dictionary<string, string>> rows, string field)
+    {
+        var byCreator = new Dictionary<string, double>(StringComparer.Ordinal);
+        double anonymous = 0;
+        foreach (var row in rows)
+        {
+            var identity = MediaCoverageCreatorIdentity(row);
+            var value = MediaCoverageMetricNumber(RowValue(row, field));
+            if (!string.IsNullOrWhiteSpace(identity))
+            {
+                if (!byCreator.TryGetValue(identity, out var prev) || value > prev)
+                    byCreator[identity] = value;
+            }
+            else
+            {
+                anonymous += value;
+            }
+        }
+        return anonymous + byCreator.Values.Sum();
+    }
+
+    private static readonly Dictionary<string, string> MediaCoverageCardOverrideIds = new(StringComparer.Ordinal)
+    {
+        ["audience-youtube"] = "youtube-audience",
+        ["coverages-youtube"] = "youtube-coverages",
+        ["creators-youtube"] = "youtube-creators",
+        ["views-youtube"] = "youtube-views",
+        ["likes-youtube"] = "youtube-likes",
+        ["comments-youtube"] = "youtube-comments",
+        ["podcasts"] = "podcasts-count",
+        ["videos-tiktok"] = "tiktok-videos",
+        ["creators-tiktok"] = "tiktok-creators",
+        ["views-tiktok"] = "tiktok-views",
+        ["likes-tiktok"] = "tiktok-likes",
+        ["videos-bilibili"] = "bilibili-videos",
+        ["creators-bilibili"] = "bilibili-creators",
+        ["views-bilibili"] = "bilibili-views",
+        ["likes-bilibili"] = "bilibili-likes",
+        ["comments-bilibili"] = "bilibili-comments",
+        ["reels-instagram"] = "instagram-reels",
+        ["creators-instagram"] = "instagram-creators",
+        ["views-instagram"] = "instagram-views",
+        ["likes-instagram"] = "instagram-likes",
+        ["comments-instagram"] = "instagram-comments",
+    };
+
+    private static List<MediaCoverageStatCard> BuildMediaCoverageCards(
+        IReadOnlyList<Dictionary<string, string>> rows,
+        IReadOnlyDictionary<string, string>? summaryOverrides = null)
+    {
+        static string Format(double value) =>
+            ((long)Math.Round(Math.Max(0, value))).ToString("N0", System.Globalization.CultureInfo.GetCultureInfo("en-US"));
+
+        var overrides = summaryOverrides ?? new Dictionary<string, string>(StringComparer.Ordinal);
+        var youtube = rows.Where(r => MediaCoveragePlatformId(RowValue(r, "type")) == "youtube").ToList();
+        var tiktok = rows.Where(r => MediaCoveragePlatformId(RowValue(r, "type")) == "tiktok").ToList();
+        var bilibili = rows.Where(r => MediaCoveragePlatformId(RowValue(r, "type")) == "bilibili").ToList();
+        var instagram = rows.Where(r => MediaCoveragePlatformId(RowValue(r, "type")) == "instagram").ToList();
+        var twitch = rows.Where(r => MediaCoveragePlatformId(RowValue(r, "type")) == "twitch").ToList();
+        var podcasts = rows.Where(IsPodcastRow).ToList();
+
+        var youtubeAudience = UniqueCreatorFieldSum(youtube, "youtubeSubs");
+        var tiktokAudience = UniqueCreatorFieldSum(tiktok, "tiktokFollower");
+        var twitchAudience = UniqueCreatorFieldSum(twitch, "twitchFollower");
+        var totalAudience = youtubeAudience + tiktokAudience + twitchAudience;
+
+        MediaCoverageStatCard Card(
+            string id, string value, string label, string hint, bool featured, string platform = "")
+        {
+            var metricId = MediaCoverageCardOverrideIds.TryGetValue(id, out var mapped) ? mapped : id;
+            if (overrides.TryGetValue(metricId, out var overrideValue)
+                && !string.IsNullOrWhiteSpace(overrideValue))
+            {
+                return new(id, overrideValue.Trim(), label, hint, featured, platform, true);
+            }
+            return new(id, value, label, hint, featured, platform, false);
+        }
+
+        return
+        [
+            Card("total-audience", Format(totalAudience), "Total Audience", "Total sub & follower count", true, "audience"),
+            Card("media-coverages", Format(rows.Count), "Media Coverages", "All types of coverages", true, "coverages"),
+            Card("audience-youtube", Format(youtubeAudience), "Audience YouTube", "Total subscriber count", false, "youtube"),
+            Card("coverages-youtube", Format(youtube.Count), "Media Coverages YouTube", "Pieces of content", false, "youtube"),
+            Card("creators-youtube", Format(CountMediaCoverageCreators(youtube)), "Individual Influencer Contribution YouTube", "Total number of different creators", false, "youtube"),
+            Card("views-youtube", Format(SumMediaCoverageField(youtube, "youtubeViews")), "YouTube Views", "Total number of views", false, "youtube"),
+            Card("likes-youtube", Format(SumMediaCoverageField(youtube, "youtubeLikes")), "YouTube Likes", "Total number of likes", false, "youtube"),
+            Card("comments-youtube", Format(SumMediaCoverageField(youtube, "youtubeComments")), "YouTube Comments", "Total number of comments", false, "youtube"),
+            Card("podcasts", Format(podcasts.Count), "Podcasts", "Total number of podcasts", false, "podcast"),
+            Card("videos-tiktok", Format(tiktok.Count), "TikTok Videos", "Total number of videos", false, "tiktok"),
+            Card("creators-tiktok", Format(CountMediaCoverageCreators(tiktok)), "Individual Influencer Contribution TikTok", "Total number of different creators", false, "tiktok"),
+            Card("views-tiktok", Format(SumMediaCoverageField(tiktok, "tiktokViews")), "TikTok Views", "Total number views on TikTok", false, "tiktok"),
+            Card("likes-tiktok", Format(SumMediaCoverageField(tiktok, "tiktokLikes")), "TikTok Likes", "Total number of likes on TikTok", false, "tiktok"),
+            Card("videos-bilibili", Format(bilibili.Count), "BiliBili Videos", "Total number of videos", false, "bilibili"),
+            Card("creators-bilibili", Format(CountMediaCoverageCreators(bilibili)), "Individual Influencer Contribution BiliBili", "Total number of different creators", false, "bilibili"),
+            Card("views-bilibili", Format(SumMediaCoverageField(bilibili, "bilibiliViews")), "BiliBili Views", "Total number views on BiliBili", false, "bilibili"),
+            Card("likes-bilibili", Format(SumMediaCoverageField(bilibili, "bilibiliLikes")), "BiliBili Likes", "Total number of likes on BiliBili", false, "bilibili"),
+            Card("comments-bilibili", Format(SumMediaCoverageField(bilibili, "bilibiliComments")), "BiliBili Comments", "Total number of comments on BiliBili", false, "bilibili"),
+            Card("reels-instagram", Format(instagram.Count), "Instagram Reels", "Total number of reels", false, "instagram"),
+            Card("creators-instagram", Format(CountMediaCoverageCreators(instagram)), "Individual Influencer Contribution Instagram", "Total number of different creators", false, "instagram"),
+            Card("views-instagram", Format(SumMediaCoverageField(instagram, "instagramViews")), "Instagram Views", "Total number views on Instagram", false, "instagram"),
+            Card("likes-instagram", Format(SumMediaCoverageField(instagram, "instagramLikes")), "Instagram Likes", "Total number of likes on Instagram", false, "instagram"),
+            Card("comments-instagram", Format(SumMediaCoverageField(instagram, "instagramComments")), "Instagram Comments", "Total number of comments on Instagram", false, "instagram"),
+        ];
+    }
+
+    private static string MediaCoveragePlatformIconSrc(string? platform) =>
+        (platform ?? "").Trim().ToLowerInvariant() switch
+        {
+            "audience" => "images/media-audience.png",
+            "coverages" => "images/media-coverages.png",
+            "youtube" => "images/media-youtube.png",
+            "tiktok" => "images/media-tiktok.png",
+            "bilibili" => "images/media-bilibili.png",
+            "instagram" => "images/media-instagram.png",
+            "podcast" => "images/media-podcast.png",
+            _ => "",
+        };
 
     private void OnCoverImageError()
     {
@@ -536,8 +1016,8 @@
             if (e.Key == "Escape") ClosePdfViewer();
             return;
         }
-        if (e.Key == "ArrowRight") ShowSlide(_activeIndex + 1);
-        else if (e.Key == "ArrowLeft") ShowSlide(_activeIndex - 1);
+        if (e.Key == "ArrowRight") _ = ShowSlide(_activeIndex + 1);
+        else if (e.Key == "ArrowLeft") _ = ShowSlide(_activeIndex - 1);
     }
 
     private void OnTouchStart(TouchEventArgs e)
@@ -551,7 +1031,7 @@
         if (e.ChangedTouches.Length == 0) return;
         var delta = e.ChangedTouches[0].ClientX - _touchStartX;
         if (Math.Abs(delta) < 40) return;
-        ShowSlide(_activeIndex + (delta < 0 ? 1 : -1));
+        _ = ShowSlide(_activeIndex + (delta < 0 ? 1 : -1));
     }
 
     private static readonly (string Id, string Label, string Icon)[] PlatformOptions =
@@ -1064,5 +1544,20 @@
         public string? TotalWishlists { get; set; }
         public string? CoverageLinks { get; set; }
         public string? GameImage { get; set; }
+        public string? MediaCoverage { get; set; }
     }
+
+    private sealed class MediaCoveragePublicPayload
+    {
+        public string? MediaCoverage { get; set; }
+    }
+
+    private sealed record MediaCoverageStatCard(
+        string Id,
+        string Value,
+        string Label,
+        string Hint,
+        bool Featured,
+        string Platform = "",
+        bool IsOverride = false);
 }
