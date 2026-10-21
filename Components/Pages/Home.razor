@@ -75,64 +75,95 @@
              @onkeydown="OnKeyDown"
              @ontouchstart="OnTouchStart"
              @ontouchend="OnTouchEnd">
-            <div class="carousel-dots" role="tablist" aria-label="Announcements">
-                @for (var i = 0; i < _slides.Count; i++)
+            @{
+                var prevGameIndex = AdjacentGameIndex(_activeIndex, -1);
+                var nextGameIndex = AdjacentGameIndex(_activeIndex, 1);
+                var prevAnnouncementIndex = AdjacentAnnouncementIndex(_activeIndex, -1);
+                var nextAnnouncementIndex = AdjacentAnnouncementIndex(_activeIndex, 1);
+            }
+            @{
+                var monthYear = AnnouncementMonthYear(active);
+            }
+            <div class="carousel-title-row carousel-game-row">
+                @if (prevGameIndex >= 0)
                 {
-                    var index = i;
-                    var isActive = index == _activeIndex;
-                    var slide = _slides[index];
-                    var slideGame = string.IsNullOrWhiteSpace(slide.GameTitle)
-                        ? "Untitled"
-                        : slide.GameTitle.Trim();
-                    var slideAnnouncement = slide.AnnouncementTitle?.Trim() ?? "";
-                    var slideLabel = string.IsNullOrWhiteSpace(slideAnnouncement)
-                        ? slideGame
-                        : $"{slideGame}: {slideAnnouncement}";
-                    if (index > 0)
-                    {
-                        var prevGame = string.IsNullOrWhiteSpace(_slides[index - 1].GameTitle)
-                            ? "Untitled"
-                            : _slides[index - 1].GameTitle.Trim();
-                        if (!string.Equals(prevGame, slideGame, StringComparison.OrdinalIgnoreCase))
-                        {
-                            <span class="carousel-dot-separator" aria-hidden="true"></span>
-                        }
-                    }
                     <button type="button"
-                            class="carousel-dot @(isActive ? "is-active" : null)"
-                            role="tab"
-                            aria-selected="@isActive"
-                            aria-label="@slideLabel"
-                            tabindex="@(isActive ? 0 : -1)"
-                            @onclick="() => ShowSlideAsync(index)">
+                            class="carousel-nav-btn"
+                            data-carousel-dir="-1"
+                            aria-label="Previous game"
+                            @onclick="() => ShowSlideAsync(prevGameIndex)">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+                    </button>
+                }
+                <h2 class="carousel-game">@gameTitle</h2>
+                @if (nextGameIndex >= 0)
+                {
+                    <button type="button"
+                            class="carousel-nav-btn"
+                            data-carousel-dir="1"
+                            aria-label="Next game"
+                            @onclick="() => ShowSlideAsync(nextGameIndex)">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
                     </button>
                 }
             </div>
 
-            <div class="cover-banner @(hasCover ? null : "is-empty")" aria-hidden="@(hasCover ? "false" : "true")">
-                @if (!string.IsNullOrWhiteSpace(activeImageUrl) && string.IsNullOrWhiteSpace(_coverLoadError))
-                {
-                    <img class="carousel-game-image"
-                         src="@activeImageUrl"
-                         alt="@coverAlt"
-                         @onerror="OnCoverImageError" />
-                }
-                else
-                {
-                    <span class="cover-banner-placeholder">Cover image</span>
-                    @if (!string.IsNullOrWhiteSpace(coverErrorText))
-                    {
-                        <p class="cover-banner-error" role="alert">@coverErrorText</p>
-                    }
-                }
-            </div>
+            @if (!string.IsNullOrWhiteSpace(announcementTitle)
+                || prevAnnouncementIndex >= 0
+                || nextAnnouncementIndex >= 0
+                || !string.IsNullOrWhiteSpace(monthYear))
+            {
+                <div class="carousel-announcement-block">
+                    <div class="carousel-title-row carousel-subtitle-row">
+                        @if (prevAnnouncementIndex >= 0)
+                        {
+                            <button type="button"
+                                    class="carousel-nav-btn"
+                                    data-carousel-dir="-1"
+                                    aria-label="Previous announcement"
+                                    @onclick="() => ShowSlideAsync(prevAnnouncementIndex)">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+                            </button>
+                        }
+                        <div class="carousel-announcement-copy">
+                            <p class="carousel-subtitle">@announcementTitle</p>
+                            @if (!string.IsNullOrWhiteSpace(monthYear))
+                            {
+                                <p class="carousel-announcement-date">@monthYear</p>
+                            }
+                        </div>
+                        @if (nextAnnouncementIndex >= 0)
+                        {
+                            <button type="button"
+                                    class="carousel-nav-btn"
+                                    data-carousel-dir="1"
+                                    aria-label="Next announcement"
+                                    @onclick="() => ShowSlideAsync(nextAnnouncementIndex)">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+                            </button>
+                        }
+                    </div>
+                </div>
+            }
 
-            <div class="carousel-slide" @key="_activeIndex" aria-live="polite">
-                <h2 class="carousel-game">@gameTitle</h2>
-                @if (!string.IsNullOrWhiteSpace(announcementTitle))
-                {
-                    <p class="carousel-subtitle">@announcementTitle</p>
-                }
+            <div class="carousel-hero">
+                <div class="cover-banner @(hasCover ? null : "is-empty")" aria-hidden="@(hasCover ? "false" : "true")">
+                    @if (!string.IsNullOrWhiteSpace(activeImageUrl) && string.IsNullOrWhiteSpace(_coverLoadError))
+                    {
+                        <img class="carousel-game-image"
+                             src="@activeImageUrl"
+                             alt="@coverAlt"
+                             @onerror="OnCoverImageError" />
+                    }
+                    else
+                    {
+                        <span class="cover-banner-placeholder">Cover image</span>
+                        @if (!string.IsNullOrWhiteSpace(coverErrorText))
+                        {
+                            <p class="cover-banner-error" role="alert">@coverErrorText</p>
+                        }
+                    }
+                </div>
                 <div class="detail-cards detail-cards-row" @ref="_detailCardsRef">
                     <section class="detail-card detail-card-platforms" @ref="_platformsCardRef">
                         <h3 class="detail-card-label">Platforms</h3>
@@ -157,25 +188,12 @@
                         </div>
                     </section>
                     <section class="detail-card">
-                        <h3 class="detail-card-label">Date</h3>
-                        <ul class="detail-card-list">
-                            @{
-                                var date = string.IsNullOrWhiteSpace(active.Date)
-                                    ? "No date"
-                                    : active.Date.Trim();
-                            }
-                            <li class="@(string.IsNullOrWhiteSpace(active.Date) ? "is-empty" : null)">
-                                @date
-                            </li>
-                        </ul>
-                    </section>
-                    <section class="detail-card">
                         <h3 class="detail-card-label">Estimated reach</h3>
                         <ul class="detail-card-list">
                             @{
                                 var reach = string.IsNullOrWhiteSpace(active.EstimatedReach)
                                     ? "No data"
-                                    : active.EstimatedReach.Trim();
+                                    : FormatCoverageStat(active.EstimatedReach);
                             }
                             <li class="@(string.IsNullOrWhiteSpace(active.EstimatedReach) ? "is-empty" : null)">
                                 @reach
@@ -187,12 +205,14 @@
                         <section class="detail-card detail-card-wishlists">
                             <h3 class="detail-card-label">Total wishlists</h3>
                             <ul class="detail-card-list">
-                                <li>@active.TotalWishlists!.Trim()</li>
+                                <li>@FormatCoverageStat(active.TotalWishlists)</li>
                             </ul>
                         </section>
                     }
                 </div>
+            </div>
 
+            <div class="carousel-slide" @key="_activeIndex" aria-live="polite">
                 @{
                     var trailerEmbed = YoutubeEmbedUrl(active.Trailer);
                     var pdfFull = PdfEmbedUrl(active.PressReleasePdf, toolbar: true);
@@ -536,11 +556,81 @@
 
     private Task ShowSlideAsync(int index) => ShowSlide(index);
 
+    private static string SlideGameKey(AnnouncementRow? row) =>
+        string.IsNullOrWhiteSpace(row?.GameTitle) ? "Untitled" : row!.GameTitle.Trim();
+
+    private int AdjacentGameIndex(int fromIndex, int dir)
+    {
+        if (_slides.Count == 0 || fromIndex < 0 || fromIndex >= _slides.Count) return -1;
+        var currentKey = SlideGameKey(_slides[fromIndex]);
+        if (dir < 0)
+        {
+            for (var i = fromIndex - 1; i >= 0; i--)
+            {
+                if (!string.Equals(SlideGameKey(_slides[i]), currentKey, StringComparison.OrdinalIgnoreCase))
+                {
+                    var key = SlideGameKey(_slides[i]);
+                    var start = i;
+                    while (start > 0
+                        && string.Equals(SlideGameKey(_slides[start - 1]), key, StringComparison.OrdinalIgnoreCase))
+                    {
+                        start--;
+                    }
+                    return start;
+                }
+            }
+            return -1;
+        }
+
+        for (var i = fromIndex + 1; i < _slides.Count; i++)
+        {
+            if (!string.Equals(SlideGameKey(_slides[i]), currentKey, StringComparison.OrdinalIgnoreCase))
+                return i;
+        }
+        return -1;
+    }
+
+    private int AdjacentAnnouncementIndex(int fromIndex, int dir)
+    {
+        if (_slides.Count == 0 || fromIndex < 0 || fromIndex >= _slides.Count) return -1;
+        var next = fromIndex + dir;
+        if (next < 0 || next >= _slides.Count) return -1;
+        if (!string.Equals(
+                SlideGameKey(_slides[next]),
+                SlideGameKey(_slides[fromIndex]),
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return -1;
+        }
+        return next;
+    }
+
+    private Task NavigateCarouselAsync(int dir)
+    {
+        var step = dir < 0 ? -1 : 1;
+        var nextAnnouncement = AdjacentAnnouncementIndex(_activeIndex, step);
+        if (nextAnnouncement >= 0) return ShowSlide(nextAnnouncement);
+
+        var nextGame = AdjacentGameIndex(_activeIndex, step);
+        if (nextGame < 0) return Task.CompletedTask;
+        if (step > 0) return ShowSlide(nextGame);
+
+        var key = SlideGameKey(_slides[nextGame]);
+        var last = nextGame;
+        while (last + 1 < _slides.Count
+            && string.Equals(SlideGameKey(_slides[last + 1]), key, StringComparison.OrdinalIgnoreCase))
+        {
+            last++;
+        }
+        return ShowSlide(last);
+    }
+
     private async Task ShowSlide(int index)
     {
         if (_slides.Count == 0) return;
+        if (index < 0 || index >= _slides.Count) return;
         ClosePdfViewer();
-        _activeIndex = ((index % _slides.Count) + _slides.Count) % _slides.Count;
+        _activeIndex = index;
         _detailCardsWatchReady = false;
         _coverLoadError = null;
         _coverLoadAttemptUrl = null;
@@ -1061,8 +1151,8 @@
             if (e.Key == "Escape") ClosePdfViewer();
             return;
         }
-        if (e.Key == "ArrowRight") _ = ShowSlide(_activeIndex + 1);
-        else if (e.Key == "ArrowLeft") _ = ShowSlide(_activeIndex - 1);
+        if (e.Key == "ArrowRight") _ = NavigateCarouselAsync(1);
+        else if (e.Key == "ArrowLeft") _ = NavigateCarouselAsync(-1);
     }
 
     private void OnTouchStart(TouchEventArgs e)
@@ -1076,7 +1166,7 @@
         if (e.ChangedTouches.Length == 0) return;
         var delta = e.ChangedTouches[0].ClientX - _touchStartX;
         if (Math.Abs(delta) < 40) return;
-        _ = ShowSlide(_activeIndex + (delta < 0 ? 1 : -1));
+        _ = NavigateCarouselAsync(delta < 0 ? 1 : -1);
     }
 
     private static readonly (string Id, string Label, string Icon)[] PlatformOptions =
@@ -1173,6 +1263,36 @@
                 match.Value,
                 @"\B(?=(\d{3})+(?!\d))",
                 ","));
+    }
+
+    private static string AnnouncementMonthYear(AnnouncementRow? row)
+    {
+        if (row is null) return "";
+        var month = row.Month?.Trim() ?? "";
+        if (!string.IsNullOrWhiteSpace(month)) return month;
+
+        var dateText = row.Date?.Trim() ?? "";
+        if (string.IsNullOrWhiteSpace(dateText)) return "";
+
+        if (DateTime.TryParse(
+                dateText,
+                System.Globalization.CultureInfo.GetCultureInfo("en-GB"),
+                System.Globalization.DateTimeStyles.AllowWhiteSpaces,
+                out var parsed)
+            || DateTime.TryParse(
+                dateText,
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.AllowWhiteSpaces,
+                out parsed))
+        {
+            return parsed.ToString("MMMM yyyy", System.Globalization.CultureInfo.GetCultureInfo("en-GB"));
+        }
+
+        var monthYearMatch = System.Text.RegularExpressions.Regex.Match(
+            dateText,
+            @"^(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4}$",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        return monthYearMatch.Success ? monthYearMatch.Value : "";
     }
 
     private static string LinkLabel(string url)

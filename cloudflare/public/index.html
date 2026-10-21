@@ -29,30 +29,41 @@
     </div>
     <p class="note" id="status">Loading…</p>
     <div class="announcement-carousel" id="carousel" hidden tabindex="0">
-      <div
-        class="carousel-dots"
-        id="carousel-dots"
-        role="tablist"
-        aria-label="Announcements"
-      ></div>
-
-      <div class="cover-banner is-empty" id="cover-banner" aria-hidden="true">
-        <img class="carousel-game-image" id="carousel-game-image" alt="" hidden />
-        <span class="cover-banner-placeholder" id="cover-placeholder">Cover image</span>
-        <p class="cover-banner-error" id="cover-error" role="alert" hidden></p>
+      <div class="carousel-title-row carousel-game-row">
+        <button type="button" class="carousel-nav-btn" data-carousel-nav="game" data-carousel-dir="-1" aria-label="Previous game" hidden>
+          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+        </button>
+        <h2 class="carousel-game" id="carousel-game"></h2>
+        <button type="button" class="carousel-nav-btn" data-carousel-nav="game" data-carousel-dir="1" aria-label="Next game" hidden>
+          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+        </button>
       </div>
 
-      <div class="carousel-slide" id="carousel-slide" aria-live="polite">
-        <h2 class="carousel-game" id="carousel-game"></h2>
-        <p class="carousel-subtitle" id="carousel-subtitle" hidden></p>
+      <div class="carousel-announcement-block" id="carousel-subtitle-row" hidden>
+        <div class="carousel-title-row carousel-subtitle-row">
+          <button type="button" class="carousel-nav-btn" data-carousel-nav="announcement" data-carousel-dir="-1" aria-label="Previous announcement" hidden>
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <div class="carousel-announcement-copy">
+            <p class="carousel-subtitle" id="carousel-subtitle"></p>
+            <p class="carousel-announcement-date" id="carousel-announcement-date" hidden></p>
+          </div>
+          <button type="button" class="carousel-nav-btn" data-carousel-nav="announcement" data-carousel-dir="1" aria-label="Next announcement" hidden>
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="carousel-hero">
+        <div class="cover-banner is-empty" id="cover-banner" aria-hidden="true">
+          <img class="carousel-game-image" id="carousel-game-image" alt="" hidden />
+          <span class="cover-banner-placeholder" id="cover-placeholder">Cover image</span>
+          <p class="cover-banner-error" id="cover-error" role="alert" hidden></p>
+        </div>
         <div class="detail-cards detail-cards-row" id="detail-cards">
           <section class="detail-card detail-card-platforms" id="detail-card-platforms">
             <h3 class="detail-card-label">Platforms</h3>
             <div class="platform-chips readonly" id="announcement-platforms"></div>
-          </section>
-          <section class="detail-card">
-            <h3 class="detail-card-label">Date</h3>
-            <ul class="detail-card-list" id="announcement-dates"></ul>
           </section>
           <section class="detail-card">
             <h3 class="detail-card-label">Estimated reach</h3>
@@ -63,7 +74,9 @@
             <ul class="detail-card-list" id="total-wishlists"></ul>
           </section>
         </div>
+      </div>
 
+      <div class="carousel-slide" id="carousel-slide" aria-live="polite">
         <div class="media-cards" id="media-cards">
           <section class="trailer-card is-empty" id="trailer-card" aria-label="Trailer">
             <h3 class="detail-card-label">Trailer</h3>
@@ -133,6 +146,7 @@
       coverageLinkUrls,
       coverageStatSortValue,
       formatCoverageStat,
+      monthFromDate,
       parseCoverageLinksValue,
       parseCoverageSectionTitle,
       parseMediaCoverageValue,
@@ -158,7 +172,9 @@
     const announcementPlatformsEl = document.getElementById(
       "announcement-platforms"
     );
-    const announcementDatesEl = document.getElementById("announcement-dates");
+    const carouselAnnouncementDateEl = document.getElementById(
+      "carousel-announcement-date"
+    );
     let detailCardSizeObserver = null;
     const trailerCardEl = document.getElementById("trailer-card");
     const trailerEmbedEl = document.getElementById("trailer-embed");
@@ -185,7 +201,9 @@
     const mediaCoverageSummaryTablesEl = document.getElementById(
       "media-coverage-summary-tables"
     );
-    const dotsEl = document.getElementById("carousel-dots");
+    const carouselSubtitleRowEl = document.getElementById(
+      "carousel-subtitle-row"
+    );
     const linkPreviewCache = new Map();
     let allPublicRows = [];
 
@@ -250,8 +268,10 @@
 
     function syncDetailCardSizes() {
       if (!detailCardsEl || !detailCardPlatformsEl) return;
-      // Clear so Platforms can measure at its natural height first.
+      // Side-by-cover layout sizes by cover height (CSS fr rows) — do not
+      // force every card to Platforms height or the stack overflows the cover.
       detailCardsEl.style.removeProperty("--detail-card-min-height");
+      if (detailCardsEl.closest(".carousel-hero")) return;
       const height = Math.ceil(
         detailCardPlatformsEl.getBoundingClientRect().height
       );
@@ -1137,45 +1157,94 @@
       );
     }
 
+    function slideGameKey(row) {
+      return String(row?.gameTitle || "").trim() || "Untitled";
+    }
+
     function slideLabel(row) {
-      const gameTitle = (row.gameTitle || "").trim() || "Untitled";
+      const gameTitle = slideGameKey(row);
       const announcementTitle = (row.announcementTitle || "").trim();
       return announcementTitle
         ? `${gameTitle}: ${announcementTitle}`
         : gameTitle;
     }
 
+    /** First slide index of the previous/next distinct game, or -1. */
+    function adjacentGameIndex(fromIndex, dir) {
+      if (!slides.length) return -1;
+      const currentKey = slideGameKey(slides[fromIndex]).toLowerCase();
+      if (dir < 0) {
+        for (let i = fromIndex - 1; i >= 0; i -= 1) {
+          if (slideGameKey(slides[i]).toLowerCase() !== currentKey) {
+            const key = slideGameKey(slides[i]).toLowerCase();
+            let start = i;
+            while (
+              start > 0 &&
+              slideGameKey(slides[start - 1]).toLowerCase() === key
+            ) {
+              start -= 1;
+            }
+            return start;
+          }
+        }
+        return -1;
+      }
+      for (let i = fromIndex + 1; i < slides.length; i += 1) {
+        if (slideGameKey(slides[i]).toLowerCase() !== currentKey) return i;
+      }
+      return -1;
+    }
+
+    /** Previous/next announcement within the same game, or -1. */
+    function adjacentAnnouncementIndex(fromIndex, dir) {
+      if (!slides.length) return -1;
+      const next = fromIndex + dir;
+      if (next < 0 || next >= slides.length) return -1;
+      if (
+        slideGameKey(slides[next]).toLowerCase() !==
+        slideGameKey(slides[fromIndex]).toLowerCase()
+      ) {
+        return -1;
+      }
+      return next;
+    }
+
     function showSlide(index) {
       if (!slides.length) return;
+      if (index < 0 || index >= slides.length) return;
 
-      activeIndex = ((index % slides.length) + slides.length) % slides.length;
+      activeIndex = index;
       const row = slides[activeIndex];
       const entries = [row];
-      const gameTitle = (row.gameTitle || "").trim() || "Untitled";
+      const gameTitle = slideGameKey(row);
       const announcementTitle = (row.announcementTitle || "").trim();
 
       gameEl.textContent = gameTitle;
-      if (announcementTitle) {
-        subtitleEl.textContent = announcementTitle;
-        subtitleEl.hidden = false;
-      } else {
-        subtitleEl.textContent = "";
-        subtitleEl.hidden = true;
+      const hasAnnouncementSiblings =
+        adjacentAnnouncementIndex(activeIndex, -1) >= 0 ||
+        adjacentAnnouncementIndex(activeIndex, 1) >= 0;
+      const monthYear =
+        String(row.month || "").trim() || monthFromDate(row.date) || "";
+      subtitleEl.textContent = announcementTitle;
+      if (carouselAnnouncementDateEl) {
+        carouselAnnouncementDateEl.textContent = monthYear;
+        carouselAnnouncementDateEl.hidden = !monthYear;
       }
+      if (carouselSubtitleRowEl) {
+        carouselSubtitleRowEl.hidden = !(
+          announcementTitle ||
+          hasAnnouncementSiblings ||
+          monthYear
+        );
+      }
+      syncCarouselNavButtons();
       showCoverImage(gameTitle, row);
-      announcementDatesEl.innerHTML = "";
       estimatedReachEl.innerHTML = "";
       totalWishlistsEl.innerHTML = "";
 
-      const date = (row.date || "").trim();
-      const dateLi = document.createElement("li");
-      dateLi.textContent = date || "No date";
-      if (!date) dateLi.classList.add("is-empty");
-      announcementDatesEl.appendChild(dateLi);
-
       const reach = (row.estimatedReach || "").trim();
       const reachLi = document.createElement("li");
-      reachLi.textContent = reach || "No data";
+      reachLi.textContent = reach ? formatCoverageStat(reach) : "No data";
       if (!reach) reachLi.classList.add("is-empty");
       estimatedReachEl.appendChild(reachLi);
 
@@ -1184,7 +1253,7 @@
         wishlists && !/^(no data|n\/a|na|-|—|–)$/i.test(wishlists);
       if (hasWishlists) {
         const wishlistsLi = document.createElement("li");
-        wishlistsLi.textContent = wishlists;
+        wishlistsLi.textContent = formatCoverageStat(wishlists);
         totalWishlistsEl.appendChild(wishlistsLi);
         if (totalWishlistsCardEl) totalWishlistsCardEl.hidden = false;
       } else if (totalWishlistsCardEl) {
@@ -1196,12 +1265,27 @@
       setPdf(entries);
       setCoverageLinks(entries);
       void setGameLinkSections(entries);
+    }
 
-      [...dotsEl.querySelectorAll(".carousel-dot")].forEach((dot, i) => {
-        const isActive = i === activeIndex;
-        dot.classList.toggle("is-active", isActive);
-        dot.setAttribute("aria-selected", isActive ? "true" : "false");
-        dot.tabIndex = isActive ? 0 : -1;
+    function syncCarouselNavButtons() {
+      const prevGame = adjacentGameIndex(activeIndex, -1);
+      const nextGame = adjacentGameIndex(activeIndex, 1);
+      const prevAnnouncement = adjacentAnnouncementIndex(activeIndex, -1);
+      const nextAnnouncement = adjacentAnnouncementIndex(activeIndex, 1);
+
+      carouselEl.querySelectorAll(".carousel-nav-btn").forEach((btn) => {
+        const kind = btn.getAttribute("data-carousel-nav");
+        const dir = Number(btn.getAttribute("data-carousel-dir") || 0);
+        let target = -1;
+        if (kind === "game") {
+          target = dir < 0 ? prevGame : nextGame;
+        } else if (kind === "announcement") {
+          target = dir < 0 ? prevAnnouncement : nextAnnouncement;
+        }
+        const show = target >= 0;
+        btn.hidden = !show;
+        btn.disabled = !show;
+        btn.dataset.targetIndex = show ? String(target) : "";
       });
     }
 
@@ -1233,33 +1317,6 @@
 
       statusEl.textContent = "";
       statusEl.hidden = true;
-      dotsEl.innerHTML = "";
-
-      slides.forEach((row, index) => {
-        if (index > 0) {
-          const prevGame =
-            (slides[index - 1].gameTitle || "").trim() || "Untitled";
-          const gameTitle = (row.gameTitle || "").trim() || "Untitled";
-          if (
-            prevGame.localeCompare(gameTitle, undefined, {
-              sensitivity: "base",
-            }) !== 0
-          ) {
-            const separator = document.createElement("span");
-            separator.className = "carousel-dot-separator";
-            separator.setAttribute("aria-hidden", "true");
-            dotsEl.appendChild(separator);
-          }
-        }
-
-        const dot = document.createElement("button");
-        dot.type = "button";
-        dot.className = "carousel-dot";
-        dot.setAttribute("role", "tab");
-        dot.setAttribute("aria-label", slideLabel(row));
-        dot.addEventListener("click", () => showSlide(index));
-        dotsEl.appendChild(dot);
-      });
 
       try {
         showSlide(0);
@@ -1278,6 +1335,40 @@
       }
     }
 
+    function navigateCarousel(dir) {
+      const step = dir < 0 ? -1 : 1;
+      const nextAnnouncement = adjacentAnnouncementIndex(activeIndex, step);
+      if (nextAnnouncement >= 0) {
+        showSlide(nextAnnouncement);
+        return;
+      }
+      const nextGame = adjacentGameIndex(activeIndex, step);
+      if (nextGame < 0) return;
+      if (step > 0) {
+        showSlide(nextGame);
+        return;
+      }
+      // Land on the last announcement of the previous game.
+      const key = slideGameKey(slides[nextGame]).toLowerCase();
+      let last = nextGame;
+      while (
+        last + 1 < slides.length &&
+        slideGameKey(slides[last + 1]).toLowerCase() === key
+      ) {
+        last += 1;
+      }
+      showSlide(last);
+    }
+
+    carouselEl.addEventListener("click", (event) => {
+      const btn = event.target.closest?.("[data-carousel-nav]");
+      if (!btn || !carouselEl.contains(btn) || btn.hidden || btn.disabled) return;
+      const target = Number(btn.dataset.targetIndex);
+      if (!Number.isFinite(target) || target < 0) return;
+      event.preventDefault();
+      showSlide(target);
+    });
+
     carouselEl.addEventListener("keydown", (event) => {
       if (!pdfViewerEl.hidden) {
         if (event.key === "Escape") {
@@ -1288,10 +1379,10 @@
       }
       if (event.key === "ArrowRight") {
         event.preventDefault();
-        showSlide(activeIndex + 1);
+        navigateCarousel(1);
       } else if (event.key === "ArrowLeft") {
         event.preventDefault();
-        showSlide(activeIndex - 1);
+        navigateCarousel(-1);
       }
     });
 
@@ -1320,7 +1411,7 @@
         const touchEndX = event.changedTouches[0]?.clientX ?? 0;
         const delta = touchEndX - touchStartX;
         if (Math.abs(delta) < 40) return;
-        showSlide(activeIndex + (delta < 0 ? 1 : -1));
+        navigateCarousel(delta < 0 ? 1 : -1);
       },
       { passive: true }
     );

@@ -11,6 +11,9 @@ window.prbeatsSyncDetailCardHeights = function (container, platformsCard) {
   });
   container.style.removeProperty("--detail-card-min-height");
 
+  // Beside the cover, cards are sized by cover height (CSS) — do not equalize.
+  if (container.closest(".carousel-hero")) return 0;
+
   // Force layout, then measure Platforms at its natural content height.
   void platformsCard.offsetHeight;
   const height = Math.ceil(platformsCard.getBoundingClientRect().height);

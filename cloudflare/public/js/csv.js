@@ -2224,6 +2224,26 @@ export function coverageLinksFromCsv(text, options = {}) {
   return data;
 }
 
+function escapeCsvCell(value) {
+  const text = String(value ?? "");
+  if (/[",\n\r]/.test(text)) {
+    return `"${text.replace(/"/g, '""')}"`;
+  }
+  return text;
+}
+
+/** Serialize coverage link rows to a CSV string (round-trips with coverageLinksFromCsv). */
+export function coverageLinksToCsv(rows) {
+  const columns = COVERAGE_LINK_COLUMNS;
+  const header = columns.map((column) => escapeCsvCell(column.label)).join(",");
+  const lines = (Array.isArray(rows) ? rows : []).map((row) =>
+    columns
+      .map((column) => escapeCsvCell(row?.[column.key] ?? ""))
+      .join(",")
+  );
+  return [header, ...lines].join("\r\n");
+}
+
 /** Numeric value for sorting outlet stats (missing/invalid → lowest). */
 export function coverageStatSortValue(value) {
   const cleaned = String(value ?? "")
@@ -2234,6 +2254,24 @@ export function coverageStatSortValue(value) {
   if (!match) return Number.NEGATIVE_INFINITY;
   const n = Number(match[0]);
   return Number.isFinite(n) ? n : Number.NEGATIVE_INFINITY;
+}
+
+/**
+ * Sum coverage-link outlet stats and round to the nearest 10,000.
+ * Returns a formatted string (e.g. "1,250,000"), or "" when no stats are present.
+ */
+export function estimatedReachFromCoverageLinks(rows) {
+  let sum = 0;
+  let sawStat = false;
+  (Array.isArray(rows) ? rows : []).forEach((row) => {
+    const n = coverageStatSortValue(row?.outletStats);
+    if (!Number.isFinite(n) || n === Number.NEGATIVE_INFINITY) return;
+    sawStat = true;
+    sum += Math.max(0, n);
+  });
+  if (!sawStat) return "";
+  const rounded = Math.round(sum / 10000) * 10000;
+  return formatCoverageStat(String(rounded));
 }
 
 /** Format numeric outlet stats with thousand separators (e.g. 1234567 → 1,234,567). */
