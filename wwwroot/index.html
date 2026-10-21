@@ -10,9 +10,6 @@
   <style>
     /* Critical: hide empty shell until data is ready (CSS display was overriding [hidden]) */
     #carousel:not(.is-ready) { display: none !important; }
-    #announcements-table-view[hidden] { display: none !important; }
-    #home-view-toggle[hidden],
-    .public-view-bar[hidden] { display: none !important; }
     #pdf-viewer[hidden] { display: none !important; }
     #pdf-expand-btn[hidden] { display: none !important; }
   </style>
@@ -30,27 +27,7 @@
       <h1 class="public-gate-brand">Silver Lining PR Beats</h1>
       <p class="public-gate-lede">Get in contact to request a key for the tool.</p>
     </div>
-    <div class="public-view-bar" id="home-view-toggle" hidden>
-      <button
-        type="button"
-        class="home-view-toggle-btn"
-        id="home-view-toggle-btn"
-        aria-pressed="false"
-      >
-        Table view
-      </button>
-    </div>
     <p class="note" id="status">Loading…</p>
-    <div class="announcements-table-view" id="announcements-table-view" hidden>
-      <div class="announcements-table-wrap">
-        <table class="announcements-public-table" id="announcements-public-table">
-          <thead>
-            <tr id="announcements-table-head"></tr>
-          </thead>
-          <tbody id="announcements-table-body"></tbody>
-        </table>
-      </div>
-    </div>
     <div class="announcement-carousel" id="carousel" hidden tabindex="0">
       <div
         class="carousel-dots"
@@ -167,34 +144,6 @@
     } from "./js/csv.js";
 
     initThemeToggle();
-
-    const HOME_VIEW_KEY = "prbeats-home-view";
-    const homeViewToggleEl = document.getElementById("home-view-toggle");
-    const homeViewToggleBtn = document.getElementById("home-view-toggle-btn");
-    const announcementsTableViewEl = document.getElementById(
-      "announcements-table-view"
-    );
-    const announcementsTableHeadEl = document.getElementById(
-      "announcements-table-head"
-    );
-    const announcementsTableBodyEl = document.getElementById(
-      "announcements-table-body"
-    );
-
-    const PUBLIC_TABLE_COLUMNS = [
-      { key: "gameTitle", label: "Game" },
-      { key: "announcementTitle", label: "Announcement" },
-      { key: "date", label: "Date" },
-      { key: "month", label: "Month" },
-      { key: "platforms", label: "Platforms" },
-      { key: "estimatedReach", label: "Estimated reach" },
-      { key: "totalWishlists", label: "Total wishlists" },
-      { key: "trailer", label: "Trailer" },
-      { key: "pressReleasePdf", label: "Press release" },
-    ];
-
-    let homeViewMode =
-      sessionStorage.getItem(HOME_VIEW_KEY) === "table" ? "table" : "cards";
 
     const statusEl = document.getElementById("status");
     const coverBannerEl = document.getElementById("cover-banner");
@@ -1258,119 +1207,6 @@
       });
     }
 
-    function formatPublicPlatforms(value) {
-      const labels = platformsForEntries([{ platforms: value }]).map(
-        (option) => option.label
-      );
-      return labels.length ? labels.join(", ") : "—";
-    }
-
-    function appendPublicTableLinkCell(td, href, label) {
-      const url = String(href || "").trim();
-      if (!url) {
-        td.textContent = "—";
-        return;
-      }
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.target = "_blank";
-      anchor.rel = "noopener noreferrer";
-      anchor.textContent = label;
-      td.appendChild(anchor);
-    }
-
-    function renderAnnouncementsTable(rows) {
-      if (!announcementsTableHeadEl || !announcementsTableBodyEl) return;
-      announcementsTableHeadEl.innerHTML = "";
-      announcementsTableBodyEl.innerHTML = "";
-
-      PUBLIC_TABLE_COLUMNS.forEach((column) => {
-        const th = document.createElement("th");
-        th.scope = "col";
-        th.textContent = column.label;
-        announcementsTableHeadEl.appendChild(th);
-      });
-
-      rows.forEach((row) => {
-        const tr = document.createElement("tr");
-        PUBLIC_TABLE_COLUMNS.forEach((column) => {
-          const td = document.createElement("td");
-          if (column.key === "platforms") {
-            td.textContent = formatPublicPlatforms(row.platforms);
-          } else if (column.key === "trailer") {
-            appendPublicTableLinkCell(td, row.trailer, "Open");
-          } else if (column.key === "pressReleasePdf") {
-            appendPublicTableLinkCell(td, row.pressReleasePdf, "Open PDF");
-          } else if (column.key === "gameTitle") {
-            td.textContent =
-              String(row.gameTitle || "").trim() || "Untitled";
-            td.className = "announcements-public-game";
-          } else {
-            const value = String(row?.[column.key] || "").trim();
-            td.textContent = value || "—";
-          }
-          tr.appendChild(td);
-        });
-        announcementsTableBodyEl.appendChild(tr);
-      });
-    }
-
-    function syncHomeViewToggle() {
-      if (!homeViewToggleBtn) return;
-      const isTable = homeViewMode === "table";
-      homeViewToggleBtn.textContent = isTable ? "Card view" : "Table view";
-      homeViewToggleBtn.setAttribute(
-        "aria-pressed",
-        isTable ? "true" : "false"
-      );
-      homeViewToggleBtn.title = isTable
-        ? "Switch to card view"
-        : "Switch to table view";
-    }
-
-    function applyHomeView() {
-      const hasRows = slides.length > 0;
-      if (homeViewToggleEl) {
-        if (hasRows) {
-          homeViewToggleEl.hidden = false;
-          homeViewToggleEl.removeAttribute("hidden");
-        } else {
-          homeViewToggleEl.hidden = true;
-        }
-      }
-      syncHomeViewToggle();
-
-      if (!hasRows) {
-        if (announcementsTableViewEl) announcementsTableViewEl.hidden = true;
-        carouselEl.hidden = true;
-        carouselEl.classList.remove("is-ready");
-        return;
-      }
-
-      const showTable = homeViewMode === "table";
-      if (announcementsTableViewEl) {
-        announcementsTableViewEl.hidden = !showTable;
-      }
-      if (showTable) {
-        carouselEl.hidden = true;
-        carouselEl.classList.remove("is-ready");
-        renderAnnouncementsTable(slides);
-      } else {
-        carouselEl.hidden = false;
-        carouselEl.classList.add("is-ready");
-      }
-    }
-
-    function setHomeViewMode(mode) {
-      homeViewMode = mode === "table" ? "table" : "cards";
-      try {
-        sessionStorage.setItem(HOME_VIEW_KEY, homeViewMode);
-      } catch {
-        // Ignore storage failures.
-      }
-      applyHomeView();
-    }
-
     function render(rows) {
       allPublicRows = Array.isArray(rows) ? rows : [];
       slides = slidesFromRows(rows);
@@ -1378,8 +1214,6 @@
       if (!slides.length) {
         carouselEl.hidden = true;
         carouselEl.classList.remove("is-ready");
-        if (announcementsTableViewEl) announcementsTableViewEl.hidden = true;
-        if (homeViewToggleEl) homeViewToggleEl.hidden = true;
         gameImageEl.removeAttribute("src");
         gameImageEl.hidden = true;
         coverPlaceholderEl.hidden = false;
@@ -1431,13 +1265,12 @@
 
       try {
         showSlide(0);
-        applyHomeView();
+        carouselEl.hidden = false;
+        carouselEl.classList.add("is-ready");
       } catch (error) {
         console.error(error);
         carouselEl.hidden = true;
         carouselEl.classList.remove("is-ready");
-        if (announcementsTableViewEl) announcementsTableViewEl.hidden = true;
-        if (homeViewToggleEl) homeViewToggleEl.hidden = true;
         statusEl.hidden = false;
         statusEl.textContent =
           error instanceof Error
@@ -1446,10 +1279,6 @@
         statusEl.classList.add("is-error");
       }
     }
-
-    homeViewToggleBtn?.addEventListener("click", () => {
-      setHomeViewMode(homeViewMode === "table" ? "cards" : "table");
-    });
 
     carouselEl.addEventListener("keydown", (event) => {
       if (!pdfViewerEl.hidden) {
