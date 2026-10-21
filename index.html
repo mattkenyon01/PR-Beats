@@ -125,11 +125,6 @@
           <p class="media-coverage-summary-status" id="media-coverage-summary-status" hidden></p>
           <div class="media-coverage-summary-public-wrap" id="media-coverage-summary-tables"></div>
         </section>
-
-        <section class="coverage-links-section media-coverage-section-public" id="media-coverage-card" aria-labelledby="media-coverage-heading" hidden>
-          <h3 class="detail-card-label coverage-links-heading" id="media-coverage-heading">Media Coverage</h3>
-          <div class="media-coverage-public-tables" id="media-coverage-public-tables"></div>
-        </section>
       </div>
     </div>
   </div>
@@ -163,8 +158,6 @@
       coverageLinkUrls,
       coverageStatSortValue,
       formatCoverageStat,
-      groupMediaCoverageRowsByType,
-      mediaCoverageColumnsForType,
       parseCoverageLinksValue,
       parseCoverageSectionTitle,
       parseMediaCoverageValue,
@@ -244,11 +237,6 @@
     );
     const mediaCoverageSummaryTablesEl = document.getElementById(
       "media-coverage-summary-tables"
-    );
-    const mediaCoverageCardEl = document.getElementById("media-coverage-card");
-    const mediaCoverageHeadingEl = document.getElementById("media-coverage-heading");
-    const mediaCoveragePublicTablesEl = document.getElementById(
-      "media-coverage-public-tables"
     );
     const dotsEl = document.getElementById("carousel-dots");
     const linkPreviewCache = new Map();
@@ -999,98 +987,6 @@
       mediaCoverageSummaryTablesEl.appendChild(wrap);
     }
 
-    function renderMediaCoveragePublicTables(rows) {
-      if (mediaCoverageHeadingEl) mediaCoverageHeadingEl.hidden = true;
-      if (!mediaCoveragePublicTablesEl) return;
-      mediaCoveragePublicTablesEl.innerHTML = "";
-      if (mediaCoverageCardEl) {
-        mediaCoverageCardEl.hidden = !rows.length;
-      }
-      if (!rows.length) return;
-
-      const publicKeys = new Set([
-        "publishedTime",
-        "handleId",
-        "handleUrl",
-        "handleCountry",
-        "youtubeViews",
-        "youtubeLikes",
-        "youtubeTitle",
-        "youtubeChannelTitle",
-        "youtubeSubs",
-        "twitchAccount",
-        "twitchFollower",
-        "twitchAverageViewers",
-        "tiktokViews",
-        "tiktokFollower",
-        "instagramViews",
-        "instagramLikes",
-        "bilibiliTitle",
-        "bilibiliViews",
-        "details",
-      ]);
-
-      groupMediaCoverageRowsByType(rows).forEach((group) => {
-        const publicColumns = mediaCoverageColumnsForType(group.label).filter(
-          (column) => publicKeys.has(column.key)
-        );
-
-        const block = document.createElement("section");
-        block.className = "media-coverage-public-type";
-
-        const heading = document.createElement("h4");
-        heading.className = "media-coverage-public-type-title";
-        heading.innerHTML = `<span class="media-coverage-type-header-label">${group.label}</span><span class="media-coverage-type-header-count">(${group.rows.length})</span>`;
-
-        const wrap = document.createElement("div");
-        wrap.className = "media-coverage-public-table-wrap grid-table-wrap";
-
-        const table = document.createElement("table");
-        table.className = "media-coverage-public-table grid-table";
-
-        const thead = document.createElement("thead");
-        const headRow = document.createElement("tr");
-        publicColumns.forEach((column) => {
-          const th = document.createElement("th");
-          th.scope = "col";
-          th.textContent = column.label;
-          headRow.appendChild(th);
-        });
-        thead.appendChild(headRow);
-
-        const tbody = document.createElement("tbody");
-        group.rows.forEach((row) => {
-          const tr = document.createElement("tr");
-          publicColumns.forEach((column) => {
-            const td = document.createElement("td");
-            const value = String(row[column.key] || "").trim();
-            if (
-              (column.key === "handleUrl" || column.key === "details") &&
-              /^https?:\/\//i.test(value)
-            ) {
-              const anchor = document.createElement("a");
-              anchor.href = value;
-              anchor.target = "_blank";
-              anchor.rel = "noopener noreferrer";
-              anchor.textContent = value;
-              td.appendChild(anchor);
-            } else {
-              td.textContent = value || "—";
-            }
-            tr.appendChild(td);
-          });
-          tbody.appendChild(tr);
-        });
-
-        table.appendChild(thead);
-        table.appendChild(tbody);
-        wrap.appendChild(table);
-        block.appendChild(heading);
-        block.appendChild(wrap);
-        mediaCoveragePublicTablesEl.appendChild(block);
-      });
-    }
-
     function applyMediaCoverageRows(raw, { loadError = "" } = {}) {
       const payload = String(raw || "");
       let rows = [];
@@ -1103,7 +999,6 @@
         summaryOverrides = {};
       }
       renderMediaCoverageStatBoard(rows, summaryOverrides);
-      renderMediaCoveragePublicTables(rows);
       if (loadError && !rows.length) {
         setMediaCoverageSummaryStatus(loadError, { error: true });
       } else if (!rows.length) {
@@ -1131,7 +1026,6 @@
       // Show the board immediately (zeros) while the per-game payload loads.
       renderMediaCoverageStatBoard([]);
       setMediaCoverageSummaryStatus("Loading media coverage…");
-      renderMediaCoveragePublicTables([]);
 
       let raw = "";
       let loadError = "";
