@@ -13,9 +13,10 @@
     #pdf-viewer[hidden] { display: none !important; }
     #pdf-expand-btn[hidden] { display: none !important; }
   </style>
-  <link rel="stylesheet" href="styles.css?v=media-coverage-stats-13" />
+  <link rel="stylesheet" href="styles.css?v=viewport-width-17" />
 </head>
 <body class="public-page">
+  <div class="viewport-width-badge" id="viewport-width-badge" aria-hidden="true">0px</div>
   <div class="public-app" id="public-app">
     <div class="public-gate" id="public-gate" hidden>
       <img
@@ -65,7 +66,7 @@
             <h3 class="detail-card-label">Platforms</h3>
             <div class="platform-chips readonly" id="announcement-platforms"></div>
           </section>
-          <section class="detail-card">
+          <section class="detail-card detail-card-reach">
             <h3 class="detail-card-label">Estimated reach</h3>
             <ul class="detail-card-list" id="estimated-reach"></ul>
           </section>
@@ -156,6 +157,14 @@
     } from "./js/csv.js";
 
     initThemeToggle();
+
+    const viewportWidthBadgeEl = document.getElementById("viewport-width-badge");
+    function updateViewportWidthBadge() {
+      if (!viewportWidthBadgeEl) return;
+      viewportWidthBadgeEl.textContent = `${window.innerWidth}px`;
+    }
+    updateViewportWidthBadge();
+    window.addEventListener("resize", updateViewportWidthBadge);
 
     const statusEl = document.getElementById("status");
     const coverBannerEl = document.getElementById("cover-banner");

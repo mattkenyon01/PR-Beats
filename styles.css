@@ -85,6 +85,22 @@ body {
     linear-gradient(180deg, var(--bg-mid) 0%, var(--bg-bottom) 100%);
 }
 
+.viewport-width-badge {
+  position: fixed;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 99999;
+  padding: 0.2rem 0.45rem;
+  border-radius: 0.35rem;
+  border: 1px solid var(--border, #3a4556);
+  background: rgba(12, 16, 24, 0.88);
+  color: #e8edf5;
+  font: 600 0.72rem/1.2 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+  user-select: none;
+}
+
 body.public-page {
   display: flex;
   flex-direction: column;
@@ -3409,7 +3425,7 @@ html[data-theme="dark"] .media-coverage-stat-icon:not(.is-youtube):not(.is-bilib
   border: 0;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1064px) {
   .carousel-hero {
     grid-template-columns: 1fr;
   }
@@ -3418,32 +3434,60 @@ html[data-theme="dark"] .media-coverage-stat-icon:not(.is-youtube):not(.is-bilib
     height: auto;
   }
 
+  /* Under cover: Platforms full width, then reach | wishlists.
+     Drop the side-of-cover height lock so chips aren't clipped. */
+  .carousel-hero .detail-cards,
   .carousel-hero .detail-cards-row,
   .carousel-hero .detail-cards-row:has(> .detail-card-wishlists:not([hidden])),
-  .carousel-hero .detail-cards-row:has(> #total-wishlists-card:not([hidden])) {
-    grid-template-columns: 1fr;
-    grid-template-rows: none;
-    height: auto;
-  }
-
-  .carousel-hero .detail-cards-row > .detail-card-platforms {
-    grid-column: auto;
-    grid-row: auto;
-  }
-
-  .detail-cards-row,
+  .carousel-hero .detail-cards-row:has(> #total-wishlists-card:not([hidden])),
+  .detail-cards.detail-cards-row,
   .detail-cards-row:has(> .detail-card-wishlists:not([hidden])),
   .detail-cards-row:has(> #total-wishlists-card:not([hidden])) {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: auto auto;
+    grid-template-areas:
+      "platforms platforms"
+      "reach wishlists";
+    height: auto;
+    min-height: 0;
+    align-self: start;
+    align-content: start;
+    overflow: visible;
   }
 
+  .carousel-hero .detail-cards-row > .detail-card,
+  .detail-cards-row > .detail-card {
+    min-height: auto !important;
+    height: auto;
+    overflow: visible;
+  }
+
+  .carousel-hero .detail-cards-row > .detail-card-platforms,
   .detail-cards-row > .detail-card-platforms {
-    grid-column: 1 / -1;
+    grid-area: platforms;
+    overflow: visible;
   }
 
-  .detail-cards-row > .detail-card-wishlists:not([hidden]),
-  .detail-cards-row > #total-wishlists-card:not([hidden]) {
-    grid-column: 1 / -1;
+  .carousel-hero .detail-cards-row > .detail-card-reach,
+  .detail-cards-row > .detail-card-reach {
+    grid-area: reach;
+    grid-column: auto;
+    min-width: 0;
+  }
+
+  .carousel-hero .detail-cards-row > .detail-card-wishlists,
+  .detail-cards-row > .detail-card-wishlists,
+  .carousel-hero .detail-cards-row > #total-wishlists-card,
+  .detail-cards-row > #total-wishlists-card {
+    grid-area: wishlists;
+    min-width: 0;
+  }
+
+  /* No wishlists card: reach spans the row under platforms.
+     Blazor uses .detail-card-wishlists (no #total-wishlists-card id). */
+  .carousel-hero .detail-cards-row:not(:has(> .detail-card-wishlists:not([hidden]))):not(:has(> #total-wishlists-card:not([hidden]))) > .detail-card-reach,
+  .detail-cards-row:not(:has(> .detail-card-wishlists:not([hidden]))):not(:has(> #total-wishlists-card:not([hidden]))) > .detail-card-reach {
+    grid-area: reach / reach / wishlists / wishlists;
   }
 
   .coverage-links-grid .coverage-link {
@@ -3454,21 +3498,9 @@ html[data-theme="dark"] .media-coverage-stat-icon:not(.is-youtube):not(.is-bilib
 }
 
 @media (max-width: 640px) {
-  .carousel-hero .detail-cards,
-  .carousel-hero .detail-cards-row,
-  .detail-cards,
-  .detail-cards-row,
+  /* Keep platforms full-width + reach|wishlists side-by-side under cover. */
   .media-cards {
     grid-template-columns: 1fr;
-    grid-template-rows: none;
-    height: auto;
-  }
-
-  .carousel-hero .detail-cards-row > .detail-card-platforms,
-  .carousel-hero .detail-cards-row > .detail-card-wishlists:not([hidden]),
-  .carousel-hero .detail-cards-row > #total-wishlists-card:not([hidden]) {
-    grid-column: auto;
-    grid-row: auto;
   }
 
   .detail-card .platform-chips.readonly {

@@ -1,10 +1,10 @@
 {
   "version": 2,
-  "dgSpecHash": "6Tpj5AW51Gs=",
+  "dgSpecHash": "psS3n7OKcWo=",
   "success": true,
-  "projectFilePath": "D:\\PR-Beats\\PRBeats.csproj",
+  "projectFilePath": "C:\\Users\\Eben\\PR-Beats\\PRBeats.csproj",
   "expectedPackageFiles": [
-    "C:\\Users\\theke\\.nuget\\packages\\microsoft.aspnetcore.app.internal.assets\\10.0.8\\microsoft.aspnetcore.app.internal.assets.10.0.8.nupkg.sha512"
+    "C:\\Users\\Eben\\AppData\\Local\\Temp\\cursor-sandbox-cache\\352ebd36b8a59064d925de636c5ab1bb\\nuget\\microsoft.aspnetcore.app.internal.assets\\10.0.13\\microsoft.aspnetcore.app.internal.assets.10.0.13.nupkg.sha512"
   ],
   "logs": []
 }

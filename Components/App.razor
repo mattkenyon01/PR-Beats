@@ -18,6 +18,10 @@
 </head>
 
 <body class="public-page">
+    <div id="viewport-width-badge"
+         class="viewport-width-badge"
+         aria-hidden="true"
+         style="position:fixed;top:0.5rem;left:0.5rem;z-index:99999;padding:0.2rem 0.45rem;border-radius:0.35rem;border:1px solid #3a4556;background:rgba(12,16,24,0.88);color:#e8edf5;font:600 0.72rem/1.2 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:0.02em;pointer-events:none;user-select:none;">0px</div>
     <Routes />
     <ReconnectModal />
     <button type="button" class="theme-toggle" data-theme-toggle>
@@ -25,6 +29,16 @@
     </button>
     <script src="@Assets["_framework/blazor.web.js"]"></script>
     <script src="@Assets["js/detail-cards.js"]"></script>
+    <script>
+      (function () {
+        var el = document.getElementById("viewport-width-badge");
+        function update() {
+          if (el) el.textContent = window.innerWidth + "px";
+        }
+        update();
+        window.addEventListener("resize", update);
+      })();
+    </script>
     <script type="module">
       import { initThemeToggle } from "/js/theme.js";
       initThemeToggle();
