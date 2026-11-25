@@ -172,6 +172,10 @@ export function pingPresence(token) {
   });
 }
 
+export function listShares(token) {
+  return api("/api/shares", { token });
+}
+
 export function createShare(
   token,
   { games = [], months = [], month = "", showMediaCoverage = true } = {}
@@ -190,6 +194,25 @@ export function createShare(
       month: monthList[0] || "",
       showMediaCoverage: showMediaCoverage !== false,
     },
+  });
+}
+
+export function updateShare(token, id, body = {}) {
+  const shareId = encodeURIComponent(String(id || "").trim());
+  if (!shareId) throw new Error("Share id is required.");
+  return api(`/api/shares/${shareId}`, {
+    token,
+    method: "PATCH",
+    body,
+  });
+}
+
+export function deleteShare(token, id) {
+  const shareId = encodeURIComponent(String(id || "").trim());
+  if (!shareId) throw new Error("Share id is required.");
+  return api(`/api/shares/${shareId}`, {
+    token,
+    method: "DELETE",
   });
 }
 

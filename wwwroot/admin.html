@@ -7,7 +7,7 @@
   <link rel="icon" type="image/png" href="images/SilverLiningIcon.png" />
   <link rel="apple-touch-icon" href="images/SilverLiningIcon.png" />
   <script src="js/theme-boot.js"></script>
-  <link rel="stylesheet" href="styles.css?v=youtube-split-panes-1" />
+  <link rel="stylesheet" href="styles.css?v=settings-rail-1" />
 </head>
 <body class="admin-page">
   <p class="note" id="loading">Checking sign-in…</p>
@@ -293,56 +293,108 @@
     </dialog>
 
     <section class="settings-panel" id="settings-view" hidden>
-      <button id="back-to-workspace" type="button" class="btn-ghost settings-back">← Back</button>
-
-      <div class="settings-card">
-        <h2>Settings</h2>
-        <p class="settings-intro">Appearance and account.</p>
-
-        <div class="settings-appearance">
-          <h3 class="settings-section-title">Appearance</h3>
-          <button type="button" class="theme-toggle settings-theme-toggle" data-theme-toggle>
-            <span data-theme-label>Dark</span>
-          </button>
-        </div>
-
-        <div class="settings-data">
-          <h3 class="settings-section-title">Data</h3>
-          <p class="settings-intro">
-            Recalculate estimated reach for every announcement from its coverage
-            link outlet stats (rounded to the nearest 10,000).
-          </p>
+      <aside class="settings-nav" aria-label="Settings sections">
+        <button id="back-to-workspace" type="button" class="settings-back">
+          ← Back
+        </button>
+        <p class="settings-nav-heading">Settings</p>
+        <div class="settings-nav-list" role="tablist" aria-orientation="vertical">
           <button
             type="button"
-            class="btn-primary"
-            id="refresh-estimated-reach-btn"
+            class="settings-nav-btn is-active"
+            data-settings-section="appearance"
+            role="tab"
+            aria-selected="true"
           >
-            Refresh all estimated reach
+            Appearance
+          </button>
+          <button
+            type="button"
+            class="settings-nav-btn"
+            data-settings-section="password"
+            role="tab"
+            aria-selected="false"
+          >
+            Password
+          </button>
+          <button
+            type="button"
+            class="settings-nav-btn"
+            data-settings-section="keys"
+            role="tab"
+            aria-selected="false"
+          >
+            Keys
+          </button>
+          <button
+            type="button"
+            class="settings-nav-btn"
+            data-settings-section="account"
+            role="tab"
+            aria-selected="false"
+          >
+            Account
           </button>
         </div>
+      </aside>
 
-        <h3 class="settings-section-title">Password</h3>
-        <form id="password-form" class="settings-form">
-          <label>
-            Current password
-            <input id="current-password" type="password" autocomplete="current-password" required />
-          </label>
-          <label>
-            New password
-            <input id="new-password" type="password" autocomplete="new-password" required minlength="6" />
-          </label>
-          <label>
-            Confirm new password
-            <input id="confirm-password" type="password" autocomplete="new-password" required minlength="6" />
-          </label>
-          <button id="password-submit" type="submit" class="btn-primary">Update password</button>
-        </form>
+      <div class="settings-main">
+        <header class="settings-main-header">
+          <h2 id="settings-section-title">Appearance</h2>
+          <p class="settings-intro" id="settings-section-intro">Theme and display.</p>
+        </header>
 
-        <p class="admin-error" id="password-error" hidden></p>
-        <p class="admin-success" id="password-success" hidden></p>
+        <div class="settings-main-body">
+          <div class="settings-section" data-settings-panel="appearance">
+            <button type="button" class="theme-toggle settings-theme-toggle" data-theme-toggle>
+              <span data-theme-label>Dark</span>
+            </button>
+          </div>
 
-        <div class="settings-sign-out">
-          <button id="sign-out" type="button" class="btn-ghost">Sign out</button>
+          <div class="settings-section" data-settings-panel="password" hidden>
+            <form id="password-form" class="settings-form">
+              <label>
+                Current password
+                <input id="current-password" type="password" autocomplete="current-password" required />
+              </label>
+              <label>
+                New password
+                <input id="new-password" type="password" autocomplete="new-password" required minlength="6" />
+              </label>
+              <label>
+                Confirm new password
+                <input id="confirm-password" type="password" autocomplete="new-password" required minlength="6" />
+              </label>
+              <button id="password-submit" type="submit" class="btn-primary">Update password</button>
+            </form>
+            <p class="admin-error" id="password-error" hidden></p>
+            <p class="admin-success" id="password-success" hidden></p>
+          </div>
+
+          <div class="settings-section" data-settings-panel="keys" hidden>
+            <p class="settings-keys-status" id="settings-keys-status" hidden></p>
+            <div class="settings-keys-table-wrap" id="settings-keys-table-wrap">
+              <table class="settings-keys-table" id="settings-keys-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Key</th>
+                    <th scope="col">Games</th>
+                    <th scope="col">Months</th>
+                    <th scope="col" class="settings-keys-media">Show media coverage</th>
+                    <th scope="col">Created</th>
+                    <th scope="col">Link</th>
+                  </tr>
+                </thead>
+                <tbody id="settings-keys-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="settings-section" data-settings-panel="account" hidden>
+            <div class="settings-sign-out">
+              <button id="sign-out" type="button" class="btn-ghost">Sign out</button>
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -454,6 +506,33 @@
         <button type="submit" class="btn-primary" id="add-row-submit">Add entry</button>
       </footer>
     </form>
+  </dialog>
+
+  <dialog
+    class="confirm-dialog"
+    id="confirm-delete-key-dialog"
+    aria-labelledby="confirm-delete-key-title"
+  >
+    <div class="confirm-dialog-panel">
+      <header class="confirm-dialog-header">
+        <h2 id="confirm-delete-key-title">Delete key</h2>
+      </header>
+      <p class="confirm-dialog-message" id="confirm-delete-key-message">
+        Are you sure you want to delete this key? This can't be undone.
+      </p>
+      <footer class="confirm-dialog-footer">
+        <button type="button" class="btn-ghost" id="confirm-delete-key-cancel">
+          Cancel
+        </button>
+        <button
+          type="button"
+          class="btn-primary confirm-dialog-danger"
+          id="confirm-delete-key-confirm"
+        >
+          Delete
+        </button>
+      </footer>
+    </div>
   </dialog>
 
   <dialog class="share-dialog" id="share-dialog" aria-labelledby="share-dialog-title">
@@ -695,7 +774,10 @@
       saveAnnouncementRow,
       deleteAnnouncementRow as deleteAnnouncementRowApi,
       pingPresence,
+      listShares,
       createShare,
+      updateShare,
+      deleteShare,
       createGame as createGameApi,
       updateGame as updateGameApi,
       deleteGame as deleteGameApi,
@@ -5168,53 +5250,400 @@ const mediaCoverageViewportHScroll = document.getElementById(
       passwordSuccess.hidden = !successMessage;
     }
 
-    async function refreshAllEstimatedReach() {
-      if (!currentTable?.rows?.length) {
-        setSaveStatus("No announcements to refresh.", "error");
+    const SETTINGS_SECTION_META = {
+      appearance: {
+        title: "Appearance",
+        intro: "Theme and display.",
+      },
+      password: {
+        title: "Password",
+        intro: "Change your sign-in password.",
+      },
+      keys: {
+        title: "Keys",
+        intro: "Share keys with their games and months.",
+      },
+      account: {
+        title: "Account",
+        intro: "Sign out of PR beats.",
+      },
+    };
+
+    function settingsSectionFromUrl() {
+      const params = new URL(window.location.href).searchParams;
+      if (!params.has("settings")) return "";
+      const raw = String(params.get("settings") || "")
+        .trim()
+        .toLowerCase();
+      return SETTINGS_SECTION_META[raw] ? raw : "appearance";
+    }
+
+    function syncSettingsToUrl(section, { historyMode = "replace" } = {}) {
+      const next = String(section || "").trim().toLowerCase();
+      updateUrlSearch(
+        (params) => {
+          if (next && SETTINGS_SECTION_META[next]) {
+            params.set("settings", next);
+          } else if (next) {
+            params.set("settings", "appearance");
+          } else {
+            params.delete("settings");
+          }
+        },
+        { historyMode }
+      );
+    }
+
+    function setSettingsSection(section, { updateUrl = true } = {}) {
+      const next = SETTINGS_SECTION_META[section] ? section : "appearance";
+      const meta = SETTINGS_SECTION_META[next];
+      settingsView
+        ?.querySelectorAll("[data-settings-section]")
+        .forEach((btn) => {
+          const active = btn.getAttribute("data-settings-section") === next;
+          btn.classList.toggle("is-active", active);
+          btn.setAttribute("aria-selected", active ? "true" : "false");
+        });
+      settingsView
+        ?.querySelectorAll("[data-settings-panel]")
+        .forEach((panelEl) => {
+          const active = panelEl.getAttribute("data-settings-panel") === next;
+          panelEl.hidden = !active;
+        });
+      const titleEl = document.getElementById("settings-section-title");
+      if (titleEl) titleEl.textContent = meta.title;
+      const intro = document.getElementById("settings-section-intro");
+      if (intro) intro.textContent = meta.intro;
+      settingsView?.classList.toggle("is-keys-section", next === "keys");
+      if (next === "keys") void loadSettingsKeysTable();
+      if (updateUrl && settingsView && !settingsView.hidden) {
+        syncSettingsToUrl(next, { historyMode: "replace" });
+      }
+    }
+
+    function restoreSettingsFromUrl() {
+      const section = settingsSectionFromUrl();
+      if (!section) return;
+      if (!settingsView.hidden) {
+        setSettingsSection(section, { updateUrl: false });
         return;
       }
-      const btn = document.getElementById("refresh-estimated-reach-btn");
-      const previousLabel = btn?.textContent || "";
-      if (btn) {
-        btn.disabled = true;
-        btn.textContent = "Refreshing…";
+      setView("settings", { updateUrl: false, section });
+    }
+
+    function buildShareKeyUrl(share) {
+      const url = publicHomeBase();
+      const id = String(share?.id || "").trim();
+      if (id) url.searchParams.set("s", id);
+      if (share?.showMediaCoverage === false) url.searchParams.set("mc", "0");
+      else url.searchParams.delete("mc");
+      return url.toString();
+    }
+
+    function paintSettingsMediaIndicator(el, showMedia) {
+      if (!el) return;
+      const on = Boolean(showMedia);
+      el.classList.toggle("is-on", on);
+      el.classList.toggle("is-off", !on);
+      el.setAttribute("aria-pressed", on ? "true" : "false");
+      el.setAttribute(
+        "aria-label",
+        on
+          ? "Show media coverage: on. Click to turn off."
+          : "Show media coverage: off. Click to turn on."
+      );
+      el.title = on ? "Show media coverage: on" : "Show media coverage: off";
+      el.innerHTML = on
+        ? `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>`
+        : "";
+    }
+
+    function normalizeSettingsList(values) {
+      return (Array.isArray(values) ? values : [])
+        .map((value) => String(value || "").trim())
+        .filter(Boolean);
+    }
+
+    function fillSettingsChipCell(cell, values, emptyLabel = "None") {
+      if (!cell) return;
+      cell.textContent = "";
+      const list = normalizeSettingsList(values);
+      if (!list.length) {
+        const empty = document.createElement("span");
+        empty.className = "settings-keys-empty";
+        empty.textContent = emptyLabel;
+        cell.appendChild(empty);
+        return;
       }
+      const wrap = document.createElement("div");
+      wrap.className = "settings-keys-chips";
+      list.forEach((value) => {
+        const chip = document.createElement("span");
+        chip.className = "settings-keys-chip";
+        chip.textContent = value;
+        wrap.appendChild(chip);
+      });
+      cell.appendChild(wrap);
+    }
+
+    function setSettingsKeysStatus(message, { error = false } = {}) {
+      const status = document.getElementById("settings-keys-status");
+      if (!status) return;
+      status.textContent = message || "";
+      status.hidden = !message;
+      status.classList.toggle("is-error", Boolean(error && message));
+    }
+
+    const confirmDeleteKeyDialog = document.getElementById(
+      "confirm-delete-key-dialog"
+    );
+    const confirmDeleteKeyCancel = document.getElementById(
+      "confirm-delete-key-cancel"
+    );
+    const confirmDeleteKeyConfirm = document.getElementById(
+      "confirm-delete-key-confirm"
+    );
+    const confirmDeleteKeyMessage = document.getElementById(
+      "confirm-delete-key-message"
+    );
+    let confirmDeleteKeyResolver = null;
+
+    function closeConfirmDeleteKeyDialog(result = false) {
+      const resolve = confirmDeleteKeyResolver;
+      confirmDeleteKeyResolver = null;
+      if (
+        confirmDeleteKeyDialog?.open &&
+        typeof confirmDeleteKeyDialog.close === "function"
+      ) {
+        confirmDeleteKeyDialog.close();
+      } else if (confirmDeleteKeyDialog) {
+        confirmDeleteKeyDialog.removeAttribute("open");
+      }
+      if (typeof resolve === "function") resolve(Boolean(result));
+    }
+
+    function confirmDeleteKey() {
+      return new Promise((resolve) => {
+        confirmDeleteKeyResolver = resolve;
+        if (confirmDeleteKeyMessage) {
+          confirmDeleteKeyMessage.textContent =
+            "Are you sure you want to delete this key? This can't be undone.";
+        }
+        if (typeof confirmDeleteKeyDialog?.showModal === "function") {
+          confirmDeleteKeyDialog.showModal();
+        } else if (confirmDeleteKeyDialog) {
+          confirmDeleteKeyDialog.setAttribute("open", "");
+        } else {
+          resolve(false);
+        }
+      });
+    }
+
+    confirmDeleteKeyCancel?.addEventListener("click", () =>
+      closeConfirmDeleteKeyDialog(false)
+    );
+    confirmDeleteKeyConfirm?.addEventListener("click", () =>
+      closeConfirmDeleteKeyDialog(true)
+    );
+    confirmDeleteKeyDialog?.addEventListener("cancel", (event) => {
+      event.preventDefault();
+      closeConfirmDeleteKeyDialog(false);
+    });
+    confirmDeleteKeyDialog?.addEventListener("close", () => {
+      if (confirmDeleteKeyResolver) closeConfirmDeleteKeyDialog(false);
+    });
+    bindDialogBackdropClose(confirmDeleteKeyDialog, () =>
+      closeConfirmDeleteKeyDialog(false)
+    );
+
+    async function loadSettingsKeysTable() {
+      const tbody = document.getElementById("settings-keys-tbody");
+      if (!tbody) return;
+      setSettingsKeysStatus("Loading keys…");
+      tbody.innerHTML = "";
       try {
-        let updated = 0;
-        currentTable.rows.forEach((row) => {
-          const links = parseCoverageLinksValue(row.coverageLinks || "");
-          const next = estimatedReachFromCoverageLinks(links);
-          if (next === String(row.estimatedReach || "").trim()) return;
-          row.estimatedReach = next;
-          markRowDirty(row);
-          updated += 1;
-        });
-        if (!updated) {
-          setSaveStatus("Estimated reach already up to date.", "ok");
+        const token = await getIdToken();
+        const data = await listShares(token);
+        noteD1FromResponse(data, "Load keys");
+        const shares = Array.isArray(data?.shares) ? data.shares : [];
+        if (!shares.length) {
+          setSettingsKeysStatus("No share keys yet.");
           return;
         }
-        renderTable(currentTable, currentFileName);
-        const ok = await persistTable({ quiet: false, mode: "dirty" });
-        if (ok) {
-          setSaveStatus(
-            `Updated estimated reach on ${updated} announcement${
-              updated === 1 ? "" : "s"
-            }.`,
-            "ok"
+        setSettingsKeysStatus("");
+        const fragment = document.createDocumentFragment();
+        shares.forEach((share) => {
+          const tr = document.createElement("tr");
+          const key = String(share?.id || "").trim();
+          let showMedia = share?.showMediaCoverage !== false;
+          share.showMediaCoverage = showMedia;
+          const created = String(share?.createdAt || "").trim() || "—";
+          const games = normalizeSettingsList(share?.games);
+          const months = normalizeSettingsList(
+            share?.months?.length ? share.months : share?.month ? [share.month] : []
           );
-        }
+          tr.innerHTML = `
+            <td class="settings-keys-key"><code></code></td>
+            <td class="settings-keys-games"></td>
+            <td class="settings-keys-months"></td>
+            <td class="settings-keys-media">
+              <button
+                type="button"
+                class="settings-keys-media-indicator"
+                aria-pressed="false"
+                aria-label="Show media coverage"
+              ></button>
+            </td>
+            <td class="settings-keys-created"></td>
+            <td class="settings-keys-link">
+              <a
+                href="#"
+                class="btn-icon settings-keys-open"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Open"
+                title="Open"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-external-link" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+              </a>
+              <button
+                type="button"
+                class="btn-icon settings-keys-copy"
+                aria-label="Copy"
+                title="Copy"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-copy" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+              </button>
+              <button
+                type="button"
+                class="btn-icon is-danger settings-keys-delete"
+                aria-label="Delete"
+                title="Delete"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trash" aria-hidden="true"><path d="M10 11v6"/><path d="M14 11v6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+              </button>
+            </td>
+          `;
+          tr.querySelector("code").textContent = key || "—";
+          fillSettingsChipCell(
+            tr.querySelector(".settings-keys-games"),
+            games,
+            "All games"
+          );
+          fillSettingsChipCell(
+            tr.querySelector(".settings-keys-months"),
+            months,
+            "All months"
+          );
+          const mediaIndicator = tr.querySelector(
+            ".settings-keys-media-indicator"
+          );
+          paintSettingsMediaIndicator(mediaIndicator, showMedia);
+          tr.querySelector(".settings-keys-created").textContent = created;
+          const anchor = tr.querySelector(".settings-keys-open");
+          const syncShareLink = () => {
+            const nextLink = buildShareKeyUrl(share);
+            anchor.href = nextLink;
+            return nextLink;
+          };
+          syncShareLink();
+          mediaIndicator?.addEventListener("click", async () => {
+            if (!key || mediaIndicator.disabled) return;
+            const previous = showMedia;
+            const next = !previous;
+            showMedia = next;
+            share.showMediaCoverage = next;
+            paintSettingsMediaIndicator(mediaIndicator, next);
+            syncShareLink();
+            mediaIndicator.disabled = true;
+            try {
+              const token = await getIdToken();
+              const data = await updateShare(token, key, {
+                showMediaCoverage: next,
+              });
+              noteD1FromResponse(data, "Update key");
+              if (typeof data?.showMediaCoverage === "boolean") {
+                showMedia = data.showMediaCoverage;
+                share.showMediaCoverage = data.showMediaCoverage;
+                paintSettingsMediaIndicator(mediaIndicator, showMedia);
+                syncShareLink();
+              }
+              setSettingsKeysStatus("");
+            } catch (error) {
+              showMedia = previous;
+              share.showMediaCoverage = previous;
+              paintSettingsMediaIndicator(mediaIndicator, previous);
+              syncShareLink();
+              setSettingsKeysStatus(
+                error instanceof Error
+                  ? error.message
+                  : "Could not update show media coverage.",
+                { error: true }
+              );
+            } finally {
+              mediaIndicator.disabled = false;
+            }
+          });
+          const copyBtn = tr.querySelector(".settings-keys-copy");
+          copyBtn.addEventListener("click", async () => {
+            const previous = copyBtn.getAttribute("title") || "Copy";
+            try {
+              await navigator.clipboard.writeText(syncShareLink());
+              copyBtn.title = "Copied";
+              copyBtn.setAttribute("aria-label", "Copied");
+              setTimeout(() => {
+                copyBtn.title = previous;
+                copyBtn.setAttribute("aria-label", previous);
+              }, 1200);
+            } catch {
+              copyBtn.title = "Failed";
+              copyBtn.setAttribute("aria-label", "Failed");
+              setTimeout(() => {
+                copyBtn.title = previous;
+                copyBtn.setAttribute("aria-label", previous);
+              }, 1200);
+            }
+          });
+          const deleteBtn = tr.querySelector(".settings-keys-delete");
+          deleteBtn.addEventListener("click", async () => {
+            if (!key) return;
+            const confirmed = await confirmDeleteKey();
+            if (!confirmed) return;
+            const previous = deleteBtn.getAttribute("title") || "Delete";
+            deleteBtn.disabled = true;
+            deleteBtn.title = "Deleting…";
+            deleteBtn.setAttribute("aria-label", "Deleting…");
+            try {
+              const token = await getIdToken();
+              const data = await deleteShare(token, key);
+              noteD1FromResponse(data, "Delete key");
+              tr.remove();
+              const remaining = document.querySelectorAll(
+                "#settings-keys-tbody tr"
+              ).length;
+              if (!remaining) {
+                setSettingsKeysStatus("No share keys yet.");
+              }
+            } catch (error) {
+              deleteBtn.disabled = false;
+              deleteBtn.title = previous;
+              deleteBtn.setAttribute("aria-label", previous);
+              setSettingsKeysStatus(
+                error instanceof Error
+                  ? error.message
+                  : "Could not delete key.",
+                { error: true }
+              );
+            }
+          });
+          fragment.appendChild(tr);
+        });
+        tbody.appendChild(fragment);
       } catch (error) {
-        setSaveStatus(
-          error instanceof Error
-            ? error.message
-            : "Could not refresh estimated reach.",
-          "error"
+        setSettingsKeysStatus(
+          error instanceof Error ? error.message : "Could not load keys.",
+          { error: true }
         );
-      } finally {
-        if (btn) {
-          btn.disabled = false;
-          btn.textContent = previousLabel || "Refresh all estimated reach";
-        }
       }
     }
 
@@ -5260,17 +5689,22 @@ const mediaCoverageViewportHScroll = document.getElementById(
       }
     }
 
-    function setView(view) {
+    function setView(view, { updateUrl = true, section } = {}) {
       const settings = view === "settings";
+      const wasSettings = Boolean(settingsView && !settingsView.hidden);
       workspaceView.hidden = settings;
       settingsView.hidden = !settings;
-      // Leave the game viewport lock so Settings is a full page, not under the game.
+      // Leave the game viewport lock so Settings is a full-height rail layout.
       if (settings) {
-        panel?.classList.remove("is-grid-layout");
+        panel?.classList.remove("is-grid-layout", "is-game-detail");
+        panel?.classList.add("is-settings");
         hideMediaCoverageViewportHScroll();
         hideCatalogViewportHScroll();
-      } else if (activeGameTitle) {
-        panel?.classList.add("is-grid-layout", "is-game-detail");
+      } else {
+        panel?.classList.remove("is-settings");
+        if (activeGameTitle) {
+          panel?.classList.add("is-grid-layout", "is-game-detail");
+        }
       }
       importBtn.hidden = settings || Boolean(activeGameTitle);
       if (exportBtn) {
@@ -5283,8 +5717,8 @@ const mediaCoverageViewportHScroll = document.getElementById(
       if (gameDetailDelete) {
         gameDetailDelete.hidden = settings || !activeGameTitle;
       }
-      pageLede.textContent = settings ? "Manage your account." : "";
-      pageLede.hidden = !settings;
+      pageLede.textContent = "";
+      pageLede.hidden = true;
       if (settings) setAppTitle("Settings");
       else if (activeGameTitle) setAppTitle(activeGameTitle);
       else setAppTitle(APP_TITLE_DEFAULT);
@@ -5293,8 +5727,22 @@ const mediaCoverageViewportHScroll = document.getElementById(
       syncGameSearchBarVisibility();
       syncCatalogViewToggle();
       if (settings) {
-        showPasswordMessage("", "");
-        passwordForm.reset();
+        const nextSection =
+          (SETTINGS_SECTION_META[section] && section) ||
+          settingsSectionFromUrl() ||
+          "appearance";
+        if (!wasSettings) {
+          showPasswordMessage("", "");
+          passwordForm.reset();
+        }
+        setSettingsSection(nextSection, { updateUrl: false });
+        if (updateUrl) {
+          syncSettingsToUrl(nextSection, {
+            historyMode: wasSettings ? "replace" : "push",
+          });
+        }
+      } else if (updateUrl && wasSettings) {
+        syncSettingsToUrl("", { historyMode: "push" });
       }
     }
 
@@ -8133,6 +8581,14 @@ const mediaCoverageViewportHScroll = document.getElementById(
       { passive: false }
     );
     window.addEventListener("popstate", () => {
+      const settingsSection = settingsSectionFromUrl();
+      if (settingsSection) {
+        setView("settings", { updateUrl: false, section: settingsSection });
+        return;
+      }
+      if (settingsView && !settingsView.hidden) {
+        setView("workspace", { updateUrl: false });
+      }
       const fromUrl = gameTitleFromUrl();
       if (fromUrl) openGameDetail(fromUrl, { updateUrl: false });
       else closeGameDetail({ updateUrl: false });
@@ -8214,10 +8670,12 @@ const mediaCoverageViewportHScroll = document.getElementById(
     });
     addRowForm.addEventListener("submit", submitAddRowDialog);
     settingsBtn.addEventListener("click", () => setView("settings"));
-    document
-      .getElementById("refresh-estimated-reach-btn")
-      ?.addEventListener("click", () => {
-        void refreshAllEstimatedReach();
+    settingsView
+      ?.querySelectorAll("[data-settings-section]")
+      .forEach((btn) => {
+        btn.addEventListener("click", () => {
+          setSettingsSection(btn.getAttribute("data-settings-section") || "");
+        });
       });
     backBtn.addEventListener("click", () => setView("workspace"));
     adminHomeBtn?.addEventListener("click", () => {
@@ -8269,6 +8727,7 @@ const mediaCoverageViewportHScroll = document.getElementById(
         // Let the browser paint the admin shell before heavy table work.
         await new Promise((resolve) => requestAnimationFrame(() => resolve()));
         await loadSavedData();
+        restoreSettingsFromUrl();
       });
 
       passwordForm.addEventListener("submit", async (event) => {

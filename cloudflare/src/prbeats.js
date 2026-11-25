@@ -146,7 +146,10 @@ async function handleApi(request, env, url) {
               "GET /api/public/announcements?s=token | ?game=&games=&month=",
             publicMediaCoverage:
               "GET /api/public/media-coverage?game=&s=token",
+            shares: "GET|POST /api/shares",
             createShare: "POST /api/shares",
+            updateShare: "PATCH /api/shares/:id",
+            deleteShare: "DELETE /api/shares/:id",
             load: "GET /api/announcements",
             revision: "GET /api/announcements/revision",
             save: "POST /api/announcements",
@@ -457,6 +460,12 @@ async function handleApi(request, env, url) {
       );
       if (auth.error) return withCors(request, auth.error);
 
+      if (request.method === "GET") {
+        const db = instrumentDb(env.DB, "List shares", url.pathname);
+        const shares = await listShares(db);
+        return withCors(request, json(withD1({ shares }, db)));
+      }
+
       if (request.method !== "POST") {
         return withCors(request, json({ error: "Method not allowed." }, 405));
       }
@@ -477,6 +486,67 @@ async function handleApi(request, env, url) {
             },
             db
           )
+        )
+      );
+    }
+
+    const shareRowMatch = url.pathname.match(/^\/api\/shares\/([^/]+)$/);
+    if (shareRowMatch) {
+      const auth = await requireFirebaseUser(
+        request,
+        env.FIREBASE_PROJECT_ID || DEFAULT_FIREBASE_PROJECT_ID
+      );
+      if (auth.error) return withCors(request, auth.error);
+
+      const shareId = decodeURIComponent(shareRowMatch[1] || "").trim();
+      if (!shareId) {
+        return withCors(request, json({ error: "Missing share id." }, 400));
+      }
+
+      if (request.method === "PATCH" || request.method === "PUT") {
+        const body = await request.json().catch(() => ({}));
+        const db = instrumentDb(env.DB, "Update share", url.pathname);
+        const share = await updateShareById(db, shareId, body || {});
+        if (!share) {
+          return withCors(request, json({ error: "Share key not found." }, 404));
+        }
+        return withCors(
+          request,
+          json(
+            withD1(
+              {
+                id: share.id,
+                games: share.games,
+                months: share.months,
+                month: share.month,
+                showMediaCoverage: share.showMediaCoverage !== false,
+                createdAt: share.createdAt,
+              },
+              db
+            )
+          )
+        );
+      }
+
+      if (request.method === "DELETE") {
+        const db = instrumentDb(env.DB, "Delete share", url.pathname);
+        const deleted = await deleteShareById(db, shareId);
+        if (!deleted) {
+          return withCors(request, json({ error: "Share key not found." }, 404));
+        }
+        return withCors(request, json(withD1({ id: shareId }, db)));
+      }
+
+      return withCors(
+        request,
+        json(
+          {
+            error: "Method not allowed.",
+            allowed: ["PATCH", "PUT", "DELETE", "OPTIONS"],
+            method: request.method,
+            path: url.pathname,
+          },
+          405
         )
       );
     }
@@ -2419,11 +2489,7 @@ function parseShareMonths(raw) {
   return parseShareMonthField(raw).months;
 }
 
-async function getShare(db, id) {
-  const record = await db
-    .prepare(`SELECT id, games, month FROM shares WHERE id = ?`)
-    .bind(id)
-    .first();
+function parseShareRecord(record) {
   if (!record) return null;
 
   let games = [];
@@ -2442,7 +2508,67 @@ async function getShare(db, id) {
     months,
     month: months[0] || "",
     showMediaCoverage,
+    createdAt: String(record.created_at || "").trim(),
   };
+}
+
+async function listShares(db) {
+  const result = await db
+    .prepare(
+      `SELECT id, games, month, created_at
+       FROM shares
+       ORDER BY datetime(created_at) DESC, id DESC`
+    )
+    .all();
+
+  return (result.results || [])
+    .map((row) => parseShareRecord(row))
+    .filter(Boolean);
+}
+
+async function getShare(db, id) {
+  const record = await db
+    .prepare(`SELECT id, games, month, created_at FROM shares WHERE id = ?`)
+    .bind(id)
+    .first();
+  return parseShareRecord(record);
+}
+
+async function updateShareById(db, id, body) {
+  const shareId = String(id || "").trim();
+  if (!shareId) return null;
+  const existing = await getShare(db, shareId);
+  if (!existing) return null;
+
+  const showMediaCoverage = Object.prototype.hasOwnProperty.call(
+    body || {},
+    "showMediaCoverage"
+  )
+    ? normalizeShareShowMediaCoverage(body)
+    : existing.showMediaCoverage !== false;
+
+  const months = Array.isArray(existing.months) ? existing.months : [];
+  const monthStored = JSON.stringify({ months, showMediaCoverage });
+  await db
+    .prepare(`UPDATE shares SET month = ? WHERE id = ?`)
+    .bind(monthStored, shareId)
+    .run();
+
+  return {
+    ...existing,
+    months,
+    month: months[0] || "",
+    showMediaCoverage,
+  };
+}
+
+async function deleteShareById(db, id) {
+  const shareId = String(id || "").trim();
+  if (!shareId) return false;
+  const existing = await getShare(db, shareId);
+  if (!existing) return false;
+  await db.prepare(`DELETE FROM shares WHERE id = ?`).bind(shareId).run();
+  return true;
 }
 
 /**

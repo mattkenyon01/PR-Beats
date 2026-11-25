@@ -290,8 +290,8 @@ C:\Users\Eben\PR-Beats\obj\Debug\net10.0\PRBeats.genruntimeconfig.cache
 C:\Users\Eben\PR-Beats\obj\Debug\net10.0\ref\PRBeats.dll
 C:\Users\Eben\PR-Beats\obj\Debug\net10.0\compressed\1nvhdsc94v-{0}-j93gulk6m6-j93gulk6m6.gz
 C:\Users\Eben\PR-Beats\obj\Debug\net10.0\compressed\c489owsfxf-{0}-f50bj098n5-f50bj098n5.gz
-D:\PR-Beats\obj\Debug\net10.0\compressed\l1ywb95gko-{0}-z4uk56ze46-z4uk56ze46.gz
-D:\PR-Beats\obj\Debug\net10.0\compressed\1nvhdsc94v-{0}-oxe3a27gco-oxe3a27gco.gz
-D:\PR-Beats\obj\Debug\net10.0\compressed\qg4r8wbprc-{0}-26jnobyvnm-26jnobyvnm.gz
 D:\PR-Beats\obj\Debug\net10.0\compressed\f1cdiygatl-{0}-g4xypqhk4n-g4xypqhk4n.gz
-D:\PR-Beats\obj\Debug\net10.0\compressed\c489owsfxf-{0}-4hgw43dhgu-4hgw43dhgu.gz
+D:\PR-Beats\obj\Debug\net10.0\compressed\1nvhdsc94v-{0}-3rn2bwjfwj-3rn2bwjfwj.gz
+D:\PR-Beats\obj\Debug\net10.0\compressed\l1ywb95gko-{0}-qaxm8o3tvd-qaxm8o3tvd.gz
+D:\PR-Beats\obj\Debug\net10.0\compressed\qg4r8wbprc-{0}-bg3nm2qhhp-bg3nm2qhhp.gz
+D:\PR-Beats\obj\Debug\net10.0\compressed\c489owsfxf-{0}-5cvdy7mbfq-5cvdy7mbfq.gz

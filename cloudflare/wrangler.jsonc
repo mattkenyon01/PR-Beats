@@ -17,11 +17,11 @@
 			"migrations_dir": "migrations"
 		}
 	],
-	// After: npx wrangler r2 bucket create prbeats-images
+	// Existing bucket with uploaded covers (not the empty prbeats-images created later)
 	"r2_buckets": [
 		{
 			"binding": "IMAGES",
-			"bucket_name": "prbeats-images"
+			"bucket_name": "prbeatsimages"
 		}
 	],
 	"vars": {
