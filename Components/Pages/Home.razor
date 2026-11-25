@@ -347,6 +347,8 @@
                     </div>
                 </section>
 
+                @if (_showMediaCoverage)
+                {
                 <section class="coverage-links-section media-coverage-summary-section-public"
                          aria-labelledby="media-coverage-summary-heading">
                     <h3 class="detail-card-label coverage-links-heading" id="media-coverage-summary-heading">
@@ -412,6 +414,7 @@
                         </div>
                     </div>
                 </section>
+                }
             </div>
         </div>
     }
@@ -463,6 +466,7 @@
     private string? _mediaCoverageLoadedForGame;
     private readonly Dictionary<string, string> _mediaCoverageCache = new(StringComparer.OrdinalIgnoreCase);
     private int _mediaCoverageLoadToken;
+    private bool _showMediaCoverage = true;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -531,6 +535,7 @@
                 apiUrl,
                 new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
             var rows = data?.Rows ?? [];
+            _showMediaCoverage = ResolveShowMediaCoverage(uri, data?.ShowMediaCoverage);
 
             if (rows.Count == 0)
             {
@@ -637,9 +642,47 @@
         await EnsureMediaCoverageForActiveSlideAsync();
     }
 
+    private static bool? MediaCoverageQueryOverride(Uri uri)
+    {
+        var query = uri.Query.TrimStart('?');
+        if (string.IsNullOrWhiteSpace(query)) return null;
+        foreach (var part in query.Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var eq = part.IndexOf('=');
+            var key = Uri.UnescapeDataString(eq >= 0 ? part[..eq] : part);
+            if (!string.Equals(key, "mc", StringComparison.OrdinalIgnoreCase)) continue;
+            var value = eq >= 0 ? Uri.UnescapeDataString(part[(eq + 1)..]) : "";
+            if (string.IsNullOrWhiteSpace(value)) return null;
+            if (value.Equals("0", StringComparison.OrdinalIgnoreCase)
+                || value.Equals("false", StringComparison.OrdinalIgnoreCase)
+                || value.Equals("no", StringComparison.OrdinalIgnoreCase)
+                || value.Equals("off", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+            if (value.Equals("1", StringComparison.OrdinalIgnoreCase)
+                || value.Equals("true", StringComparison.OrdinalIgnoreCase)
+                || value.Equals("yes", StringComparison.OrdinalIgnoreCase)
+                || value.Equals("on", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+            return null;
+        }
+        return null;
+    }
+
+    private static bool ResolveShowMediaCoverage(Uri uri, bool? fromApi)
+    {
+        var fromQuery = MediaCoverageQueryOverride(uri);
+        if (fromQuery.HasValue) return fromQuery.Value;
+        if (fromApi.HasValue) return fromApi.Value;
+        return true;
+    }
+
     private async Task EnsureMediaCoverageForActiveSlideAsync()
     {
-        if (_slides.Count == 0) return;
+        if (!_showMediaCoverage || _slides.Count == 0) return;
         var active = _slides[_activeIndex];
         var gameTitle = string.IsNullOrWhiteSpace(active.GameTitle)
             ? "Untitled"
@@ -1693,6 +1736,7 @@
     private sealed class PublicDataset
     {
         public List<AnnouncementRow> Rows { get; set; } = [];
+        public bool? ShowMediaCoverage { get; set; }
     }
 
     private sealed class AnnouncementRow

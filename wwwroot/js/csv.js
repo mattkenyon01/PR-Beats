@@ -2232,6 +2232,21 @@ function escapeCsvCell(value) {
   return text;
 }
 
+/**
+ * Serialize announcement rows to a CSV string that round-trips with csvToTable.
+ * Includes all non-derived DISPLAY_COLUMNS (month is recomputed on import).
+ */
+export function announcementsToCsv(rows) {
+  const columns = DISPLAY_COLUMNS.filter((column) => !column.derived);
+  const header = columns.map((column) => escapeCsvCell(column.label)).join(",");
+  const lines = (Array.isArray(rows) ? rows : []).map((row) =>
+    columns
+      .map((column) => escapeCsvCell(row?.[column.key] ?? ""))
+      .join(",")
+  );
+  return [header, ...lines].join("\r\n");
+}
+
 /** Serialize coverage link rows to a CSV string (round-trips with coverageLinksFromCsv). */
 export function coverageLinksToCsv(rows) {
   const columns = COVERAGE_LINK_COLUMNS;

@@ -878,6 +878,19 @@ body.admin-page:has(.admin-app.is-grid-layout) {
   overflow: hidden;
 }
 
+/* `display: flex` above must not defeat [hidden] when Settings is open. */
+.admin-app.is-grid-layout #workspace-view[hidden] {
+  display: none !important;
+}
+
+.admin-app.is-grid-layout #settings-view:not([hidden]) {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  align-content: start;
+  width: 100%;
+}
+
 .admin-app.is-grid-layout .report,
 .admin-app.is-grid-layout .game-sections.is-grid-view {
   display: flex;
@@ -3991,6 +4004,40 @@ html[data-theme="dark"] .media-coverage-stat-icon:not(.is-youtube):not(.is-bilib
   min-width: 0;
   min-height: 0;
   max-height: min(55vh, 28rem);
+}
+
+.share-option-toggle {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin: 0;
+  padding: 0.7rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0.7rem;
+  background: var(--surface, var(--panel));
+  cursor: pointer;
+  text-align: left;
+}
+
+.share-option-toggle:hover {
+  border-color: var(--border-strong, var(--border));
+}
+
+.share-option-toggle input {
+  margin: 0;
+  width: 1.05rem;
+  height: 1.05rem;
+  flex: 0 0 auto;
+  accent-color: var(--accent, #6ea8fe);
+  cursor: pointer;
+}
+
+.share-option-toggle-title {
+  font-size: 0.9rem;
+  font-weight: 650;
+  color: var(--text);
+  line-height: 1.25;
 }
 
 @media (max-width: 560px) {

@@ -172,7 +172,10 @@ export function pingPresence(token) {
   });
 }
 
-export function createShare(token, { games = [], months = [], month = "" } = {}) {
+export function createShare(
+  token,
+  { games = [], months = [], month = "", showMediaCoverage = true } = {}
+) {
   const monthList = Array.isArray(months) && months.length
     ? months
     : month
@@ -181,7 +184,12 @@ export function createShare(token, { games = [], months = [], month = "" } = {})
   return api("/api/shares", {
     token,
     method: "POST",
-    body: { games, months: monthList, month: monthList[0] || "" },
+    body: {
+      games,
+      months: monthList,
+      month: monthList[0] || "",
+      showMediaCoverage: showMediaCoverage !== false,
+    },
   });
 }
 

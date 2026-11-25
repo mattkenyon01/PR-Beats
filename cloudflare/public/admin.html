@@ -47,6 +47,13 @@
               <line x1="12" x2="12" y1="3" y2="15"/>
             </svg>
           </button>
+          <button id="export-btn" type="button" class="btn-icon" aria-label="Download CSV backup" title="Download CSV backup" hidden>
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" x2="12" y1="15" y2="3"/>
+            </svg>
+          </button>
           <button id="add-row-btn" type="button" class="btn-icon" aria-label="Add game" title="Add game">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M12 5v14"/>
@@ -490,6 +497,11 @@
           </div>
           <div class="share-check-list" id="share-months-list"></div>
         </section>
+
+        <label class="share-option-toggle" for="share-show-media-coverage">
+          <input type="checkbox" id="share-show-media-coverage" checked />
+          <span class="share-option-toggle-title">Show media coverage</span>
+        </label>
       </div>
 
       <footer class="share-dialog-footer">
@@ -643,6 +655,7 @@
       COVERAGE_LINK_COLUMNS,
       coverageDateAddedNow,
       coverageLinkDisplayLabel,
+      announcementsToCsv,
       coverageLinksFromCsv,
       coverageLinksToCsv,
       countryFlagUrl,
@@ -706,6 +719,7 @@
     const APP_TITLE_DEFAULT = "PR beats";
     const signOutBtn = document.getElementById("sign-out");
     const importBtn = document.getElementById("import-btn");
+    const exportBtn = document.getElementById("export-btn");
     const addRowBtn = document.getElementById("add-row-btn");
     const addGameDialog = document.getElementById("add-game-dialog");
     const addGameForm = document.getElementById("add-game-form");
@@ -814,6 +828,9 @@ const mediaCoverageViewportHScroll = document.getElementById(
     const shareGamesDeselectAll = document.getElementById("share-games-deselect-all");
     const shareMonthsSelectAll = document.getElementById("share-months-select-all");
     const shareMonthsDeselectAll = document.getElementById("share-months-deselect-all");
+    const shareShowMediaCoverageEl = document.getElementById(
+      "share-show-media-coverage"
+    );
     const shareGenerateBtn = document.getElementById("share-generate-btn");
     const shareDialogError = document.getElementById("share-dialog-error");
     const shareUrlInput = document.getElementById("share-url");
@@ -3123,6 +3140,7 @@ const mediaCoverageViewportHScroll = document.getElementById(
       syncAddRowButtonVisibility();
       if (settingsView.hidden) {
         shareBtn.hidden = false;
+        if (exportBtn) exportBtn.hidden = false;
         viewModeControl.hidden = true;
       }
     }
@@ -5243,15 +5261,30 @@ const mediaCoverageViewportHScroll = document.getElementById(
       const settings = view === "settings";
       workspaceView.hidden = settings;
       settingsView.hidden = !settings;
+      // Leave the game viewport lock so Settings is a full page, not under the game.
+      if (settings) {
+        panel?.classList.remove("is-grid-layout");
+        hideMediaCoverageViewportHScroll();
+        hideCatalogViewportHScroll();
+      } else if (activeGameTitle) {
+        panel?.classList.add("is-grid-layout", "is-game-detail");
+      }
       importBtn.hidden = settings || Boolean(activeGameTitle);
+      if (exportBtn) {
+        exportBtn.hidden = settings || !hasTable || Boolean(activeGameTitle);
+      }
       shareBtn.hidden = settings || !hasTable || Boolean(activeGameTitle);
       // View mode dropdown is unused in the game-centric catalog/detail UI.
       viewModeControl.hidden = true;
       settingsBtn.hidden = settings;
+      if (gameDetailDelete) {
+        gameDetailDelete.hidden = settings || !activeGameTitle;
+      }
       pageLede.textContent = settings ? "Manage your account." : "";
       pageLede.hidden = !settings;
-      if (!settings && activeGameTitle) setAppTitle(activeGameTitle);
-      else if (!settings) setAppTitle(APP_TITLE_DEFAULT);
+      if (settings) setAppTitle("Settings");
+      else if (activeGameTitle) setAppTitle(activeGameTitle);
+      else setAppTitle(APP_TITLE_DEFAULT);
       setCoverageHeaderActionsVisible(!settings && coverageLinksPageOpen);
       syncAddRowButtonVisibility();
       syncGameSearchBarVisibility();
@@ -5274,6 +5307,7 @@ const mediaCoverageViewportHScroll = document.getElementById(
       currentTable = null;
       currentFileName = "";
       shareBtn.hidden = true;
+      if (exportBtn) exportBtn.hidden = true;
       viewModeControl.hidden = true;
       if (catalogViewToggle) catalogViewToggle.hidden = true;
       csvInput.value = "";
@@ -5308,6 +5342,17 @@ const mediaCoverageViewportHScroll = document.getElementById(
       return url;
     }
 
+    function shareShowsMediaCoverage() {
+      return shareShowMediaCoverageEl ? shareShowMediaCoverageEl.checked : true;
+    }
+
+    function applyShareMediaCoverageParam(url) {
+      if (!(url instanceof URL)) return url;
+      if (shareShowsMediaCoverage()) url.searchParams.delete("mc");
+      else url.searchParams.set("mc", "0");
+      return url;
+    }
+
     function buildShareUrl(gameTitles, months) {
       const url = publicHomeBase();
       if (gameTitles.length === 1) {
@@ -5320,6 +5365,7 @@ const mediaCoverageViewportHScroll = document.getElementById(
       } else if (months.length > 1) {
         url.searchParams.set("months", months.join(","));
       }
+      applyShareMediaCoverageParam(url);
       return url.toString();
     }
 
@@ -5502,6 +5548,7 @@ const mediaCoverageViewportHScroll = document.getElementById(
 
     function openShareDialog() {
       if (!currentTable) return;
+      if (shareShowMediaCoverageEl) shareShowMediaCoverageEl.checked = true;
       clearShareGeneratedUrl();
       renderShareDialogLists();
       setShareDialogScrollLock(true);
@@ -7622,6 +7669,7 @@ const mediaCoverageViewportHScroll = document.getElementById(
       if (settingsView.hidden) {
         const inGame = Boolean(activeGameTitle);
         importBtn.hidden = inGame;
+        if (exportBtn) exportBtn.hidden = inGame;
         shareBtn.hidden = inGame;
         viewModeControl.hidden = true;
       }
@@ -7726,6 +7774,9 @@ const mediaCoverageViewportHScroll = document.getElementById(
     shareGamesDeselectAll.addEventListener("click", () => deselectAllShareGames());
     shareMonthsSelectAll.addEventListener("click", () => selectAllShareMonths());
     shareMonthsDeselectAll.addEventListener("click", () => deselectAllShareMonths());
+    shareShowMediaCoverageEl?.addEventListener("change", () => {
+      clearShareGeneratedUrl();
+    });
 
     shareGenerateBtn.addEventListener("click", async () => {
       const titles = [...shareSelectedGames].sort((a, b) =>
@@ -7747,10 +7798,17 @@ const mediaCoverageViewportHScroll = document.getElementById(
 
       try {
         const token = await getIdToken();
-        const share = await createShare(token, { games: titles, months });
+        const includeMediaCoverage = shareShowsMediaCoverage();
+        const share = await createShare(token, {
+          games: titles,
+          months,
+          showMediaCoverage: includeMediaCoverage,
+        });
         noteD1FromResponse(share, "Create share");
         const shortUrl = publicHomeBase();
         shortUrl.searchParams.set("s", share.id);
+        if (includeMediaCoverage) shortUrl.searchParams.delete("mc");
+        else shortUrl.searchParams.set("mc", "0");
         shareUrlInput.value = shortUrl.toString();
         shareCopyBtn.disabled = false;
       } catch (error) {
@@ -7943,7 +8001,74 @@ const mediaCoverageViewportHScroll = document.getElementById(
       }
     }
 
+    async function downloadAllDataCsvBackup() {
+      if (!currentTable?.rows?.length) {
+        setSaveStatus("No announcement data to export.", "error");
+        return;
+      }
+
+      if (exportBtn) exportBtn.disabled = true;
+      setSaveStatus("Preparing CSV backup…");
+
+      try {
+        const titles = [
+          ...new Set(
+            currentTable.rows.map(
+              (row) => (row.gameTitle || "").trim() || "Untitled"
+            )
+          ),
+        ];
+        await Promise.all(
+          titles.map((title) =>
+            ensureMediaCoverageForTitle(title).catch(() => "")
+          )
+        );
+
+        const rows = currentTable.rows.map((row) => {
+          const title = (row.gameTitle || "").trim() || "Untitled";
+          const mediaCoverage =
+            mediaCoverageValueForTitle(title) ||
+            String(row.mediaCoverage || "").trim();
+          const gameImage =
+            String(gameImageForTitle(title) || "").trim() ||
+            String(row.gameImage || "").trim();
+          return {
+            ...row,
+            mediaCoverage,
+            gameImage,
+          };
+        });
+
+        const csv = announcementsToCsv(rows);
+        const stamp = new Date().toISOString().slice(0, 10);
+        const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = `pr-beats-backup-${stamp}.csv`;
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        URL.revokeObjectURL(url);
+        setSaveStatus(
+          `Downloaded backup (${rows.length} announcement${
+            rows.length === 1 ? "" : "s"
+          }).`
+        );
+      } catch (err) {
+        setSaveStatus(
+          err instanceof Error ? err.message : "Could not export CSV backup.",
+          "error"
+        );
+      } finally {
+        if (exportBtn) exportBtn.disabled = false;
+      }
+    }
+
     importBtn.addEventListener("click", () => csvInput.click());
+    exportBtn?.addEventListener("click", () => {
+      void downloadAllDataCsvBackup();
+    });
     addRowBtn.addEventListener("click", () => openAddGameDialog());
     addGameDialogClose?.addEventListener("click", () => closeAddGameDialog());
     bindDialogBackdropClose(addGameDialog, () => closeAddGameDialog());

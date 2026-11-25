@@ -12,8 +12,9 @@
     #carousel:not(.is-ready) { display: none !important; }
     #pdf-viewer[hidden] { display: none !important; }
     #pdf-expand-btn[hidden] { display: none !important; }
+    #media-coverage-summary-card[hidden] { display: none !important; }
   </style>
-  <link rel="stylesheet" href="styles.css?v=viewport-width-17" />
+  <link rel="stylesheet" href="styles.css?v=share-mc-hide-1" />
 </head>
 <body class="public-page">
   <div class="viewport-width-badge" id="viewport-width-badge" aria-hidden="true">0px</div>
@@ -111,7 +112,7 @@
           </div>
         </section>
 
-        <section class="coverage-links-section media-coverage-summary-section-public" id="media-coverage-summary-card" aria-labelledby="media-coverage-summary-heading">
+        <section class="coverage-links-section media-coverage-summary-section-public" id="media-coverage-summary-card" aria-labelledby="media-coverage-summary-heading" hidden>
           <h3 class="detail-card-label coverage-links-heading" id="media-coverage-summary-heading">Media Coverage</h3>
           <p class="media-coverage-summary-status" id="media-coverage-summary-status" hidden></p>
           <div class="media-coverage-summary-public-wrap" id="media-coverage-summary-tables"></div>
@@ -856,6 +857,26 @@
 
     let mediaCoverageLoadToken = 0;
     const mediaCoveragePublicCache = new Map();
+    let shareShowMediaCoverageFromApi = null;
+
+    function publicShowMediaCoverage() {
+      const value = new URLSearchParams(window.location.search).get("mc");
+      if (value != null && value !== "") {
+        return !/^(0|false|no|off)$/i.test(String(value).trim());
+      }
+      if (typeof shareShowMediaCoverageFromApi === "boolean") {
+        return shareShowMediaCoverageFromApi;
+      }
+      return true;
+    }
+
+    function syncMediaCoverageVisibility() {
+      if (!mediaCoverageSummaryCardEl) return;
+      if (publicShowMediaCoverage()) return;
+      mediaCoverageSummaryCardEl.hidden = true;
+      if (mediaCoverageSummaryTablesEl) mediaCoverageSummaryTablesEl.innerHTML = "";
+      setMediaCoverageSummaryStatus("");
+    }
 
     function setMediaCoverageSummaryStatus(message, { error = false } = {}) {
       if (!mediaCoverageSummaryStatusEl) return;
@@ -867,6 +888,12 @@
 
     function renderMediaCoverageStatBoard(rows, summaryOverrides = {}) {
       if (!mediaCoverageSummaryCardEl || !mediaCoverageSummaryTablesEl) return;
+      if (!publicShowMediaCoverage()) {
+        mediaCoverageSummaryCardEl.hidden = true;
+        mediaCoverageSummaryTablesEl.innerHTML = "";
+        setMediaCoverageSummaryStatus("");
+        return;
+      }
       mediaCoverageSummaryCardEl.hidden = false;
       mediaCoverageSummaryTablesEl.innerHTML = "";
 
@@ -987,6 +1014,14 @@
     }
 
     async function setGameLinkSections(entries) {
+      if (!publicShowMediaCoverage()) {
+        mediaCoverageLoadToken += 1;
+        if (mediaCoverageSummaryCardEl) mediaCoverageSummaryCardEl.hidden = true;
+        if (mediaCoverageSummaryTablesEl) mediaCoverageSummaryTablesEl.innerHTML = "";
+        setMediaCoverageSummaryStatus("");
+        return;
+      }
+
       const gameTitle =
         (entries[0]?.gameTitle || "").trim() || "Untitled";
       const token = ++mediaCoverageLoadToken;
@@ -1449,6 +1484,10 @@
         if (publicGateEl) publicGateEl.hidden = true;
         publicAppEl?.classList.remove("is-gate");
         const data = await loadPublicAnnouncements(window.location.search);
+        if (typeof data?.showMediaCoverage === "boolean") {
+          shareShowMediaCoverageFromApi = data.showMediaCoverage;
+        }
+        syncMediaCoverageVisibility();
         render(data.rows || []);
       } catch (error) {
         console.error(error);

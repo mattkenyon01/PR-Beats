@@ -375,7 +375,18 @@ async function handleApi(request, env, url) {
         return withCors(request, filtered.error);
       }
       // Keep the public feed light — homepage loads media coverage per game.
-      return withCors(request, json(datasetResponse(filtered.rows)));
+      const payload = datasetResponse(filtered.rows);
+      if (typeof filtered.showMediaCoverage === "boolean") {
+        payload.showMediaCoverage = filtered.showMediaCoverage;
+      }
+      // URL override: ?mc=0 hides media coverage even if the share stored true.
+      const mcParam = String(url.searchParams.get("mc") || "").trim();
+      if (mcParam && /^(0|false|no|off)$/i.test(mcParam)) {
+        payload.showMediaCoverage = false;
+      } else if (mcParam && /^(1|true|yes|on)$/i.test(mcParam)) {
+        payload.showMediaCoverage = true;
+      }
+      return withCors(request, json(payload));
     }
 
     if (url.pathname === "/api/public/media-coverage") {
@@ -396,6 +407,23 @@ async function handleApi(request, env, url) {
       );
       if (access.error) {
         return withCors(request, access.error);
+      }
+      const shareId = String(url.searchParams.get("s") || "").trim();
+      if (shareId) {
+        const share = await getShare(env.DB, shareId);
+        if (share && share.showMediaCoverage === false) {
+          return withCors(
+            request,
+            json({ gameTitle, mediaCoverage: "", showMediaCoverage: false })
+          );
+        }
+      }
+      const mcParam = String(url.searchParams.get("mc") || "").trim();
+      if (mcParam && /^(0|false|no|off)$/i.test(mcParam)) {
+        return withCors(
+          request,
+          json({ gameTitle, mediaCoverage: "", showMediaCoverage: false })
+        );
       }
       try {
         const mediaCoverage = await loadMediaCoverageValueForGame(
@@ -445,6 +473,7 @@ async function handleApi(request, env, url) {
               games: share.games,
               months: share.months,
               month: share.month,
+              showMediaCoverage: share.showMediaCoverage !== false,
             },
             db
           )
@@ -2290,6 +2319,16 @@ function normalizeShareMonths(body) {
   return single ? [single] : [];
 }
 
+function normalizeShareShowMediaCoverage(body) {
+  if (typeof body?.showMediaCoverage === "boolean") {
+    return body.showMediaCoverage;
+  }
+  if (body?.showMediaCoverage == null || body?.showMediaCoverage === "") {
+    return true;
+  }
+  return !/^(0|false|no|off)$/i.test(String(body.showMediaCoverage).trim());
+}
+
 async function createShare(db, ownerUid, body) {
   const games = Array.isArray(body?.games)
     ? [
@@ -2301,13 +2340,14 @@ async function createShare(db, ownerUid, body) {
       ]
     : [];
   const months = normalizeShareMonths(body);
+  const showMediaCoverage = normalizeShareShowMediaCoverage(body);
 
   if (games.length === 0 && months.length === 0) {
     throw new Error("Pick at least one game or a month for the share link.");
   }
 
-  // Store as JSON array; older single-string values still work in getShare.
-  const monthStored = JSON.stringify(months);
+  // Store months + options. Older plain arrays / strings still parse in getShare.
+  const monthStored = JSON.stringify({ months, showMediaCoverage });
 
   let id = shortShareId();
   for (let attempt = 0; attempt < 5; attempt += 1) {
@@ -2319,7 +2359,13 @@ async function createShare(db, ownerUid, body) {
         )
         .bind(id, ownerUid, JSON.stringify(games), monthStored)
         .run();
-      return { id, games, months, month: months[0] || "" };
+      return {
+        id,
+        games,
+        months,
+        month: months[0] || "",
+        showMediaCoverage,
+      };
     } catch (error) {
       // Collision on primary key — try another id
       id = shortShareId();
@@ -2330,18 +2376,47 @@ async function createShare(db, ownerUid, body) {
   throw new Error("Could not create share link.");
 }
 
-function parseShareMonths(raw) {
+function parseShareMonthField(raw) {
   const value = String(raw || "").trim();
-  if (!value) return [];
+  if (!value) {
+    return { months: [], showMediaCoverage: true };
+  }
   try {
     const parsed = JSON.parse(value);
     if (Array.isArray(parsed)) {
-      return [...new Set(parsed.map((item) => String(item || "").trim()).filter(Boolean))];
+      return {
+        months: [
+          ...new Set(
+            parsed.map((item) => String(item || "").trim()).filter(Boolean)
+          ),
+        ],
+        showMediaCoverage: true,
+      };
+    }
+    if (parsed && typeof parsed === "object") {
+      const months = Array.isArray(parsed.months)
+        ? [
+            ...new Set(
+              parsed.months
+                .map((item) => String(item || "").trim())
+                .filter(Boolean)
+            ),
+          ]
+        : [];
+      const showMediaCoverage =
+        typeof parsed.showMediaCoverage === "boolean"
+          ? parsed.showMediaCoverage
+          : true;
+      return { months, showMediaCoverage };
     }
   } catch {
     // Legacy plain month string
   }
-  return [value];
+  return { months: [value], showMediaCoverage: true };
+}
+
+function parseShareMonths(raw) {
+  return parseShareMonthField(raw).months;
 }
 
 async function getShare(db, id) {
@@ -2359,13 +2434,14 @@ async function getShare(db, id) {
     games = [];
   }
 
-  const months = parseShareMonths(record.month);
+  const { months, showMediaCoverage } = parseShareMonthField(record.month);
 
   return {
     id: record.id,
     games,
     months,
     month: months[0] || "",
+    showMediaCoverage,
   };
 }
 
@@ -2406,6 +2482,7 @@ async function assertPublicGameAccess(db, searchParams, gameTitle) {
 async function filterPublicAnnouncements(db, rows, searchParams) {
   let gameKeys = parseListFilters(searchParams, "game", "games");
   let monthKeys = parseListFilters(searchParams, "month", "months");
+  let showMediaCoverage;
 
   const shareId = String(searchParams.get("s") || "").trim();
   if (shareId) {
@@ -2426,6 +2503,7 @@ async function filterPublicAnnouncements(db, rows, searchParams) {
     monthKeys = [
       ...new Set(shareMonths.map(normalizeFilterKey).filter(Boolean)),
     ];
+    showMediaCoverage = share.showMediaCoverage !== false;
   }
 
   const filtered = rows.filter((row) => {
@@ -2444,7 +2522,7 @@ async function filterPublicAnnouncements(db, rows, searchParams) {
     return true;
   });
 
-  return { rows: filtered };
+  return { rows: filtered, showMediaCoverage };
 }
 
 async function ensureDatasetRevisionTable(db) {
