@@ -21,12 +21,12 @@
         var sharedImage = GameImageForTitle(coverAlt);
         if (!string.IsNullOrWhiteSpace(rowImage))
         {
-            activeImageUrl = rowImage;
+            activeImageUrl = AbsoluteMediaUrl(rowImage);
         }
         else if (!string.IsNullOrWhiteSpace(sharedImage))
         {
             // Same behavior as Admin: cover is per-game, not per-announcement.
-            activeImageUrl = sharedImage;
+            activeImageUrl = AbsoluteMediaUrl(sharedImage);
         }
         else
         {
@@ -304,7 +304,7 @@
                                     <div class="coverage-link-cover @(!string.IsNullOrWhiteSpace(link.CoverImage) ? null : "is-favicon")">
                                         @if (!string.IsNullOrWhiteSpace(link.CoverImage))
                                         {
-                                            <img class="coverage-link-cover-image" src="@link.CoverImage" alt="" referrerpolicy="no-referrer" />
+                                            <img class="coverage-link-cover-image" src="@AbsoluteMediaUrl(link.CoverImage)" alt="" referrerpolicy="no-referrer" />
                                         }
                                         else
                                         {
@@ -1279,6 +1279,25 @@
     {
         if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)) return "";
         return $"https://www.google.com/s2/favicons?domain={Uri.EscapeDataString(uri.Host)}&sz=128";
+    }
+
+    private static string AbsoluteMediaUrl(string? url)
+    {
+        var raw = url?.Trim() ?? "";
+        if (string.IsNullOrWhiteSpace(raw)) return "";
+        if (raw.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
+            || raw.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+            || raw.StartsWith("blob:", StringComparison.OrdinalIgnoreCase)
+            || raw.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+        {
+            return raw;
+        }
+        if (raw.StartsWith("//", StringComparison.Ordinal))
+        {
+            return $"https:{raw}";
+        }
+        if (raw.StartsWith('/')) return $"{ApiBase}{raw}";
+        return raw;
     }
 
     private static string FormatCoverageStat(string? value)

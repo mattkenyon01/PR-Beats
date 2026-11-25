@@ -1708,7 +1708,7 @@ const mediaCoverageViewportHScroll = document.getElementById(
       const frame = document.getElementById("cover-preview-dialog-frame");
       frame?.querySelector(".cover-resolution-warning")?.remove();
       frame?.classList.remove("has-resolution-warning");
-      const src = gameImageForTitle(coverPreviewGameTitle);
+      const src = absoluteApiUrl(gameImageForTitle(coverPreviewGameTitle));
       if (src) {
         coverPreviewDialogImage.src = src;
         coverPreviewDialogImage.hidden = false;
@@ -2029,7 +2029,7 @@ const mediaCoverageViewportHScroll = document.getElementById(
       );
 
       function refreshPreview(url) {
-        const src = (url || "").trim();
+        const src = absoluteApiUrl((url || "").trim());
         preview.querySelector(".cover-resolution-warning")?.remove();
         preview.classList.remove("has-resolution-warning");
         if (src) {
@@ -2956,9 +2956,11 @@ const mediaCoverageViewportHScroll = document.getElementById(
       if (gameLoadingName) gameLoadingName.textContent = title;
       if (gameLoadingArt) {
         gameLoadingArt.innerHTML = "";
-        const art = String(
-          findGameByTitle(title)?.keyArt || gameImageForTitle(title) || ""
-        ).trim();
+        const art = absoluteApiUrl(
+          String(
+            findGameByTitle(title)?.keyArt || gameImageForTitle(title) || ""
+          ).trim()
+        );
         if (art) {
           gameLoadingArt.classList.remove("is-empty");
           const img = document.createElement("img");
@@ -4019,7 +4021,8 @@ const mediaCoverageViewportHScroll = document.getElementById(
       const showImage = (src, { tryProxy = false } = {}) => {
         if (!isCurrent() || !src) return;
         const proxied = linkPreviewImageUrl(src);
-        const finalSrc = tryProxy && proxied ? proxied : src;
+        const finalSrc =
+          tryProxy && proxied ? proxied : absoluteApiUrl(src);
         img.referrerPolicy = "no-referrer";
         img.decoding = "async";
         img.onload = () => {
@@ -4284,7 +4287,7 @@ const mediaCoverageViewportHScroll = document.getElementById(
         existing.onerror = () => {
           loadCoveragePreview(cover, row.url, tr);
         };
-        existing.src = row.coverImage;
+        existing.src = absoluteApiUrl(row.coverImage);
         // Already in R2 — don't replace with a fresh remote OG fetch.
         if (!isPersistedCoverUrl(row.coverImage)) {
           loadCoveragePreview(cover, row.url, tr);
@@ -6202,7 +6205,7 @@ const mediaCoverageViewportHScroll = document.getElementById(
           if (src) {
             const img = document.createElement("img");
             img.className = "grid-cover-thumb";
-            img.src = src;
+            img.src = absoluteApiUrl(src);
             img.alt = "";
             img.loading = "lazy";
             img.decoding = "async";
@@ -6399,7 +6402,9 @@ const mediaCoverageViewportHScroll = document.getElementById(
 
         const cover = document.createElement("div");
         cover.className = "game-card-cover";
-        const art = String(game.keyArt || gameImageForTitle(game.title) || "").trim();
+        const art = absoluteApiUrl(
+          String(game.keyArt || gameImageForTitle(game.title) || "").trim()
+        );
         if (art) {
           const img = document.createElement("img");
           img.src = art;
@@ -6469,7 +6474,7 @@ const mediaCoverageViewportHScroll = document.getElementById(
 
       const artWrap = document.createElement("div");
       artWrap.className = "game-detail-art";
-      const art = String(game.keyArt || "").trim();
+      const art = absoluteApiUrl(String(game.keyArt || "").trim());
       if (art) {
         const img = document.createElement("img");
         img.src = art;

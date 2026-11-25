@@ -137,6 +137,7 @@
   <script type="module">
     import { initThemeToggle } from "./js/theme.js";
     import {
+      absoluteApiUrl,
       fetchLinkPreview,
       linkPreviewImageUrl,
       loadPublicAnnouncements,
@@ -491,7 +492,7 @@
     }
 
     function loadImageWithFallback(imgEl, src, { onSuccess, onFail } = {}) {
-      const image = String(src || "").trim();
+      const image = absoluteApiUrl(String(src || "").trim());
       if (!image || !imgEl) {
         onFail?.();
         return;
@@ -1181,7 +1182,7 @@
             `Cover image URL failed to load for “${gameTitle}”. Browser could not fetch: ${shortUrl}. Check the Worker/R2 URL, or re-upload in Admin.`
           );
         };
-        gameImageEl.src = imageUrl;
+        gameImageEl.src = absoluteApiUrl(imageUrl);
         gameImageEl.alt = gameTitle;
         gameImageEl.hidden = false;
         coverPlaceholderEl.hidden = true;
